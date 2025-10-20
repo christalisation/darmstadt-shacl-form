@@ -174,6 +174,35 @@
           output.classList.toggle('invalid', !ev.detail?.valid)
           output.querySelector("pre").innerText = form.serialize()
         })
+        // Provide a small set of example instances so dropdowns are not empty
+        form.setClassInstanceProvider((clazz) => {
+          if (clazz === 'http://www.example.org/university#Faculty') {
+            return `
+              @prefix uni: <http://www.example.org/university#> .
+              @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+              <http://www.example.org/university#FacultyOfScience> a uni:Faculty ; rdfs:label "Faculty of Science" .
+              <http://www.example.org/university#FacultyOfArts> a uni:Faculty ; rdfs:label "Faculty of Arts" .
+            `
+          }
+          if (clazz === 'http://www.example.org/university#Department') {
+            return `
+              @prefix uni: <http://www.example.org/university#> .
+              @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+              <http://www.example.org/university#DeptCS> a uni:Department ; rdfs:label "Computer Science Department" .
+              <http://www.example.org/university#DeptMath> a uni:Department ; rdfs:label "Mathematics Department" .
+            `
+          }
+          if (clazz === 'http://www.example.org/university#Course') {
+            return `
+              @prefix uni: <http://www.example.org/university#> .
+              @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+              <http://www.example.org/university#CS101> a uni:Course ; rdfs:label "Introduction to Programming" .
+              <http://www.example.org/university#CS201> a uni:Course ; rdfs:label "Data Structures" .
+            `
+          }
+          return null
+        })
+
         fetch("university.ttl").then(resp => resp.text()).then((text) => {
           shapes.innerText = text
           form.dataset['shapes'] = text

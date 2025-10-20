@@ -209,7 +209,7 @@ uni:LecturerShape
     ] ;
     sh:property [
         sh:path uni:teaches ;
-        sh:name "teaches" ;
+        sh:name "Course taught" ;
         sh:description "Courses taught by the lecturer (link to course IRI)." ;
         sh:class uni:Course ;
         sh:node uni:CourseShape ;
