@@ -33,7 +33,7 @@
   </div>
   <div class="menu">
     <a id="intro" href="#intro">Basic usage</a>
-    <a id="datatypes" href="#datatypes">Data types</a>
+    <a id="university" href="#university">University</a>
     <a id="example" href="#example">Example</a>
     <a id="viewer-mode" href="#viewer-mode">Viewer mode</a>
     <a id="theming" href="#theming">Theming</a>
@@ -154,7 +154,7 @@
     </fieldset>
   </template>
 
-  <template id="template-datatypes">
+  <template id="template-university">
     <p class="mb-1">
       <span class="code">sh:datatype</span>s are mapped to corresponding HTML input elements, including constraints like <span class="code">sh:minInclusive</span>, <span class="code">sh:minExclusive</span>, <span class="code">sh:maxInclusive</span>, <span class="code">sh:maxExclusive</span> and <span class="code">sh:pattern</span>.
       Note that you can affect the display order of the input elements with <span class="code">sh:order</span> or group elements using <span class="code">sh:group</span>.
@@ -174,7 +174,7 @@
           output.classList.toggle('invalid', !ev.detail?.valid)
           output.querySelector("pre").innerText = form.serialize()
         })
-        fetch("datatypes.ttl").then(resp => resp.text()).then((text) => {
+        fetch("university.ttl").then(resp => resp.text()).then((text) => {
           shapes.innerText = text
           form.dataset['shapes'] = text
         })

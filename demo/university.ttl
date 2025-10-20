@@ -12,6 +12,7 @@ uni:EntryShape
     sh:property [
         sh:path uni:entry ;
         sh:name "Select entity to create" ;
+        sh:description "Choose which type of entity you want to create." ;
         sh:or (
             [ sh:node uni:StudentShape ; rdfs:label "Student" ]
             [ sh:node uni:CourseShape ; rdfs:label "Course" ]
@@ -27,36 +28,48 @@ uni:StudentShape
     sh:targetClass uni:Student ;
     sh:property [
         sh:path uni:studentID ;
+        sh:name "Student ID" ;
+        sh:description "Unique numeric identifier for the student." ;
         sh:datatype xsd:integer ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:firstName ;
+        sh:name "First Name" ;
+        sh:description "Given name of the student." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:familyName ;
+        sh:name "Family Name" ;
+        sh:description "Family or last name of the student." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:dateOfBirth ;
+        sh:name "Date of Birth" ;
+        sh:description "Student's date of birth (YYYY-MM-DD)." ;
         sh:datatype xsd:date ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:year ;
+        sh:name "Year" ;
+        sh:description "Academic year or study year (numeric)." ;
         sh:datatype xsd:integer ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:enrolledIn ;
+        sh:name "Course enrolled in" ;
+        sh:description "Reference to courses the student is enrolled in (use existing course IRI or create a new course)." ;
         sh:class uni:Course ;
         sh:node uni:CourseShape ;
         sh:nodeKind sh:IRI ;
@@ -68,24 +81,32 @@ uni:CourseShape
     sh:targetClass uni:Course ;
     sh:property [
         sh:path uni:courseID ;
+        sh:name "Course ID" ;
+        sh:description "Unique numeric identifier for the course." ;
         sh:datatype xsd:integer ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:courseName ;
+        sh:name "Course Name" ;
+        sh:description "Official title of the course." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:classroom ;
+        sh:name "Classroom" ;
+        sh:description "Location or room where the course takes place." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:scheduledOn ;
+        sh:name "Scheduled on" ;
+        sh:description "Schedule information (e.g. 'Mon 10:00-12:00')." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
@@ -97,18 +118,24 @@ uni:DepartmentShape
     sh:targetClass uni:Department ;
     sh:property [
         sh:path uni:departmentID ;
+        sh:name "Department ID" ;
+        sh:description "Unique numeric identifier for the department." ;
         sh:datatype xsd:integer ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:departmentName ;
+        sh:name "Department Name" ;
+        sh:description "Official name of the department." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:partOf ;
+        sh:name "Faculty it is part of" ;
+        sh:description "The faculty this department is part of (link to existing faculty or create new)." ;
         sh:class uni:Faculty ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
@@ -116,9 +143,11 @@ uni:DepartmentShape
     ] ;
     sh:property [
         sh:path uni:organizes ;
+        sh:name "Courses organized by the department" ;
+        sh:description "Courses organized by the department" ;
         sh:class uni:Course ;
         sh:node uni:CourseShape ;
-        sh:minCount 0 ;
+        sh:minCount 1 ;
     ] .
 
 # Contraintes sur uni:Faculty
@@ -127,12 +156,16 @@ uni:FacultyShape
     sh:targetClass uni:Faculty ;
     sh:property [
         sh:path uni:facultyID ;
+        sh:name "Faculty ID" ;
+        sh:description "Unique numeric identifier for the faculty." ;
         sh:datatype xsd:integer ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:facultyName ;
+        sh:name "Faculty Name" ;
+        sh:description "Official name of the faculty." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
@@ -144,30 +177,40 @@ uni:LecturerShape
     sh:targetClass uni:Lecturer ;
     sh:property [
         sh:path uni:lecturerID ;
+        sh:name "Lecturer ID" ;
+        sh:description "Unique numeric identifier for the lecturer." ;
         sh:datatype xsd:integer ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:firstName ;
+        sh:name "First Name" ;
+        sh:description "Given name of the lecturer." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:familyName ;
+        sh:name "Family Name" ;
+        sh:description "Family or last name of the lecturer." ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:dateOfBirth ;
+        sh:name "Date of Birth" ;
+        sh:description "Lecturer's date of birth (ISO date)." ;
         sh:datatype xsd:dateTime ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path uni:teaches ;
+        sh:name "teaches" ;
+        sh:description "Courses taught by the lecturer (link to course IRI)." ;
         sh:class uni:Course ;
         sh:node uni:CourseShape ;
         sh:nodeKind sh:IRI ;
