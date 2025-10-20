@@ -1,112 +1,174 @@
-@prefix sh:      <http://www.w3.org/ns/shacl#> .
-@prefix dash:    <http://datashapes.org/dash#> .
-@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
-@prefix ex:      <http://example.org/> .
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix uni: <http://www.example.org/university#> .
+@prefix courses: <http://www.example.org/courses20212022#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@base <http://www.example.org/university> .
 
-ex:Demo a sh:NodeShape, rdfs:Class ;
-  sh:property [
-    sh:datatype     xsd:string ;
-    sh:maxCount     1 ;
-    sh:name         "simple string" ;
-    sh:path         ex:mySimpleString
-  ] ;
-  sh:property [
-    sh:datatype     xsd:string ;
-    sh:maxCount     1 ;
-    sh:name         "string with default" ;
-    sh:defaultValue "default value of string" ;
-    sh:path         ex:mySimpleStringWithDefault
-  ] ;
-  sh:property [
-    sh:datatype     xsd:string ;
-    sh:maxCount     1 ;
-    sh:name         "string with fixed value" ;
-    sh:hasValue     "fixed value of string" ;
-    sh:path         ex:mySimpleStringWithFixedValue
-  ] ;
-  sh:property [
-    sh:datatype     xsd:string ;
-    dash:singleLine false ;
-    sh:maxCount     1 ;
-    sh:name         "multiline string" ;
-    sh:path         ex:myMultilineString
-  ] ;
-  sh:property [
-    sh:datatype     xsd:date ;
-    sh:maxCount     1 ;
-    sh:name         "date" ;
-    sh:path         ex:myDate
-  ] ;
-  sh:property [
-    sh:datatype     xsd:dateTime ;
-    sh:maxCount     1 ;
-    sh:name         "dateTime" ;
-    sh:path         ex:myDateTime
-  ] ;
-  sh:property [
-    sh:datatype     xsd:boolean ;
-    #sh:minCount     1;
-    sh:maxCount     1 ;
-    sh:name         "boolean" ;
-    sh:path         ex:myBoolean ;
-    sh:order        1
-  ] ;
-  sh:property [
-    sh:maxCount     1 ;
-    sh:name         "list" ;
-    sh:path         ex:myList ;
-    sh:in           ( "option 1" "option 2" "option 3" ) ;
-  ] ;
-  sh:property [
-    sh:datatype     xsd:decimal ;
-    sh:maxCount     1 ;
-    sh:name         "decimal" ;
-    sh:path         ex:myDecimal ;
-  ] ;
-  sh:property [
-    sh:datatype     xsd:integer ;
-    sh:maxCount     1 ;
-    sh:name         "integer" ;
-    sh:path         ex:myInteger ;
-  ] ;
-  sh:property [
-    sh:datatype     rdf:langString ;
-    sh:languageIn   ( "en" "de" ) ;
-    sh:maxCount     1 ;
-    sh:name         "langString 1" ;
-    sh:description  "simple langString with fixed languages" ;
-    sh:path         ex:myLangString1
-  ] ;
-  sh:property [
-    sh:datatype     rdf:langString ;
-    sh:languageIn   ( "en" "de" ) ;
-    sh:maxCount     1 ;
-    sh:name         "langString 2" ;
-    sh:description  "multiline langString with fixed languages" ;
-    dash:singleLine  false ;
-    sh:path          ex:myLangString2
-  ] ;
-  sh:property [
-    sh:datatype     rdf:langString ;
-    sh:maxCount     1 ;
-    sh:name         "langString 3" ;
-    sh:description  "simple langString with no fixed languages" ;
-    sh:path         ex:myLangString3
-  ] ;
-  sh:property [
-    sh:datatype     rdf:langString ;
-    sh:maxCount     1 ;
-    sh:name         "langString 4" ;
-    sh:description  "multiline langString with no fixed languages" ;
-    dash:singleLine false ;
-    sh:path         ex:myLangString4
-  ] ;
-  sh:property [
-    sh:datatype     xsd:base64Binary ;
-    sh:maxCount     1 ;
-    sh:name         "base64 binary" ;
-    sh:description  "base64 encoded binary data" ;
-    sh:path         ex:myBinary
-  ] .
+# Point d'entrée pour le formulaire
+uni:EntryShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path uni:entry ;
+        sh:name "Select entity to create" ;
+        sh:or (
+            [ sh:node uni:StudentShape ; rdfs:label "Student" ]
+            [ sh:node uni:CourseShape ; rdfs:label "Course" ]
+            [ sh:node uni:DepartmentShape ; rdfs:label "Department" ]
+            [ sh:node uni:FacultyShape ; rdfs:label "Faculty" ]
+            [ sh:node uni:LecturerShape ; rdfs:label "Lecturer" ]
+        ) ;
+    ] .
+
+# Contraintes sur uni:Student
+uni:StudentShape
+    a sh:NodeShape ;
+    sh:targetClass uni:Student ;
+    sh:property [
+        sh:path uni:studentID ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:firstName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:familyName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:dateOfBirth ;
+        sh:datatype xsd:date ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:year ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:enrolledIn ;
+        sh:class uni:Course ;
+        sh:node uni:CourseShape ;
+        sh:nodeKind sh:IRI ;
+    ] .
+
+# Contraintes sur uni:Course
+uni:CourseShape
+    a sh:NodeShape ;
+    sh:targetClass uni:Course ;
+    sh:property [
+        sh:path uni:courseID ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:courseName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:classroom ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:scheduledOn ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .
+
+# Contraintes sur uni:Department
+uni:DepartmentShape
+    a sh:NodeShape ;
+    sh:targetClass uni:Department ;
+    sh:property [
+        sh:path uni:departmentID ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:departmentName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:partOf ;
+        sh:class uni:Faculty ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:node uni:FacultyShape ;
+    ] ;
+    sh:property [
+        sh:path uni:organizes ;
+        sh:class uni:Course ;
+        sh:node uni:CourseShape ;
+        sh:minCount 0 ;
+    ] .
+
+# Contraintes sur uni:Faculty
+uni:FacultyShape
+    a sh:NodeShape ;
+    sh:targetClass uni:Faculty ;
+    sh:property [
+        sh:path uni:facultyID ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:facultyName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .
+
+# Contraintes sur uni:Lecturer
+uni:LecturerShape
+    a sh:NodeShape ;
+    sh:targetClass uni:Lecturer ;
+    sh:property [
+        sh:path uni:lecturerID ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:firstName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:familyName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:dateOfBirth ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uni:teaches ;
+        sh:class uni:Course ;
+        sh:node uni:CourseShape ;
+        sh:nodeKind sh:IRI ;
+    ] .
