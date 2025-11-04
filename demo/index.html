@@ -199,7 +199,7 @@
           return null
         })
 
-        fetch("university.ttl").then(resp => resp.text()).then((text) => {
+        fetch("/demo/university.ttl").then(resp => resp.text()).then((text) => {
           shapes.innerText = text
           form.dataset['shapes'] = text
         })
@@ -241,8 +241,8 @@
             `
           }
         })
-        const shapesTTL = await fetch("complex-example.ttl").then(resp => resp.text())
-        const dataTTL = await fetch("complex-example-data.ttl").then(resp => resp.text())
+  const shapesTTL = await fetch("/demo/complex-example.ttl").then(resp => resp.text())
+  const dataTTL = await fetch("/demo/complex-example-data.ttl").then(resp => resp.text())
         shapes.innerText = shapesTTL
         data.innerText = dataTTL
         form.dataset['shapes'] = shapesTTL
@@ -273,8 +273,8 @@
             `
           }
         })
-        const shapesTTL = await fetch("complex-example.ttl").then(resp => resp.text())
-        const dataTTL = await fetch("complex-example-data.ttl").then(resp => resp.text())
+  const shapesTTL = await fetch("/demo/complex-example.ttl").then(resp => resp.text())
+  const dataTTL = await fetch("/demo/complex-example-data.ttl").then(resp => resp.text())
         shapes.innerText = shapesTTL
         data.innerText = dataTTL
         form.dataset['shapes'] = shapesTTL
