@@ -1,0 +1,155 @@
+
+# @prefix rml: <http://semweb.mmlab.be/ns/rml#> .
+# @prefix ex: <http://example.org#> .
+# @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# # <#TM>
+# <http://example.org/4f2a8de3-9fc8-40a9-9237-d5964520ec54> a rml:TriplesMap ;
+#   rml:logicalSource [
+#     rml:source [
+#       a rml:RelativePathSource ;
+#       rml:root rml:MappingDirectory ;
+#       rml:path "images.json" ;
+#     ] ;
+#     rml:iterator "$.Images[*]" ;
+#     rml:referenceFormulation rml:JSONPath ;
+#   ] ;
+#   rml:subjectMap [
+#     rml:template "http://data.example.com/image/{$.ID}" ;
+#   ] ;
+#   rml:predicateObjectMap [
+#     rml:predicate ex:height ;
+#     rml:objectMap [
+#       rml:reference "$.Height" ;
+#     ] ;
+#   ] ;
+#   rml:predicateObjectMap [
+#     rml:predicate ex:width ;
+#     rml:objectMap [
+#       rml:reference "$.Width" ;
+#     ] ;
+#   ] .
+
+
+# @prefix rml: <http://semweb.mmlab.be/ns/rml#> .
+# @prefix fcc: <http://www.example.org/ont#> . 
+# @prefix geo: <http://www.opengis.net/ont/geosparql#> . 
+# @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . 
+# @prefix geo2: <http://www.w3.org/2003/01/geo/wgs84_pos#> . 
+# @prefix xsd: <http://www.w3.org/2001/XMLSchema#> . 
+
+# # <#WeatherStation> 
+# <http://example.org/4f2a8de3-9fc8-40a9-9237-d5964520ec54>
+#   a rml:TriplesMap ; 
+#   rml:logicalSource [
+#     a rml:LogicalSource ;
+#     rml:source "WEATHERSTATIONS.csv" ;
+#     rml:referenceFormulation rml:CSV
+#   ] ;
+#   rml:subjectMap [
+#     # rml:class geo:Feature, fcc:WeatherStation ;
+#     a rml:SubjectMap ;
+#     rml:template "http://data.example.org/ws/{NAME}"
+#   ] ; 
+#   rml:predicateObjectMap [ 
+#     rml:predicate rdfs:label ;
+#     rml:objectMap [
+#       rml:column "NAME" ;
+#     ] ; 
+#     rml:objectMap [
+#       rml:column "NAME" ; rml:language "en" ;
+#     ] ; 
+#   ] ;
+#   rml:predicateObjectMap [ 
+#     rml:predicate geo2:lat ;
+#     rml:objectMap [
+#       rml:column "LAT" ; rml:datatype xsd:double ;
+#     ] ; 
+#   ] ;
+#   rml:predicateObjectMap [ 
+#     rml:predicate geo2:long ;
+#     rml:objectMap [
+#       rml:column "LONG" ; rml:datatype xsd:double ;
+#     ] ; 
+#   ] ;
+#   rml:predicateObjectMap [ 
+#     rml:predicate rdfs:seeAlso ;
+#     rml:objectMap [
+#       rml:column "WEATHER_READING" ; rml:termType rml:IRI ;
+#     ] ; 
+#   ] ;
+
+# rml:predicateObjectMap [
+#         rml:predicate geo:hasGeometry;
+#         rml:objectMap [
+#             rml:parentTriplesMap <#Geometries>;
+#             rml:joinCondition [
+#                 rml:child "NAME";
+#                 rml:parent "NAME";
+#             ];
+#         ];
+#     ]
+#   # PREDICATE OBJECT MAPS FOR <#WeatherStation> WILL APPEAR HERE 
+  
+#   . 
+
+# <#Geometries> 
+#    a rml:TriplesMap ; 
+#   rml:logicalTable [ 
+#     rml:tableName "WEATHERSTATIONS" ;  
+#   ] ; 
+#   rml:subjectMap [
+#     rml:class geo:Geometry ;
+#     rml:template "http://data.example.org/geom/{LONG}/{LAT}" ;
+#   ] ;    
+#   rml:predicateObjectMap [ 
+#     rml:predicate geo:asWKT ;
+#     rml:objectMap [
+#       rml:template "POINT({LONG} {LAT})" ; rml:datatype geo:wktLiteral ;
+#     ] ; 
+#   ] ;
+#   . 
+
+
+
+
+
+## ANOTHER EXAMPLE OF RML MAPPING
+
+@prefix rml: <http://semweb.mmlab.be/ns/rml#> .
+@prefix ex: <http://example.org#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://example.org/4f2a8de3-9fc8-40a9-9237-d5964520ec54> a rml:TriplesMap ;
+  rml:logicalSource [
+    a rml:LogicalSource ;
+    rml:source "data.csv" ;
+    rml:referenceFormulation rml:CSV
+  ] ;
+  rml:subjectMap [
+    a rml:SubjectMap ;
+    rml:template "http://example.org/person/{id}"
+  ] ;
+  rml:predicateObjectMap [
+    a rml:PredicateObjectMap ;
+    rml:predicateMap [
+      a rml:PredicateMap ;
+      rml:constant ex:name
+    ] ;
+    rml:objectMap [
+      a rml:ObjectMap ;
+      rml:column "name"
+    ]
+  ] ;
+  rml:predicateObjectMap [
+    a rml:PredicateObjectMap ;
+    rml:predicateMap [
+      a rml:PredicateMap ;
+      rml:constant ex:age
+    ] ;
+    rml:objectMap [
+      a rml:ObjectMap ;
+      rml:column "age" ;
+      rml:datatype xsd:integer
+    ]
+  ] .

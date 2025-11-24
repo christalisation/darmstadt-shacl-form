@@ -1,0 +1,105 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rml: <http://semweb.mmlab.be/ns/rml#> .
+
+# Version simple : Validation de base d'un TriplesMap RML
+# Un TriplesMap doit avoir au moins un logicalSource et un subjectMap
+
+rml:TriplesMapShape
+  a sh:NodeShape ;
+  sh:targetClass rml:TriplesMap ;
+  sh:property [
+    sh:path rml:logicalSource ;
+    sh:name "Logical Source" ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:node rml:LogicalSourceShape ;
+  ] ;
+  sh:property [
+    sh:path rml:subjectMap ;
+    sh:name "Subject Map" ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:node rml:SubjectMapShape ;
+  ] ;
+  sh:property [
+    sh:path rml:predicateObjectMap ;
+    sh:name "Predicate Object Map" ;
+    sh:node rml:PredicateObjectMapShape ;
+  ] .
+
+# Shape pour LogicalSource
+rml:LogicalSourceShape
+  a sh:NodeShape ;
+  sh:targetClass rml:LogicalSource ;
+  sh:property [
+    sh:path rml:source ;
+    sh:name "Source" ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path rml:referenceFormulation ;
+    sh:name "Reference Formulation" ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] .
+
+# Shape pour SubjectMap
+rml:SubjectMapShape
+  a sh:NodeShape ;
+  sh:targetClass rml:SubjectMap ;
+  sh:property [
+    sh:path rml:constant ;
+    sh:name "Constant IRI" ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path rml:template ;
+    sh:name "Template" ;
+    sh:maxCount 1 ;
+  ] .
+
+# Shape pour PredicateObjectMap
+rml:PredicateObjectMapShape
+  a sh:NodeShape ;
+  sh:targetClass rml:PredicateObjectMap ;
+  sh:property [
+    sh:path rml:predicateMap ;
+    sh:name "Predicate Map" ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:node rml:PredicateMapShape ;
+  ] ;
+  sh:property [
+    sh:path rml:objectMap ;
+    sh:name "Object Map" ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:node rml:ObjectMapShape ;
+  ] .
+
+# Shape pour PredicateMap
+rml:PredicateMapShape
+  a sh:NodeShape ;
+  sh:targetClass rml:PredicateMap ;
+  sh:property [
+    sh:path rml:constant ;
+    sh:name "Constant IRI" ;
+    sh:maxCount 1 ;
+  ] .
+
+# Shape pour ObjectMap
+rml:ObjectMapShape
+  a sh:NodeShape ;
+  sh:targetClass rml:ObjectMap ;
+  sh:property [
+    sh:path rml:constant ;
+    sh:name "Constant" ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path rml:column ;
+    sh:name "Column" ;
+    sh:maxCount 1 ;
+  ] .
