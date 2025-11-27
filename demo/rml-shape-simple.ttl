@@ -32,6 +32,7 @@ rml:TriplesMapShape
 rml:LogicalSourceShape
   a sh:NodeShape ;
   sh:targetClass rml:LogicalSource ;
+  sh:targetObjectsOf rml:logicalSource ;
   sh:property [
     sh:path rml:source ;
     sh:name "Source" ;
@@ -43,15 +44,22 @@ rml:LogicalSourceShape
     sh:name "Reference Formulation" ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path rml:iterator ;
+    sh:name "Iterator" ;
+    sh:minCount 0 ;
+    sh:maxCount 1 ;
   ] .
 
 # Shape pour SubjectMap
 rml:SubjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:SubjectMap ;
+  sh:targetObjectsOf rml:subjectMap ;
   sh:property [
     sh:path rml:constant ;
-    sh:name "Constant IRI" ;
+    sh:name "IRI" ;
     sh:maxCount 1 ;
   ] ;
   sh:property [
@@ -64,6 +72,7 @@ rml:SubjectMapShape
 rml:PredicateObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateObjectMap ;
+  sh:targetObjectsOf rml:predicateObjectMap ;
   sh:property [
     sh:path rml:predicateMap ;
     sh:name "Predicate Map" ;
@@ -83,6 +92,7 @@ rml:PredicateObjectMapShape
 rml:PredicateMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateMap ;
+  sh:targetObjectsOf rml:predicateMap ;
   sh:property [
     sh:path rml:constant ;
     sh:name "Constant IRI" ;
@@ -93,6 +103,7 @@ rml:PredicateMapShape
 rml:ObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:ObjectMap ;
+  sh:targetObjectsOf rml:objectMap ;
   sh:property [
     sh:path rml:constant ;
     sh:name "Constant" ;

@@ -5,7 +5,7 @@
 @prefix rml: <http://w3id.org/rml/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-# Inspired by rml-core/shaps official
+# Inspired by rml-core/shapes official
 
 # Validate an RML Triples Map
 :RMLTriplesMapShape
@@ -38,7 +38,8 @@
         sh:message """
         Exactly one rml:logicalSource is required to access the data source.
         """ ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
+        # sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:nodeKind sh:IRI ;
         sh:node :RMLLogicalSourceShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
@@ -80,7 +81,8 @@
         sh:message """
         rml:SubjectMap must be an IRI or blank node.
         """ ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
+        # sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:nodeKind sh:IRI ;
         sh:or ([sh:node :RMLSubjectMapShape]) ;
                # [sh:node :RMLStarMapShape]) ;
     ] ;
@@ -96,7 +98,8 @@
         sh:message """
         rml:subject must be an IRI or blank node.
         """ ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
+        # sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:nodeKind sh:IRI ;
     ] ;
 
     # sh:property [
@@ -117,7 +120,8 @@
         rml:PredicateObjectMap must be an IRI or blank node.
         """ ;
         sh:minCount 0 ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
+        # sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:nodeKind sh:IRI ;
     ] ;
   .
 
@@ -166,7 +170,8 @@
         and may be provided at most once.
         """ ;
         sh:maxCount 1 ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
+        # sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:nodeKind sh:IRI ;
     ] ;
 
     # rml:iterator
@@ -196,7 +201,8 @@
         rml:source must be provided exactly once to define the data source.
         """ ;
         sh:minCount 1 ;
-        sh:nodeKind sh:BlankNodeOrLiteral ; # À verifier
+        # sh:nodeKind sh:BlankNodeOrLiteral ; # À verifier
+        sh:nodeKind sh:IRI
     ] ;
 .
 
@@ -267,7 +273,8 @@
     sh:message """
     rml:subject shortcut for rml:SubjectMap must be a IRI or BlankNode.
     """ ;
-    sh:nodeKind sh:BlankNodeOrIRI ;
+    # sh:nodeKind sh:BlankNodeOrIRI ;
+    sh:nodeKind sh:IRI
 .
 
 # # Shape pour PredicateObjectMap
@@ -327,7 +334,8 @@
             sh:message """
             rml:predicateMap must be an IRI or blank node and be provided once.
             """ ;
-            sh:nodeKind sh:BlankNodeOrIRI ;
+            # sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:nodeKind sh:IRI
         ]
         [
             sh:targetSubjectsOf rml:predicate ;
@@ -367,7 +375,8 @@
             sh:message """
             rml:objectMap must be an IRI or blank node and be provided once.
             """ ;
-            sh:nodeKind sh:BlankNodeOrIRI ;
+            # sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:nodeKind sh:IRI ;
             sh:or ([sh:node :RMLObjectMapShape]) ;
                    # [sh:node :RMLRefObjectMapShape]
                    # [sh:node :RMLStarMapShape]) ;
@@ -490,7 +499,8 @@
             rml:languageMap must point to a rml:LanguageMap specifying the 
             language tag of the string Literal.
             """ ;
-            sh:nodeKind sh:BlankNodeOrIRI ;
+            # sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:nodeKind sh:IRI
         ]
         [
             sh:path rml:datatypeMap ;
@@ -504,7 +514,8 @@
             rml:datatypeMap must point to a rml:DatatypeMap specifying the
             datatype of the Literal.
             """ ;
-            sh:nodeKind sh:BlankNodeOrIRI ;
+            # sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:nodeKind sh:IRI
         ]
         [
             sh:path rml:language ;
@@ -674,8 +685,8 @@
         sh:message """
         rml:returnMap must be an IRI;
         """ ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
-        # Allow BlankNodes so nested structurces works as well for rml:returnMap
+        # sh:nodeKind sh:BlankNodeOrIRI ; # Allow BlankNodes so nested structurces works as well for rml:returnMap
+        sh:nodeKind sh:IRI
     ] ;
 
     # rml:functionExecution
@@ -692,8 +703,8 @@
         sh:message """
         rml:functionExecution must be an IRI;
         """ ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
-        # Allow BlankNodes so nested structurces works as well for rml:returnMap
+        # sh:nodeKind sh:BlankNodeOrIRI ; # Allow BlankNodes so nested structurces works as well for rml:returnMap
+        sh:nodeKind sh:IRI
     ] ;
     # If returnMap appears, then functionExecution must also appear
     sh:or (
