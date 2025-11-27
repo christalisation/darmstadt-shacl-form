@@ -1,4 +1,43 @@
+@prefix rml: <http://w3id.org/rml/> .
+@prefix ex: <http://example.org#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
+<http://example.org/4f2a8de3-9fc8-40a9-9237-d5964520ec54> a rml:TriplesMap ;
+  rml:logicalSource [
+    a rml:LogicalSource ;
+    rml:source "data.csv" ;
+    rml:referenceFormulation rml:CSV
+  ] ;
+  rml:subjectMap [
+    a rml:SubjectMap ;
+    rml:template "http://example.org/person/{id}"
+  ] ;
+  rml:predicateObjectMap [
+    a rml:PredicateObjectMap ;
+    rml:predicateMap [
+      a rml:PredicateMap ;
+      rml:constant ex:name
+    ] ;
+    rml:objectMap [
+      a rml:ObjectMap ;
+      rml:column "name"
+    ]
+  ] ;
+  rml:predicateObjectMap [
+    a rml:PredicateObjectMap ;
+    rml:predicateMap [
+      a rml:PredicateMap ;
+      rml:constant ex:age
+    ] ;
+    rml:objectMap [
+      a rml:ObjectMap ;
+      rml:column "age" ;
+      rml:datatype xsd:integer
+    ]
+  ] .
+
+
+# ## ANOTHER EXAMPLE OF RML MAPPING
 # @prefix rml: <http://semweb.mmlab.be/ns/rml#> .
 # @prefix ex: <http://example.org#> .
 # @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -109,47 +148,3 @@
 #     ] ; 
 #   ] ;
 #   . 
-
-
-
-
-
-## ANOTHER EXAMPLE OF RML MAPPING
-
-@prefix rml: <http://semweb.mmlab.be/ns/rml#> .
-@prefix ex: <http://example.org#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-<http://example.org/4f2a8de3-9fc8-40a9-9237-d5964520ec54> a rml:TriplesMap ;
-  rml:logicalSource [
-    a rml:LogicalSource ;
-    rml:source "data.csv" ;
-    rml:referenceFormulation rml:CSV
-  ] ;
-  rml:subjectMap [
-    a rml:SubjectMap ;
-    rml:template "http://example.org/person/{id}"
-  ] ;
-  rml:predicateObjectMap [
-    a rml:PredicateObjectMap ;
-    rml:predicateMap [
-      a rml:PredicateMap ;
-      rml:constant ex:name
-    ] ;
-    rml:objectMap [
-      a rml:ObjectMap ;
-      rml:column "name"
-    ]
-  ] ;
-  rml:predicateObjectMap [
-    a rml:PredicateObjectMap ;
-    rml:predicateMap [
-      a rml:PredicateMap ;
-      rml:constant ex:age
-    ] ;
-    rml:objectMap [
-      a rml:ObjectMap ;
-      rml:column "age" ;
-      rml:datatype xsd:integer
-    ]
-  ] .
