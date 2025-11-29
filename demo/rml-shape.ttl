@@ -21,13 +21,6 @@
     or more rml:predicateObjectMaps.
     """ ;
 
-    # sh:property [
-    #     sh:path rml:logicalSource ;
-    #     sh:name "Logical Source" ;
-    #     sh:minCount 1 ;
-    #     sh:maxCount 1 ;
-    #     sh:node rml:LogicalSourceShape ;
-    #   ] ;
     sh:property [
         sh:targetSubjectsOf rml:logicalSource ; #
         sh:path rml:logicalSource ;
@@ -45,21 +38,13 @@
         sh:maxCount 1 ;
     ] ;
 
-  
-    # sh:property [
-    #   sh:path rml:subjectMap ;
-    #   sh:name "Subject Map" ;
-    #   sh:minCount 1 ;
-    #   sh:maxCount 1 ;
-    #   sh:node rml:SubjectMapShape ;
-    # ] ;
-
     sh:property [
         sh:targetSubjectsOf rml:subjectMap ;
         sh:targetSubjectsOf rml:subject ;
         #sh:targetSubjectsOf rml:quotedTriplesMap ;
         sh:path [sh:alternativePath (rml:subjectMap rml:subject)] ; #rml:quotedTriplesMap)] ;
-        rdfs:label "subjectMap/subject/quotedTriplesMap" ;
+        #rdfs:label "subjectMap/subject/quotedTriplesMap" ;
+        rdfs:label "subjectMap or subject" ;
         rdfs:comment """
         Either a rml:subject, rml:subjectMap or a rml:quotedTriplesMap is required, not multiple.
         """ ;
@@ -68,9 +53,12 @@
         """ ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
+        sh:xone ([sh:node :RMLSubjectMapShape] 
+               [sh:node :RMLsubjectShape]
+              ) ;
     ] ;
 
-    # rml:subjectMap
+    # # rml:subjectMap
     sh:property [
         sh:targetSubjectsOf rml:subjectMap ;
         sh:path rml:subjectMap ;
@@ -87,7 +75,7 @@
                # [sh:node :RMLStarMapShape]) ;
     ] ;
 
-    # rml:subject
+    # # rml:subject
     sh:property [
         sh:targetSubjectsOf rml:subject ;
         sh:path rml:subject ;
@@ -102,12 +90,6 @@
         sh:nodeKind sh:IRI ;
     ] ;
 
-    # sh:property [
-    #   sh:path rml:predicateObjectMap ;
-    #   sh:name "Predicate Object Map" ;
-    #   sh:node rml:PredicateObjectMapShape ;
-    # ] .
-    
     # rml:predicateObjectMap
     sh:property [
         sh:targetSubjectsOf rml:predicateObjectMap ;
@@ -122,25 +104,10 @@
         sh:minCount 0 ;
         # sh:nodeKind sh:BlankNodeOrIRI ;
         sh:nodeKind sh:IRI ;
+        sh:node :RMLPredicateObjectMapShape ;
     ] ;
   .
 
-# # Shape pour LogicalSource
-# rml:LogicalSourceShape
-#   a sh:NodeShape ;
-#   sh:targetClass rml:LogicalSource ;
-#   sh:property [
-#     sh:path rml:source ;
-#     sh:name "Source" ;
-#     sh:minCount 1 ;
-#     sh:maxCount 1 ;
-#   ] ;
-#   sh:property [
-#     sh:path rml:referenceFormulation ;
-#     sh:name "Reference Formulation" ;
-#     sh:minCount 1 ;
-#     sh:maxCount 1 ;
-#   ] .
 
 # Validate a Logical Source
 :RMLLogicalSourceShape
@@ -201,25 +168,12 @@
         rml:source must be provided exactly once to define the data source.
         """ ;
         sh:minCount 1 ;
-        # sh:nodeKind sh:BlankNodeOrLiteral ; # À verifier
-        sh:nodeKind sh:IRI
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
     ] ;
 .
 
-# # Shape pour SubjectMap
-# rml:SubjectMapShape
-#   a sh:NodeShape ;
-#   sh:targetClass rml:SubjectMap ;
-#   sh:property [
-#     sh:path rml:constant ;
-#     sh:name "Constant IRI" ;
-#     sh:maxCount 1 ;
-#   ] ;
-#   sh:property [
-#     sh:path rml:template ;
-#     sh:name "Template" ;
-#     sh:maxCount 1 ;
-#   ] .
+
 :RMLSubjectMapShape
     a sh:NodeShape ;
     sh:targetClass rml:SubjectMap ;
@@ -277,24 +231,6 @@
     sh:nodeKind sh:IRI
 .
 
-# # Shape pour PredicateObjectMap
-# rml:PredicateObjectMapShape
-#   a sh:NodeShape ;
-#   sh:targetClass rml:PredicateObjectMap ;
-#   sh:property [
-#     sh:path rml:predicateMap ;
-#     sh:name "Predicate Map" ;
-#     sh:minCount 1 ;
-#     sh:maxCount 1 ;
-#     sh:node rml:PredicateMapShape ;
-#   ] ;
-#   sh:property [
-#     sh:path rml:objectMap ;
-#     sh:name "Object Map" ;
-#     sh:minCount 1 ;
-#     sh:maxCount 1 ;
-#     sh:node rml:ObjectMapShape ;
-#   ] .
 
 :RMLPredicateObjectMapShape
     a sh:NodeShape ;
@@ -313,7 +249,7 @@
         [
             sh:targetSubjectsOf rml:predicate ;
             sh:targetSubjectsOf rml:predicateMap ;
-            sh:path [sh:alternativePath (rml:predicate rml:predicateMap)] ;
+            sh:path [sh:xone (rml:predicate rml:predicateMap)] ;
             rdfs:label "predicate/predicateMap" ;
             rdfs:comment """
             At least one rml:predicate or rml:predicateMap must be provided.
@@ -354,7 +290,7 @@
             sh:targetSubjectsOf rml:object ;
             sh:targetSubjectsOf rml:objectMap ;
             sh:targetSubjectsOf rml:quotedTriplesMap ;
-            sh:path [sh:alternativePath (rml:object rml:objectMap rml:quotedTriplesMap)] ;
+            sh:path [sh:xone (rml:object rml:objectMap rml:quotedTriplesMap)] ;
             rdfs:label "object/objectMap/quotedTriplesMap" ;
             rdfs:comment """
             Either an rml:object, rml:objectMap, or rml:quotedTriplesMap must be provided, not multiple.
@@ -395,15 +331,7 @@
     ) ;
 .
 
-# # Shape pour PredicateMap
-# rml:PredicateMapShape
-#   a sh:NodeShape ;
-#   sh:targetClass rml:PredicateMap ;
-#   sh:property [
-#     sh:path rml:constant ;
-#     sh:name "Constant IRI" ;
-#     sh:maxCount 1 ;
-#   ] .
+
 :RMLPredicateMapShape
     a sh:NodeShape ;
     sh:targetClass rml:PredicateMap ;
@@ -445,20 +373,7 @@
     sh:nodeKind sh:IRI ;
 .
 
-# # Shape pour ObjectMap
-# rml:ObjectMapShape
-#   a sh:NodeShape ;
-#   sh:targetClass rml:ObjectMap ;
-#   sh:property [
-#     sh:path rml:constant ;
-#     sh:name "Constant" ;
-#     sh:maxCount 1 ;
-#   ] ;
-#   sh:property [
-#     sh:path rml:column ;
-#     sh:name "Column" ;
-#     sh:maxCount 1 ;
-#   ] .
+
 :RMLObjectMapShape
     a sh:NodeShape ;
     sh:targetClass rml:ObjectMap ;
@@ -477,7 +392,7 @@
         # :RMLLogicalTargetPropertiesShape
         # Object Map specific shapes
         [
-            sh:path [ sh:alternativePath (rml:languageMap rml:datatypeMap
+            sh:path [ sh:xone (rml:languageMap rml:datatypeMap
                                           rml:language rml:datatype) ] ;
             rdfs:label "languageMap/datatypeMap/language/datatype" ;
             rdfs:comment """
@@ -602,7 +517,7 @@
         sh:targetSubjectsOf rml:constant ;
         sh:targetSubjectsOf rml:reference ;
         sh:targetSubjectsOf rml:functionExecution ;
-        sh:path [sh:alternativePath (rml:template 
+        sh:path [sh:xone (rml:template 
                                      rml:constant
                                      rml:reference
                                      rml:functionExecution)] ;

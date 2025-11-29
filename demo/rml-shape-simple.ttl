@@ -57,6 +57,7 @@ rml:SubjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:SubjectMap ;
   sh:targetObjectsOf rml:subjectMap ;
+  # NOTE: Devrait etre dans un sh:xone
   sh:property [
     sh:path rml:constant ;
     sh:name "IRI" ;

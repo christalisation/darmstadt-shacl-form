@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            :root, shacl-form [data-bs-theme="light"] {
+                --brand-color: #008877;
+                --bs-body-color-rgb: 255, 0, 0 !important;
+            }
+            body { font-family: sans-serif; }
+            #rdf-output.valid { color: green; }
+            #rdf-output.invalid { color: red; }
+        </style>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/@ulb-darmstadt/shacl-form/dist/form-bootstrap.js"></script>
+        <script type="module" defer>
+            const form = document.getElementById("shacl-form")
+            form.setClassInstanceProvider((clazz) => { 
+                if (clazz === 'http://example.org/Material') {
+                    return `
+                    <http://example.org/steel> a <http://example.org/Material>; <http://www.w3.org/2000/01/rdf-schema#label> "Steel".
+                    <http://example.org/wood> a <http://example.org/Material>; <http://www.w3.org/2000/01/rdf-schema#label> "Wood".
+                    <http://example.org/alloy> a <http://example.org/Material>; <http://www.w3.org/2000/01/rdf-schema#label> "Alloy".
+                    <http://example.org/plaster> a <http://example.org/Material>; <http://www.w3.org/2000/01/rdf-schema#label> "Plaster".
+                    `
+                }
+            })
+            form.addEventListener('change', event => {
+                const output = document.getElementById('rdf-output');
+                if (event.detail?.valid) {
+                    output.innerText = form.serialize();
+                    output.classList.add('valid');
+                    output.classList.remove('invalid');
+                } else {
+                    output.innerText = 'Invalid data.';
+                    output.classList.add('invalid');
+                    output.classList.remove('valid');
+                }
+            });
+            document.getElementById('show-rdf-button').addEventListener('click', () => {
+                const fieldset = document.getElementById('rdf-output-fieldset');
+                fieldset.style.display = fieldset.style.display === 'none' ? 'block' : 'none';
+            });
+            document.getElementById('export-button').addEventListener('click', () => {
+                const triples = form.serialize();
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(new Blob([triples], { type: "text/turtle" }));
+                link.download = 'rml-output.ttl';
+                link.click();
+            });
+        </script>
+    </head>
+    <body>
+        <shacl-form id="shacl-form" data-shapes-url="rml-shape-simple.ttl" data-values-url="rml-data.ttl"></shacl-form>
+        <button id="show-rdf-button">Show RDF</button>
+        <fieldset id="rdf-output-fieldset" style="display: none;">
+            <legend>Generated RDF</legend>
+            <pre id="rdf-output"></pre>
+            <button id="export-button">Export RDF</button>
+        </fieldset>
+    </body>
+</html>
