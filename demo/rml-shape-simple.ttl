@@ -1,6 +1,6 @@
 #TODO:
 # -OK Terminer la shape ici apd de LogicalSourceShape
-# -OK changer avec rml: avec :
+# - changer avec rml: avec :
 # - Faire un mini test.
 # - Modifier le design pour que les rdfs:comment prennent sense
 # - Idem pour les sh:message ?
@@ -63,7 +63,7 @@
 #################
 # LogicalSource #
 #################
-:RMLLogicalSourceShape
+rml:LogicalSourceShape
   a sh:NodeShape ;
   sh:targetClass rml:LogicalSource ;
   sh:targetObjectsOf rml:logicalSource ; # TODO: see how <shacl-form> handles this sh:targetObjectsOf
@@ -102,7 +102,7 @@
 ##############
 # SubjectMap # (ExpressionMap simplifié)
 ##############
-:RMLSubjectMapShape
+rml:SubjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:SubjectMap ;
   sh:targetObjectsOf rml:subjectMap ;
@@ -139,7 +139,7 @@
 ###############################
 # PredicateObjectMap          #
 ###############################
-:RMLPredicateObjectMapShape
+rml:PredicateObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateObjectMap ;
   sh:targetObjectsOf rml:predicateObjectMap ;
@@ -167,7 +167,7 @@
 #############################
 # PredicateMap (simplified) #
 #############################
-:RMLPredicateMapShape
+rml:PredicateMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateMap ;
   sh:targetObjectsOf rml:predicateMap ;
@@ -202,7 +202,7 @@
 ##########################
 # ObjectMap (simplified) #
 ##########################
-:RMLObjectMapShape
+rml:ObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:ObjectMap ;
   sh:targetObjectsOf rml:objectMap ;
