@@ -69,11 +69,15 @@
     </head>
     <body>
         <shacl-form id="shacl-form" data-shapes-url="rml-shape-simple.ttl" data-values-url="rml-data.ttl"></shacl-form>
-        <button id="show-rdf-button" class="mdui-btn mdui-btn-raised mdui-color-theme">Show RDF</button>
-        <fieldset id="rdf-output-fieldset" style="display: none;">
-            <legend>Generated RDF</legend>
-            <pre id="rdf-output"></pre>
-            <button id="export-button" class="mdui-btn mdui-btn-raised mdui-color-theme-accent">Export RDF</button>
-        </fieldset>
+        <button id="show-rdf-button" class="mdui-btn mdui-btn-raised mdui-color-theme mdui-m-t-3">Show RDF</button>
+        <div id="rdf-output-fieldset" class="mdui-card mdui-m-t-3" style="display: none;">
+            <div class="mdui-card-header">
+                <div class="mdui-card-header-title">Generated RDF</div>
+            </div>
+            <div class="mdui-card-content">
+                <pre id="rdf-output"></pre>
+                <button id="export-button" class="mdui-btn mdui-btn-raised mdui-color-theme-accent">Export RDF</button>
+            </div>
+        </div>
     </body>
 </html>
