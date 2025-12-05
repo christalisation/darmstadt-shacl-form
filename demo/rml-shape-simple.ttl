@@ -13,7 +13,48 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix rml: <http://w3id.org/rml/> .
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+# @prefix ex:  <http://example.org/mapping/> .
 
+# :MappingShape
+#   a sh:NodeShape ;
+#   sh:targetClass ex:Mapping ;
+#   sh:property [
+#     sh:path ex:hasTriplesMap ;
+#     sh:name "TriplesMap" ;
+#     sh:node :RMLTriplesMapShape ;
+#     sh:nodeKind sh:BlankNodeOrIRI ;
+#   ] ;
+#   sh:property [
+#     sh:path ex:hasLogicalSource ;
+#     sh:name "LogicalSource" ;
+#     sh:node :RMLLogicalSourceShape ;
+#     sh:nodeKind sh:BlankNodeOrIRI ;
+#   ] ;
+#   sh:property [
+#     sh:path ex:hasSubjectMap ;
+#     sh:name "SubjectMap" ;
+#     sh:node :RMLSubjectMapShape ;
+#     sh:nodeKind sh:BlankNodeOrIRI ;
+#   ] ;
+#   sh:property [
+#     sh:path ex:hasPredicateObjectMap ;
+#     sh:name "PredicateObjectMap" ;
+#     sh:node :RMLPredicateObjectMapShape ;
+#     sh:nodeKind sh:BlankNodeOrIRI ;
+#   ] ;
+#   sh:property [
+#     sh:path ex:hasPredicateMap ;
+#     sh:name "PredicateMap" ;
+#     sh:node :RMLPredicateMapShape ;
+#     sh:nodeKind sh:BlankNodeOrIRI ;
+#   ] ;
+#   sh:property [
+#     sh:path ex:hasObjectMap ;
+#     sh:name "ObjectMap" ;
+#     sh:node :RMLObjectMapShape ;
+#     sh:nodeKind sh:BlankNodeOrIRI ;
+#   ]
+# .
 # Version simple : Validation de base d'un TriplesMap RML
 # Un TriplesMap doit avoir au moins un logicalSource et un subjectMap
 
@@ -25,6 +66,7 @@
 :RMLTriplesMapShape
   a sh:NodeShape ;
   sh:targetClass rml:TriplesMap ;
+  rdfs:label "RML Triples Map" ;
 
   # logicalSource
   sh:property [

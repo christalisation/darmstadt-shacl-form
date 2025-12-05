@@ -13,15 +13,19 @@
         const outputPre = document.getElementById('rdf-output');
 
         // To update the RDF output
-        form.addEventListener('change', event => {
-            if (event.detail?.valid) {
-                outputPre.innerText = form.serialize();
-                outputPre.style.color = 'green';
-            } else {
-                outputPre.innerText = 'Invalid data (check constraints)';
-                outputPre.style.color = 'red';
-            }
+        form.addEventListener('submit', event => {
+            outputPre.innerText = form.serialize();
+            outputPre.style.color = 'green';
         });
+        // form.addEventListener('change', event => {
+        //     if (event.detail?.valid) {
+        //         outputPre.innerText = form.serialize();
+        //         outputPre.style.color = 'green';
+        //     } else {
+        //         outputPre.innerText = 'Invalid data (check constraints)';
+        //         outputPre.style.color = 'red';
+        //     }
+        // });
 
         // The Toggle Button for full screen
         const toggleBtn = document.getElementById('toggle-view-btn');
@@ -101,6 +105,7 @@
                             id="shacl-form" 
                             data-shapes-url="rml-shape-simple.ttl" 
                             data-values-url="rml-data.ttl"
+                            data-submit-button="Save"
                         >
                         </shacl-form>
 
