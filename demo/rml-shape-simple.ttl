@@ -34,7 +34,7 @@
     # sh:message "A Triples Map must have exactly one Logical Source." ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:node rml:LogicalSourceShape ;
+    sh:node :RMLLogicalSourceShape ;
     sh:order 0 ;
   ] ;
 
@@ -46,7 +46,7 @@
     # sh:message "A Triples Map must have exactly one Subject Map." ; 
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:node rml:SubjectMapShape ;
+    sh:node :RMLSubjectMapShape ;
     sh:order 1 ;
   ] ;
 
@@ -55,7 +55,7 @@
     sh:path rml:predicateObjectMap ;
     sh:name "Predicate Object Map" ;
     rdfs:comment "List of couples (predicat, object) generated for this Triples Map." ;
-    sh:node rml:PredicateObjectMapShape ;
+    sh:node :RMLPredicateObjectMapShape ;
     sh:order 2 ;
   ]
 .
@@ -63,7 +63,7 @@
 #################
 # LogicalSource #
 #################
-rml:LogicalSourceShape
+:RMLLogicalSourceShape
   a sh:NodeShape ;
   sh:targetClass rml:LogicalSource ;
   sh:targetObjectsOf rml:logicalSource ; # TODO: see how <shacl-form> handles this sh:targetObjectsOf
@@ -102,7 +102,7 @@ rml:LogicalSourceShape
 ##############
 # SubjectMap # (ExpressionMap simplifié)
 ##############
-rml:SubjectMapShape
+:RMLSubjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:SubjectMap ;
   sh:targetObjectsOf rml:subjectMap ;
@@ -139,7 +139,7 @@ rml:SubjectMapShape
 ###############################
 # PredicateObjectMap          #
 ###############################
-rml:PredicateObjectMapShape
+:RMLPredicateObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateObjectMap ;
   sh:targetObjectsOf rml:predicateObjectMap ;
@@ -150,7 +150,7 @@ rml:PredicateObjectMapShape
     rdfs:comment "Rules defining how to generate the predicate of the triple." ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:node rml:PredicateMapShape ;
+    sh:node :RMLPredicateMapShape ;
     sh:order 0 ;
   ] ;
   sh:property [
@@ -159,7 +159,7 @@ rml:PredicateObjectMapShape
     rdfs:comment "Rules defining how to generate the object of the triple." ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:node rml:ObjectMapShape ;
+    sh:node :RMLObjectMapShape ;
     sh:order 1 ;
   ] 
 .
@@ -167,7 +167,7 @@ rml:PredicateObjectMapShape
 #############################
 # PredicateMap (simplified) #
 #############################
-rml:PredicateMapShape
+:RMLPredicateMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateMap ;
   sh:targetObjectsOf rml:predicateMap ;
@@ -202,7 +202,7 @@ rml:PredicateMapShape
 ##########################
 # ObjectMap (simplified) #
 ##########################
-rml:ObjectMapShape
+:RMLObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:ObjectMap ;
   sh:targetObjectsOf rml:objectMap ;
