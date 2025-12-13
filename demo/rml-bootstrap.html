@@ -99,13 +99,14 @@
                     <div class="card-body">
                         <!-- Form Title -->
                         <!-- TODO: make it possible to create multiple TriplesMaps or other RML constructs -->
-                        <h2 class="card-title mb-4">TriplesMap</h2>
+                        <h2 class="card-title mb-4">RML Mappings</h2>
                         
                         <shacl-form 
                             id="shacl-form" 
-                            data-shapes-url="rml-shape-simple.ttl" 
-                            data-values-url="rml-data.ttl"
+                            data-shapes-url="rml-shape.ttl"
+                            data-shape-subject="http://example.org/mapping/MappingShape"
                             data-submit-button="Save"
+                            data-collapse=""
                         >
                         </shacl-form>
 
