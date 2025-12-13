@@ -1,105 +1,341 @@
+#TODO:
+# -OK Terminer la shape ici apd de LogicalSourceShape
+# -OK changer avec rml: avec :
+# -OK Faire un mini test.
+# - Modifier le design pour que les sh:description prennent sense
+# - Idem pour les sh:message ?
+# -OK Faire en sorte de pouvoir creer pls triplesMaps ?
+# - Gerer les blank nodes et cmt ils s'affichent.
+
+
+@prefix : <http://w3id.org/rml/shapes/> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix rml: <http://semweb.mmlab.be/ns/rml#> .
+@prefix rml: <http://w3id.org/rml/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+@prefix ui:  <http://example.org/rml-ui-shapes/> .
+@prefix ex:  <http://example.org/mapping/> .
+
+##############
+# Root node  # For UI purposes in the form
+##############
+
+ex:MappingShape
+  a sh:NodeShape ;
+  sh:targetClass ex:Mapping ;
+  sh:property [
+    sh:path ex:hasTriplesMap ;
+    sh:name "TriplesMap" ;
+    sh:node :RMLTriplesMapShape ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+  ] ;
+  sh:property [
+    sh:path ex:hasLogicalSource ;
+    sh:name "LogicalSource" ;
+    sh:node :RMLLogicalSourceShape ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+  ] ;
+  sh:property [
+    sh:path ex:hasSubjectMap ;
+    sh:name "SubjectMap" ;
+    sh:node :RMLSubjectMapShape ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+  ] ;
+  sh:property [
+    sh:path ex:hasPredicateObjectMap ;
+    sh:name "PredicateObjectMap" ;
+    sh:node :RMLPredicateObjectMapShape ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+  ] ;
+  sh:property [
+    sh:path ex:hasPredicateMap ;
+    sh:name "PredicateMap" ;
+    sh:node :RMLPredicateMapShape ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+  ] ;
+  sh:property [
+    sh:path ex:hasObjectMap ;
+    sh:name "ObjectMap" ;
+    sh:node :RMLObjectMapShape ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+  ]
+.
+
+##############
+# TriplesMap #
+##############
 
 # Version simple : Validation de base d'un TriplesMap RML
-# Un TriplesMap doit avoir au moins un logicalSource et un subjectMap
 
-rml:TriplesMapShape
+:RMLTriplesMapShape
   a sh:NodeShape ;
   sh:targetClass rml:TriplesMap ;
+  sh:targetObjectsOf rml:parentTriplesMap ;
+  sh:name "TriplesMap" ;
+
+  # logicalSource
   sh:property [
     sh:path rml:logicalSource ;
     sh:name "Logical Source" ;
-    sh:minCount 1 ;
+    sh:description "Description of the data source (CSV, JSON, etc.)" ;
+    # sh:message "A Triples Map must have exactly one Logical Source." ;
+    sh:minCount 0 ;
     sh:maxCount 1 ;
-    sh:node rml:LogicalSourceShape ;
+    sh:node :RMLLogicalSourceShape ;
+    sh:order 0 ;
   ] ;
+
+  # subjectMap only (no subject shortcut)
   sh:property [
     sh:path rml:subjectMap ;
     sh:name "Subject Map" ;
-    sh:minCount 1 ;
+    sh:description "Rules for generating the subject of each triple." ;
+    # sh:message "A Triples Map must have exactly one Subject Map." ; 
+    #sh:minCount 1 ; For UI purposes.
     sh:maxCount 1 ;
-    sh:node rml:SubjectMapShape ;
+    sh:node :RMLSubjectMapShape ;
+    sh:order 1 ;
   ] ;
+
+  # predicateObjectMap (0..*)
   sh:property [
     sh:path rml:predicateObjectMap ;
     sh:name "Predicate Object Map" ;
-    sh:node rml:PredicateObjectMapShape ;
-  ] .
+    sh:description "List of couples (predicat, object) generated for this Triples Map." ;
+    sh:minCount 0 ;
+    sh:node :RMLPredicateObjectMapShape ;
+    sh:order 2 ;
+  ]
+.
 
-# Shape pour LogicalSource
-rml:LogicalSourceShape
+#################
+# LogicalSource #
+#################
+:RMLLogicalSourceShape
   a sh:NodeShape ;
   sh:targetClass rml:LogicalSource ;
+  sh:targetObjectsOf rml:logicalSource ; # <shacl-form> does not really handle this sh:targetObjectsOf
+  sh:name "Logical Source" ;  # sh:name instead of sh:label for display in the form
+  sh:description """
+  A logical source is any source that is mapped to RDF triples.
+  """ ;
+  sh:message """
+  RML Logical Source requires
+    - one rml:source
+    - zero or one rml:referenceFormulation
+    - zero or one rml:iterator
+  """ ;
+
   sh:property [
     sh:path rml:source ;
     sh:name "Source" ;
+    sh:description """
+    The source (rml:source) locates the input data source. It is a URI
+    that represents the data source where the data source is.
+    """ ;
+    sh:message """
+    rml:source must be provided to locate the data source. 
+    rml:source must be provided exactly once as an URI.
+    """ ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
+    sh:nodeKind sh:Literal ; # BlanknodeOrIRI ; # in io.ttl
+    sh:datatype xsd:string ;
+    sh:order 0 ;
+    # TODO: see if we want to add the RMLSourceShape 
+    #   ... maybe not needed or too complex for the form
   ] ;
   sh:property [
     sh:path rml:referenceFormulation ;
     sh:name "Reference Formulation" ;
-    sh:minCount 1 ;
+    sh:description "the reference syntax used to extract data from the source (e.g., JSONPath, XPath)." ;
+    #sh:minCount 1 ;
     sh:maxCount 1 ;
-  ] .
-
-# Shape pour SubjectMap
-rml:SubjectMapShape
-  a sh:NodeShape ;
-  sh:targetClass rml:SubjectMap ;
-  sh:property [
-    sh:path rml:constant ;
-    sh:name "Constant IRI" ;
-    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;  # Or Blank Node
+    sh:in (rml:CSV rml:JSONPath rml:XPath) ;
+    sh:order 1 ;
   ] ;
   sh:property [
-    sh:path rml:template ;
-    sh:name "Template" ;
+    sh:path rml:iterator ;
+    sh:name "Iterator" ;
+    sh:description "A path expression to navigate through the data structure (optional depending on the source)." ;
     sh:maxCount 1 ;
-  ] .
+    sh:nodeKind sh:Literal ;
+    sh:datatype xsd:string ;
+    sh:order 2 ;
+  ] 
+.
 
-# Shape pour PredicateObjectMap
-rml:PredicateObjectMapShape
+##############
+# SubjectMap # (ExpressionMap simplifié)
+##############
+:RMLSubjectMapShape
+  a sh:NodeShape ;
+  sh:targetClass rml:SubjectMap ;
+  sh:targetObjectsOf rml:subjectMap ;
+
+  # Is exactly one of: constant OR template OR reference
+  sh:or (
+    [sh:property [
+      sh:path rml:constant ;
+      sh:name "Subject IRI (constant)" ;
+      sh:description "A fixed IRI used as the subject for all generated triples." ;
+      sh:maxCount 1 ;
+      sh:nodeKind sh:IRI ;
+      sh:order 0 ;
+      ];
+    ]
+    [sh:property [
+        sh:path rml:template ;
+        sh:name "Subject template" ;
+        sh:description "A template string to generate subject IRIs dynamically based on data values (ex: https://ex.org/{id})." ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:datatype xsd:string ;
+        sh:order 1 ;
+      ] ;
+    ]
+    [ sh:property [
+        sh:path rml:reference ;
+        sh:name "Subject reference" ;
+        sh:description "A direct reference in to the data source (JSONPath, XPath, column name, ...)." ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:datatype xsd:string ;
+        sh:order 2 ;
+      ] ;
+    ]
+  )
+  .
+
+###############################
+# PredicateObjectMap          #
+###############################
+:RMLPredicateObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateObjectMap ;
+  sh:targetObjectsOf rml:predicateObjectMap ;
+
   sh:property [
     sh:path rml:predicateMap ;
     sh:name "Predicate Map" ;
+    sh:description "Rules defining how to generate the predicate of the triple." ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:node rml:PredicateMapShape ;
+    sh:node :RMLPredicateMapShape ;
+    sh:order 0 ;
   ] ;
   sh:property [
     sh:path rml:objectMap ;
     sh:name "Object Map" ;
+    sh:description "Rules defining how to generate the object of the triple." ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:node rml:ObjectMapShape ;
-  ] .
+    sh:node :RMLObjectMapShape ;
+    sh:order 1 ;
+  ] 
+.
 
-# Shape pour PredicateMap
-rml:PredicateMapShape
+#############################
+# PredicateMap (simplified) #
+#############################
+:RMLPredicateMapShape
   a sh:NodeShape ;
   sh:targetClass rml:PredicateMap ;
-  sh:property [
+  sh:targetObjectsOf rml:predicateMap ;
+  sh:or (
+  [sh:property [
     sh:path rml:constant ;
-    sh:name "Constant IRI" ;
+    sh:name "Predicate IRI (constant)" ;
+    sh:description "A fixed IRI used as the predicate for all generated triples." ;
     sh:maxCount 1 ;
-  ] .
+    sh:nodeKind sh:IRI ;
+    sh:order 0 ;
+  ] ;
+  ]
+  [sh:property [
+    sh:path rml:template ;
+    sh:name "Predicate template" ;
+    sh:description "A model to generate predicate IRIs dynamically based on data values." ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal ;
+    sh:datatype xsd:string ;
+    sh:order 1 ;
+  ] ;
+  ])
+  # sh:property [
+  #   sh:path rml:termType ;
+  #   sh:name "Term Type" ;
+  #   sh:description "The term type of the predicate (e.g., IRI, Literal, Blank Node)." ;
+  #   sh:maxCount 1 ;
+  #   sh:nodeKind sh:IRI ;
+  #   sh:order 2 ;
+  # ] 
+.
 
-# Shape pour ObjectMap
-rml:ObjectMapShape
+##########################
+# ObjectMap (simplified) #
+##########################
+:RMLObjectMapShape
   a sh:NodeShape ;
   sh:targetClass rml:ObjectMap ;
-  sh:property [
+  sh:targetObjectsOf rml:objectMap ;
+  
+  # ExpressionMap (constant / template / reference)
+  sh:or (
+  [sh:property [
     sh:path rml:constant ;
-    sh:name "Constant" ;
+    sh:name "Object constant" ;
+    sh:description "Fixed object (IRI or literal) for all generated triples." ;
     sh:maxCount 1 ;
+    # sh:nodeKind sh:BlankNodeOrIRI ;
+    sh:order 0 ;
   ] ;
-  sh:property [
-    sh:path rml:column ;
-    sh:name "Column" ;
+  ]
+  [sh:property [
+    sh:path rml:template ;
+    sh:name "Object template" ;
+    sh:description "A model to generate object values dynamically based on the source." ;
     sh:maxCount 1 ;
-  ] .
+    sh:nodeKind sh:Literal ;
+    sh:datatype xsd:string ;
+    sh:order 1 ;
+  ] ;
+  ]
+  [sh:property [
+    sh:path rml:reference ;
+    sh:name "Object reference" ;
+    sh:description "A direct reference in to the data source (JSONPath, XPath, column name, ...)." ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal ;
+    sh:datatype xsd:string ;
+    sh:order 2 ;
+  ] ;
+  ]);
+  # sh:property [
+  #   sh:path rml:termType ;
+  #   sh:name "Term Type" ;
+  #   sh:description "The term type of the object (e.g., IRI, Literal, Blank Node)." ;
+  #   sh:maxCount 1 ;
+  #   sh:nodeKind sh:IRI ;
+  #   sh:order 3 ;
+  # ] ;
+  # sh:property [
+  #   sh:path rml:datatype ;
+  #   sh:name "Datatype" ;
+  #   sh:description "The explicit datatype if the object has a datatype." ;
+  #   sh:maxCount 1 ;
+  #   sh:nodeKind sh:IRI ;
+  #   sh:order 4 ;
+  # ] ;
+  sh:property [
+    sh:path rml:language ;
+    sh:name "Language tag" ;
+    sh:description "The language tag if the object is a language-tagged literal." ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:Literal ;
+    sh:datatype xsd:string ;
+    sh:order 5 ;
+  ]
+  .

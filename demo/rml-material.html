@@ -13,6 +13,9 @@
                 --mdui-color-surface-container-high: 255, 255, 255;
                 --mdui-color-surface-container-highest-light: 245, 245, 245;
             }
+            #rdf-output.valid { color: green; }
+            #rdf-output.invalid { color: red; }
+            fieldset { margin-top: 20px; }
         </style>
         <link href="https://cdn.jsdelivr.net/npm/@fontsource/roboto/400.css" rel="stylesheet">
         <script type="importmap">
@@ -39,9 +42,42 @@
                     `
                 }
             })
+            form.addEventListener('change', event => {
+                const output = document.getElementById('rdf-output');
+                if (event.detail?.valid) {
+                    output.innerText = form.serialize();
+                    output.classList.add('valid');
+                    output.classList.remove('invalid');
+                } else {
+                    output.innerText = 'Invalid data.';
+                    output.classList.add('invalid');
+                    output.classList.remove('valid');
+                }
+            });
+            document.getElementById('show-rdf-button').addEventListener('click', () => {
+                const fieldset = document.getElementById('rdf-output-fieldset');
+                fieldset.style.display = fieldset.style.display === 'none' ? 'block' : 'none';
+            });
+            document.getElementById('export-button').addEventListener('click', () => {
+                const triples = form.serialize();
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(new Blob([triples], { type: "text/turtle" }));
+                link.download = 'rml-output.ttl';
+                link.click();
+            });
         </script>
     </head>
     <body>
-        <shacl-form id="shacl-form" data-shapes-url="rml-shape.ttl" data-values-url="rml-data.ttl" data-submit-button></shacl-form>
+        <shacl-form id="shacl-form" data-shapes-url="rml-shape-simple.ttl" data-values-url="rml-data.ttl"></shacl-form>
+        <button id="show-rdf-button" class="mdui-btn mdui-btn-raised mdui-color-theme mdui-m-t-3">Show RDF</button>
+        <div id="rdf-output-fieldset" class="mdui-card mdui-m-t-3" style="display: none;">
+            <div class="mdui-card-header">
+                <div class="mdui-card-header-title">Generated RDF</div>
+            </div>
+            <div class="mdui-card-content">
+                <pre id="rdf-output"></pre>
+                <button id="export-button" class="mdui-btn mdui-btn-raised mdui-color-theme-accent">Export RDF</button>
+            </div>
+        </div>
     </body>
 </html>
