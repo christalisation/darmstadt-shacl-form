@@ -55,7 +55,7 @@
         "viewer"
     ],
     "scripts": {
-        "dev": "vite serve ./demo --host",
+        "dev": "vite serve . --host",
         "build": "tsc && npm run build-default && npm run build-bootstrap && npm run build-material && npm run build-leaflet && npm run build-mapbox",
         "preview": "vite preview",
         "test": "echo \"no tests specified\" && exit 0",

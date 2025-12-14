@@ -1,0 +1,33 @@
+@prefix :    <http://w3id.org/rml/shapes/> .
+@prefix ui:  <http://example.org/rml-ui-shapes/> .
+@prefix ex:  <http://example.org/mapping/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rml: <http://w3id.org/rml/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+##############
+# Root node  # For UI purposes in the form
+##############
+
+ui:MappingShape
+  a sh:NodeShape ;
+  sh:targetClass ex:Mapping ;
+  rdfs:label "RML Mapping" ;
+
+  # Group TriplesMaps
+  sh:property [
+    sh:path ex:hasTriplesMap ;
+    sh:name "TriplesMaps" ;
+    sh:node :RMLTriplesMapShape ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+    rdfs:comment "List of TriplesMaps in the project." ;
+    sh:group ui:TriplesMapGroup ;
+    sh:order 0 ;
+  ] ;
+  .
+
+ui:TriplesMapGroup
+  a sh:PropertyGroup ;
+  rdfs:label "TriplesMaps" ;
+  sh:order 0 .
