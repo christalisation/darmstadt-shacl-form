@@ -40,23 +40,71 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
                 optionElements.push({ label: property.template.label, value: i.toString() })
             }
         }
-        const editor = config.theme.createListEditor('Please choose', null, false, optionElements)
-        const select = editor.querySelector('.editor') as Editor
-        select.onchange = () => {
-            if (select.value) {
-                const selectedOptions = properties[parseInt(select.value)]
-                let lastAddedProperty: ShaclProperty
-                if (selectedOptions.length) {
-                    lastAddedProperty = selectedOptions[0]
-                    constraintElement.replaceWith(selectedOptions[0])
-                }
-                for (let i = 1; i < selectedOptions.length; i++) {
-                    lastAddedProperty!.after(selectedOptions[i])
-                    lastAddedProperty = selectedOptions[i]
-                }
+        const container = document.createElement('div');
+    container.classList.add('mb-3'); // Marge Bootstrap
+
+    const select = document.createElement('select');
+    select.classList.add('form-select'); // Bootstrap official class for select elements
+    
+    // Default option
+    const defaultOption = document.createElement('option');
+    defaultOption.text = "Select a type..."; // Your custom text
+    defaultOption.value = "";
+    defaultOption.selected = true;
+    defaultOption.disabled = true;
+    select.appendChild(defaultOption);
+
+    // Options
+    // reuse Darmstadt logic
+    //let optionsAreReferencedProperties = false
+    optionsAreReferencedProperties = false
+    if (options.length) {
+        optionsAreReferencedProperties = config.store.countQuads(options[0], SHACL_PREDICATE_PROPERTY, null, null) > 0
+    }
+
+    for (let i = 0; i < options.length; i++) {
+        let labelText = "";
+        if (optionsAreReferencedProperties) {
+            const quads = config.store.getObjects(options[i] , SHACL_PREDICATE_PROPERTY, null)
+            const list: ShaclProperty[] = []
+            let combinedText = ''
+            for (const subject of quads) {
+                const property = new ShaclProperty(subject as NamedNode | BlankNode, context, config)
+                list.push(property)
+                combinedText += (combinedText.length > 1 ? ' / ' : '') + property.template.label
+            }
+            properties.push(list)
+            labelText = combinedText;
+        } else {
+            const property = new ShaclProperty(options[i] as NamedNode | BlankNode, context, config)
+            properties.push([property])
+            labelText = property.template.label;
+        }
+        
+        const option = document.createElement('option');
+        option.value = i.toString();
+        option.text = labelText;
+        select.appendChild(option);
+    }
+
+    // L'action quand on change la sélection
+    select.onchange = () => {
+        if (select.value) {
+            const selectedOptions = properties[parseInt(select.value)]
+            let lastAddedProperty: ShaclProperty
+            if (selectedOptions.length) {
+                lastAddedProperty = selectedOptions[0]
+                constraintElement.replaceWith(selectedOptions[0])
+            }
+            for (let i = 1; i < selectedOptions.length; i++) {
+                lastAddedProperty!.after(selectedOptions[i])
+                lastAddedProperty = selectedOptions[i]
             }
         }
-        constraintElement.appendChild(editor)
+    }
+
+    container.appendChild(select);
+    constraintElement.appendChild(container);
     } else {
         const values: Quad[][] = []
         for (let i = 0; i < options.length; i++) {
