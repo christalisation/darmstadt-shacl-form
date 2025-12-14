@@ -21,10 +21,20 @@ export class ShaclProperty extends HTMLElement {
         this.template = new ShaclPropertyTemplate(config.store.getQuads(shaclSubject, null, null, null), parent, config)
         this.container = this
         if (this.template.extendedShapes.length && this.template.config.attributes.collapse !== null && (!this.template.maxCount || this.template.maxCount > 1)) {
-            const collapsible = new RokitCollapsible()
-            collapsible.classList.add('collapsible', 'shacl-group');
-            collapsible.open = config.attributes.collapse === 'open';
-            collapsible.label = this.template.label;
+            // Use standard HTML <details> instead of RokitCollapsible
+            const collapsible = document.createElement('details')
+            collapsible.classList.add('collapsible', 'mb-3', 'card', 'p-3') // Bootstrap card styling
+
+            const summary = document.createElement('summary')
+            summary.innerText = this.template.label
+            summary.classList.add('h5', 'mb-0', 'cursor-pointer') // Style of the title
+
+            collapsible.appendChild(summary)
+
+            if (this.template.config.attributes.collapse === 'open') {
+                (collapsible as HTMLDetailsElement).open = true
+            }
+            this.appendChild(collapsible)
             this.container = collapsible
         }
 
