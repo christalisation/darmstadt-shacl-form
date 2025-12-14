@@ -92,7 +92,7 @@ ex:MappingShape
     sh:name "Subject Map" ;
     sh:description "Rules for generating the subject of each triple." ;
     # sh:message "A Triples Map must have exactly one Subject Map." ; 
-    #sh:minCount 1 ; For UI purposes.
+    sh:minCount 1 ; # SubjectMap is mandatory
     sh:maxCount 1 ;
     sh:node :RMLSubjectMapShape ;
     sh:order 1 ;
