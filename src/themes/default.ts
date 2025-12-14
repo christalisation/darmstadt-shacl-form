@@ -46,7 +46,7 @@ export class DefaultTheme extends Theme {
             labelElem.setAttribute('title', template.description.value)
         }
     
-        const placeholder = template?.description ? template.description.value : template?.pattern ? template.pattern : null
+        const placeholder = template?.pattern ? template.pattern : null
         if (placeholder) {
             editor.setAttribute('placeholder', placeholder)
         }
