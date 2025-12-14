@@ -5,18 +5,23 @@ import { ShaclProperty, createPropertyInstance } from "./property"
 import { Config } from './config'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHACL_PREDICATE_NODE_KIND, SHACL_OBJECT_IRI, SHACL_PREDICATE_PROPERTY } from './constants'
 import { findLabel, removePrefixes } from './util'
-import { Editor, InputListEntry } from './theme'
-
 
 export function createShaclOrConstraint(options: Term[], context: ShaclNode | ShaclProperty, config: Config): HTMLElement {
-    const constraintElement = document.createElement('div')
-    constraintElement.classList.add('shacl-or-constraint')
+    // 1. LE CONTENEUR GLOBAL
+    // Wrapper vertical simple qui prend toute la largeur
+    const wrapper = document.createElement('div')
+    wrapper.classList.add('shacl-or-constraint', 'w-100', 'd-flex', 'flex-column') 
+    wrapper.style.gap = '0.5rem'; 
+    wrapper.style.marginBottom = '1rem';
 
-    const optionElements: InputListEntry[] =  []
+    // 2. PRÉPARATION DES DONNÉES
+    const nodeOptions: ShaclProperty[][] = []
+    const propertyOptions: Quad[][] = []
+    
+    // Structure simple pour alimenter notre select natif
+    const selectOptions: { label: string, value: string }[] = []
 
     if (context instanceof ShaclNode) {
-        const properties: ShaclProperty[][] = []
-        // options can be shacl properties or blank nodes referring to (list of) properties
         let optionsAreReferencedProperties = false
         if (options.length) {
             optionsAreReferencedProperties = config.store.countQuads(options[0], SHACL_PREDICATE_PROPERTY, null, null) > 0
@@ -24,7 +29,6 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
         for (let i = 0; i < options.length; i++) {
             if (optionsAreReferencedProperties) {
                 const quads = config.store.getObjects(options[i] , SHACL_PREDICATE_PROPERTY, null)
-                // option can be single property or list of properties
                 const list: ShaclProperty[] = []
                 let combinedText = ''
                 for (const subject of quads) {
@@ -32,104 +36,97 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
                     list.push(property)
                     combinedText += (combinedText.length > 1 ? ' / ' : '') + property.template.label
                 }
-                properties.push(list)
-                optionElements.push({ label: combinedText, value: i.toString() })
+                nodeOptions.push(list)
+                selectOptions.push({ label: combinedText, value: i.toString() })
             } else {
                 const property = new ShaclProperty(options[i] as NamedNode | BlankNode, context, config)
-                properties.push([property])
-                optionElements.push({ label: property.template.label, value: i.toString() })
+                nodeOptions.push([property])
+                selectOptions.push({ label: property.template.label, value: i.toString() })
             }
         }
-        const container = document.createElement('div');
-    container.classList.add('mb-3'); // Marge Bootstrap
-
-    const select = document.createElement('select');
-    select.classList.add('form-select'); // Bootstrap official class for select elements
-    
-    // Default option
-    const defaultOption = document.createElement('option');
-    defaultOption.text = "Select a type..."; // Your custom text
-    defaultOption.value = "";
-    defaultOption.selected = true;
-    defaultOption.disabled = true;
-    select.appendChild(defaultOption);
-
-    // Options
-    // reuse Darmstadt logic
-    //let optionsAreReferencedProperties = false
-    optionsAreReferencedProperties = false
-    if (options.length) {
-        optionsAreReferencedProperties = config.store.countQuads(options[0], SHACL_PREDICATE_PROPERTY, null, null) > 0
-    }
-
-    for (let i = 0; i < options.length; i++) {
-        let labelText = "";
-        if (optionsAreReferencedProperties) {
-            const quads = config.store.getObjects(options[i] , SHACL_PREDICATE_PROPERTY, null)
-            const list: ShaclProperty[] = []
-            let combinedText = ''
-            for (const subject of quads) {
-                const property = new ShaclProperty(subject as NamedNode | BlankNode, context, config)
-                list.push(property)
-                combinedText += (combinedText.length > 1 ? ' / ' : '') + property.template.label
-            }
-            properties.push(list)
-            labelText = combinedText;
-        } else {
-            const property = new ShaclProperty(options[i] as NamedNode | BlankNode, context, config)
-            properties.push([property])
-            labelText = property.template.label;
-        }
-        
-        const option = document.createElement('option');
-        option.value = i.toString();
-        option.text = labelText;
-        select.appendChild(option);
-    }
-
-    // L'action quand on change la sélection
-    select.onchange = () => {
-        if (select.value) {
-            const selectedOptions = properties[parseInt(select.value)]
-            let lastAddedProperty: ShaclProperty
-            if (selectedOptions.length) {
-                lastAddedProperty = selectedOptions[0]
-                constraintElement.replaceWith(selectedOptions[0])
-            }
-            for (let i = 1; i < selectedOptions.length; i++) {
-                lastAddedProperty!.after(selectedOptions[i])
-                lastAddedProperty = selectedOptions[i]
-            }
-        }
-    }
-
-    container.appendChild(select);
-    constraintElement.appendChild(container);
     } else {
-        const values: Quad[][] = []
         for (let i = 0; i < options.length; i++) {
             const quads = config.store.getQuads(options[i], null, null, null)
             if (quads.length) {
-                values.push(quads)
-                optionElements.push({ label: findLabel(quads, config.languages) || (removePrefixes(quads[0].predicate.value, config.prefixes) + ' = ' + removePrefixes(quads[0].object.value, config.prefixes)), value: i.toString() })
+                propertyOptions.push(quads)
+                const label = findLabel(quads, config.languages) || (removePrefixes(quads[0].predicate.value, config.prefixes) + ' = ' + removePrefixes(quads[0].object.value, config.prefixes))
+                selectOptions.push({ label: label, value: i.toString() })
             }
         }
-        const editor = config.theme.createListEditor(context.template.label + '?', null, false, optionElements, context.template)
-        const select = editor.querySelector('.editor') as Editor
-        select.onchange = () => {
-            if (select.value) {
-                constraintElement.replaceWith(createPropertyInstance(context.template.clone().merge(values[parseInt(select.value)]), undefined, true))
-            }
-        }
-        constraintElement.appendChild(editor)
     }
 
-    return constraintElement
+    // 3. CONSTRUCTION MANUELLE DU SÉLECTEUR (Plus de RokitSelect, plus de label inutile)
+    const selectContainer = document.createElement('div');
+    selectContainer.classList.add('w-100'); 
+    
+    const select = document.createElement('select');
+    select.classList.add('form-select', 'w-100', 'editor'); 
+    
+    // Remplissage des options
+    for (const opt of selectOptions) {
+        const optionElement = document.createElement('option');
+        optionElement.value = opt.value;
+        optionElement.innerText = opt.label;
+        select.appendChild(optionElement);
+    }
+
+    selectContainer.appendChild(select);
+    wrapper.appendChild(selectContainer);
+
+    // 4. CRÉATION DU CONTENEUR DE CONTENU
+    const contentContainer = document.createElement('div')
+    // Flex vertical pour le contenu aussi, afin d'éviter les superpositions
+    contentContainer.classList.add('shacl-or-content', 'w-100', 'd-flex', 'flex-column')
+    contentContainer.style.gap = '10px';
+    wrapper.appendChild(contentContainer)
+
+    // 5. FONCTION DE MISE À JOUR
+    const updateContent = () => {
+        contentContainer.replaceChildren()
+        
+        const index = parseInt(select.value)
+        if (isNaN(index)) return
+
+        if (context instanceof ShaclNode) {
+            const selectedProps = nodeOptions[index]
+            if (selectedProps) {
+                for (const prop of selectedProps) {
+                    // On force l'affichage bloc et la pleine largeur
+                    prop.style.display = 'block';
+                    prop.classList.add('w-100');
+                    contentContainer.appendChild(prop)
+                }
+            }
+        } else {
+            const selectedQuads = propertyOptions[index]
+            if (selectedQuads) {
+                const newTemplate = context.template.clone().merge(selectedQuads)
+                const instance = createPropertyInstance(newTemplate, undefined, true)
+                // Idem pour les propriétés simples
+                instance.style.display = 'block';
+                instance.classList.add('w-100');
+                contentContainer.appendChild(instance)
+            }
+        }
+    }
+
+    // 6. ÉVÉNEMENT CHANGE
+    select.addEventListener('change', (ev) => {
+        ev.stopPropagation()
+        updateContent()
+    })
+
+    // 7. INITIALISATION (Sélection par défaut immédiate)
+    if (selectOptions.length > 0) {
+        select.value = selectOptions[0].value
+        updateContent()
+    }
+
+    return wrapper
 }
 
 export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term, config: Config): Quad[] {
     if (value instanceof Literal) {
-        // value is a literal, try to resolve sh:or/sh:xone by matching on given value datatype
         const valueType = value.datatype
         for (const subject of subjects) {
             const options = config.store.getQuads(subject, null, null, null)
@@ -140,13 +137,11 @@ export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term
             }
         }
     } else {
-        // value is a NamedNode or BlankNode, try to resolve sh:or/sh:xone by matching rdf:type of given value with sh:node or sh:class in data graph or shapes graph
         const types = config.store.getObjects(value, RDF_PREDICATE_TYPE, null)
         for (const subject of subjects) {
             const options = config.store.getQuads(subject, null, null, null)
             for (const quad of options) {
                 if (types.length > 0) {
-                    // try to find matching sh:node in sh:or/sh:xone values
                     if (quad.predicate.value === `${PREFIX_SHACL}node`) {
                         for (const type of types) {
                             if (config.store.getQuads(quad.object, SHACL_PREDICATE_TARGET_CLASS, type, null).length > 0) {
@@ -154,7 +149,6 @@ export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term
                             }
                         }
                     }
-                    // try to find matching sh:class in sh:or/sh:xone values
                     if (quad.predicate.equals(SHACL_PREDICATE_CLASS)) {
                         for (const type of types) {
                             if (quad.object.equals(type)) {
@@ -163,7 +157,6 @@ export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term
                         }
                     }
                 } else if (quad.predicate.equals(SHACL_PREDICATE_NODE_KIND) && quad.object.equals(SHACL_OBJECT_IRI)) {
-                    // if sh:nodeKind is sh:IRI, just use that
                     return options
                 }
             }
@@ -180,7 +173,6 @@ export function resolveShaclOrConstraintOnNode(subjects: Term[], value: Term, co
         for (const propertySubject of propertySubjects) {
             const paths = config.store.getObjects(propertySubject, `${PREFIX_SHACL}path`, null)
             for (const path of paths) {
-                // this allows partial matches in data or shapes graph on properties
                 subjectMatches = config.store.countQuads(value, path, null, null) > 0
                 if (subjectMatches) {
                     break
