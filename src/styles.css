@@ -47,3 +47,70 @@ a, a:visited { color: inherit; }
 .ref-link { cursor: pointer; }
 .ref-link:hover { text-decoration: underline; }
 .node-id-display { color: #999; font-size: 11px; }
+
+/* Floating Action Button (FAB) */
+.fab-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.fab-button {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: #0d6efd; /* Bootstrap primary or your theme color */
+    color: white;
+    border: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.fab-button:hover {
+    transform: scale(1.1);
+    background-color: #0b5ed7;
+}
+
+/* The list of shapes popping up */
+.fab-options {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 0;
+    margin-bottom: 10px;
+    list-style: none;
+    display: none; /* Hidden by default */
+    min-width: 200px;
+    overflow: hidden;
+}
+
+.fab-options.open {
+    display: block;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.fab-options li {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    transition: background 0.1s;
+}
+
+.fab-options li:hover {
+    background-color: #f8f9fa;
+}
+
+.fab-options li:last-child {
+    border-bottom: none;
+}

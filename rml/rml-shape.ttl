@@ -14,54 +14,6 @@
 @prefix rml: <http://w3id.org/rml/> .
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 
-@prefix ui:  <http://example.org/rml-ui-shapes/> .
-@prefix ex:  <http://example.org/mapping/> .
-
-##############
-# Root node  # For UI purposes in the form
-##############
-
-ex:MappingShape
-  a sh:NodeShape ;
-  sh:targetClass ex:Mapping ;
-  sh:property [
-    sh:path ex:hasTriplesMap ;
-    sh:name "TriplesMap" ;
-    sh:node :RMLTriplesMapShape ;
-    sh:nodeKind sh:BlankNodeOrIRI ;
-  ] ;
-  sh:property [
-    sh:path ex:hasLogicalSource ;
-    sh:name "LogicalSource" ;
-    sh:node :RMLLogicalSourceShape ;
-    sh:nodeKind sh:BlankNodeOrIRI ;
-  ] ;
-  sh:property [
-    sh:path ex:hasSubjectMap ;
-    sh:name "SubjectMap" ;
-    sh:node :RMLSubjectMapShape ;
-    sh:nodeKind sh:BlankNodeOrIRI ;
-  ] ;
-  sh:property [
-    sh:path ex:hasPredicateObjectMap ;
-    sh:name "PredicateObjectMap" ;
-    sh:node :RMLPredicateObjectMapShape ;
-    sh:nodeKind sh:BlankNodeOrIRI ;
-  ] ;
-  sh:property [
-    sh:path ex:hasPredicateMap ;
-    sh:name "PredicateMap" ;
-    sh:node :RMLPredicateMapShape ;
-    sh:nodeKind sh:BlankNodeOrIRI ;
-  ] ;
-  sh:property [
-    sh:path ex:hasObjectMap ;
-    sh:name "ObjectMap" ;
-    sh:node :RMLObjectMapShape ;
-    sh:nodeKind sh:BlankNodeOrIRI ;
-  ]
-.
-
 ##############
 # TriplesMap #
 ##############
