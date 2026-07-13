@@ -29,7 +29,9 @@ export function createShaclGroup(groupSubject: string, config: Config): HTMLElem
         group = document.createElement('div')
         const header = document.createElement('h1')
         header.innerText = name
+        header.setAttribute('part', 'group-title')
         group.appendChild(header)
+        group.setAttribute('part', 'group')
     }
 
     group.dataset['subject'] = groupSubject

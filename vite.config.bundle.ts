@@ -4,15 +4,15 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   build: {
     emptyOutDir: false,
-    sourcemap: false,
+    
     rollupOptions: {
-      input: "src/form-bootstrap.ts",
-      preserveEntrySignatures: "allow-extension",
+      input: "src/bundle.ts",
+      preserveEntrySignatures: "exports-only",
       output: {
         dir: "dist",
-        entryFileNames: "form-bootstrap.js",
+        entryFileNames: "bundle.js",
         format: "es"
       },
     }
-  },
+  }
 })

@@ -57,4 +57,13 @@ export abstract class Plugin {
     }
 }
 
-export type ClassInstanceProvider = (clazz: string) => Promise<string>
+export type ClassInstanceProvider = (classes: Set<string>) => Promise<string>
+export type RdfUrlResolver = (url: string) => Promise<string>
+
+export type ResourceLinkProvider = {
+    lazyLoad: boolean
+    // returns map of shape id -> array of conforming resource ids
+    listConformingResources: (shapeIds: string[], property: ShaclPropertyTemplate) => Promise<Record<string, string[]>>
+    // returns array of { resource id -> resource RDF }
+    loadResources: (resourceIds: string[]) => Promise<{resourceId: string, resourceRDF: string}[]>
+}

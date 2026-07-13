@@ -1,8 +1,8 @@
 import { Literal, NamedNode } from 'n3'
 import { Term } from '@rdfjs/types'
-import { PREFIX_XSD, PREFIX_RDF } from './constants'
+import { PREFIX_XSD, RDF_OBJECT_LANG_STRING } from './constants'
 import { createInputListEntries, findInstancesOf, findLabel, isURL } from './util'
-import { ShaclPropertyTemplate } from './property-template'
+import { aggregatedMinCount, ShaclPropertyTemplate } from './property-template'
 import css from './styles.css?raw'
 
 export type Editor = HTMLElement & { value: string, type?: string, shaclDatatype?: NamedNode<string>, binaryData?: string, checked?: boolean, disabled?: boolean }
@@ -10,6 +10,7 @@ export type InputListEntry = { value: Term | string, label?: string, children?: 
 
 export abstract class Theme {
     stylesheet: CSSStyleSheet
+    dense: boolean = true
 
     constructor(styles?: string) {
         let aggregatedStyles = css
@@ -24,10 +25,14 @@ export abstract class Theme {
         // NOP
     }
 
+    setDense(dense: boolean) {
+        this.dense = dense
+    }
+
     createViewer(label: string, value: Term, template: ShaclPropertyTemplate): HTMLElement {
         const viewer = document.createElement('div')
         const labelElem = document.createElement('label')
-        labelElem.innerHTML = label + ':'
+        labelElem.textContent = `${label}:`
         if (template.description) {
             labelElem.setAttribute('title', template.description.value)
         }
@@ -68,7 +73,7 @@ export abstract class Theme {
         viewer.appendChild(valueElem)
         return viewer
     }
-    
+
     abstract createListEditor(label: string, value: Term | null, required: boolean, listEntries: InputListEntry[], template?: ShaclPropertyTemplate): HTMLElement
     abstract createLangStringEditor(label: string, value: Term | null, required: boolean, template: ShaclPropertyTemplate): HTMLElement
     abstract createTextEditor(label: string, value: Term | null, required: boolean, template: ShaclPropertyTemplate): HTMLElement
@@ -81,26 +86,26 @@ export abstract class Theme {
 
 export function fieldFactory(template: ShaclPropertyTemplate, value: Term | null, editable: boolean): HTMLElement {
     if (editable) {
-        const required = template.minCount !== undefined && template.minCount > 0
+        const required = aggregatedMinCount(template) > 0
         // if we have a class, find the instances and display them in a list
-        if (template.class) {
+        if (template.class && !template.hasValue) {
             return template.config.theme.createListEditor(template.label, value, required, findInstancesOf(template.class, template), template)
         }
 
         // check if it is a list
-        if (template.shaclIn) {
-            const list = template.config.lists[template.shaclIn]
+        if (template.in) {
+            const list = template.config.lists[template.in]
             if (list?.length) {
                 const listEntries = createInputListEntries(list, template.config.store, template.config.languages)
                 return template.config.theme.createListEditor(template.label, value, required, listEntries, template)
             }
             else {
-                console.error('list not found:', template.shaclIn, 'existing lists:', template.config.lists)
+                console.error('list not found:', template.in, 'existing lists:', template.config.lists)
             }
         }
 
         // check if it is a langstring
-        if  (template.datatype?.value === `${PREFIX_RDF}langString` || template.languageIn?.length) {
+        if (template.datatype?.equals(RDF_OBJECT_LANG_STRING) || template.languageIn?.length || (template.datatype === undefined && value instanceof Literal && value.language)) {
             return template.config.theme.createLangStringEditor(template.label, value, required, template)
         }
 
@@ -125,8 +130,7 @@ export function fieldFactory(template: ShaclPropertyTemplate, value: Term | null
         if (value) {
             return template.config.theme.createViewer(template.label, value, template)
         }
-        const fallback = document.createElement('div')
-        fallback.innerHTML = 'No value'
-        return fallback
+        // return empty div as fallback
+        return document.createElement('div')
     }
 }

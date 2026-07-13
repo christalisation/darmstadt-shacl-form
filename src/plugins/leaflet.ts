@@ -4,11 +4,11 @@ import leafletCss from 'leaflet/dist/leaflet.css?raw'
 import leafletFullscreenCss from 'leaflet.fullscreen/Control.FullScreen.css?raw'
 import 'leaflet.fullscreen/Control.FullScreen.js'
 import { Term } from '@rdfjs/types'
+import { Point, Polygon } from 'geojson'
 
 import { Plugin, PluginOptions } from '../plugin'
 import { Editor, fieldFactory } from '../theme'
 import { ShaclPropertyTemplate } from '../property-template'
-import { Geometry, geometryToWkt, wktToGeometry, worldBounds } from './map-util'
 
 const css = `
 #shaclMapDialog .closeButton { position: absolute; right: 0; top: 0; z-index: 1; padding: 6px 8px; cursor: pointer; border: 0; background-color: #FFFA; font-size: 24px; z-index: 1000; }
@@ -39,9 +39,21 @@ const markerIcon = L.icon({
     iconSize:     [25, 41], // size of the icon
     shadowSize:   [41, 41], // size of the shadow
     iconAnchor:   [12, 41], // point of the icon which will correspond to marker's location
-    shadowAnchor: [14, 41],  // the same for the shadow
+    shadowAnchor: [14, 41], // the same for the shadow
     popupAnchor:  [-3, -76] // point from which the popup should open relative to the iconAnchor
 })
+
+type EditableMap = L.Map & {
+    editTools: {
+        startPolygon(latLng?: L.LatLng, options?: L.PolylineOptions): L.Polygon
+        startMarker(latLng?: L.LatLng, options?: L.MarkerOptions): L.Marker
+    }
+}
+
+type ExtendedMapOptions = L.MapOptions & {
+    editable?: boolean
+    fullscreenControl?: boolean
+}
 
 export class LeafletPlugin extends Plugin {
     map: L.Map | undefined
@@ -63,19 +75,19 @@ export class LeafletPlugin extends Plugin {
             zoom: 5,
             maxBounds: worldBounds,
             center: defaultCenter
-        })
+        } as ExtendedMapOptions)
         this.map.attributionControl.addAttribution(attribution)
 
         const EditControl = L.Control.extend({ options: { position: 'topleft', callback: null, kind: '', html: '' },
             onAdd: function (map: L.Map) {
-                let container = L.DomUtil.create('div', 'leaflet-control leaflet-bar')
-                let link = L.DomUtil.create('a', '', container)
+                const container = L.DomUtil.create('div', 'leaflet-control leaflet-bar')
+                const link = L.DomUtil.create('a', '', container)
                 link.href = '#';
                 link.title = 'Create a new ' + this.options.kind;
                 link.innerHTML = this.options.html;
                 L.DomEvent.on(link, 'click', L.DomEvent.stop).on(link, 'click', () => {
-                    // @ts-ignore
-                    window.LAYER = this.options.callback.call(map.editTools)
+                    // @ts-expect-error allow to set property on window
+                    window.LAYER = this.options.callback.call((map as EditableMap).editTools)
                 }, this)
                 return container
             }
@@ -84,7 +96,7 @@ export class LeafletPlugin extends Plugin {
             options: {
                 callback: () => {
                     this.displayedShape?.remove()
-                    this.displayedShape = this.map?.editTools.startPolygon()
+                    this.displayedShape = (this.map as EditableMap | undefined)?.editTools.startPolygon()
                 },
                 kind: 'polygon',
                 html: '▰'
@@ -94,7 +106,7 @@ export class LeafletPlugin extends Plugin {
             options: {
                 callback: () => {
                     this.displayedShape?.remove()
-                    this.displayedShape = this.map?.editTools.startMarker(undefined, { icon: markerIcon })
+                    this.displayedShape = (this.map as EditableMap | undefined)?.editTools.startMarker(undefined, { icon: markerIcon })
                 },
                 kind: 'marker',
                 html: '•'
@@ -151,7 +163,7 @@ export class LeafletPlugin extends Plugin {
                 zoom: 5,
                 center: defaultCenter,
                 maxBounds: worldBounds
-            })
+            } as ExtendedMapOptions)
             map.attributionControl.addAttribution(attribution)
             this.drawAndZoomToGeometry(geometry, map)
         }
@@ -166,7 +178,7 @@ export class LeafletPlugin extends Plugin {
             map.setView(coords, 15, { animate: false })
         } else if (geometry?.type === 'Polygon') {
             const coords = geometry.coordinates[0].map((pos) => { return { lng: pos[0], lat: pos[1] }})
-            const polygon =  L.polygon(coords).addTo(map)
+            const polygon = L.polygon(coords).addTo(map)
             this.displayedShape = polygon
             map.fitBounds(polygon.getBounds(), { animate: false })
             setTimeout(() => {
@@ -192,5 +204,45 @@ export class LeafletPlugin extends Plugin {
         } else {
             this.createdGeometry = undefined
         }
+    }
+}
+
+export type Geometry = Point | Polygon
+
+export const worldBounds: [number, number][] = [[-90, -180], [90, 180]]
+
+export function wktToGeometry(wkt: string): Geometry | undefined {
+    const pointCoords = wkt.match(/^POINT\((.*)\)$/)
+    if (pointCoords?.length == 2) {
+        const xy = pointCoords[1].split(' ')
+        if (xy.length === 2) {
+            return { type: 'Point', coordinates: [parseFloat(xy[0]), parseFloat(xy[1])] }
+        }
+    }
+    const polygonCoords = wkt.match(/^POLYGON[(]{2}(.*)[)]{2}$/)
+    if (polygonCoords?.length == 2) {
+        const split = polygonCoords[1].split(',')
+        if (split.length > 2) {
+            const coords: number[][][] = []
+            const outer: number[][] = []
+            coords.push(outer)
+            for (const coord of split) {
+                const xy = coord.split(' ')
+                if (xy.length === 2) {
+                    outer.push([parseFloat(xy[0]), parseFloat(xy[1])])
+                }
+            }
+            return { type: 'Polygon', coordinates: coords }
+        }
+    }
+}
+
+export function geometryToWkt(geometry: Geometry): string {
+    if (geometry.type === 'Point') {
+        return `POINT(${geometry.coordinates.join(' ')})`
+    } else if (geometry.type === 'Polygon') {
+        return `POLYGON((${geometry.coordinates[0].map(item => { return item.join(' ') }).join(',')}))`
+    } else {
+        return ''
     }
 }

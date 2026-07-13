@@ -2,40 +2,37 @@ import { BlankNode, DataFactory, Literal, NamedNode, Quad, Store } from 'n3'
 import { Term } from '@rdfjs/types'
 import { ShaclNode } from './node'
 import { createShaclOrConstraint, resolveShaclOrConstraintOnProperty } from './constraints'
-import { findInstancesOf, focusFirstInputElement } from './util'
-import { Config } from './config'
-import { ShaclPropertyTemplate } from './property-template'
-import { Editor, fieldFactory, InputListEntry } from './theme'
+import { focusFirstInputElement } from './util'
+import { aggregatedMaxCount, aggregatedMinCount, cloneProperty, mergeQuads, ShaclPropertyTemplate } from './property-template'
+import { Editor, fieldFactory } from './theme'
 import { toRDF } from './serialize'
 import { findPlugin } from './plugin'
-import { DATA_GRAPH, RDF_PREDICATE_TYPE, SHACL_PREDICATE_TARGET_CLASS } from './constants'
-import { RokitButton, RokitCollapsible, RokitSelect } from '@ro-kit/ui-widgets'
+import { DATA_GRAPH } from './constants'
+import { RokitButton, RokitCollapsible } from '@ro-kit/ui-widgets'
+import { createLinker } from './linker'
+
+const ADD_BUTTON_SELECTOR = ':scope > .add-button-wrapper, :scope > .collapsible > .add-button-wrapper'
+const PROPERTY_INSTANCE_SELECTOR = ':scope > .property-instance, :scope > .shacl-or-constraint, :scope > shacl-node, :scope > .collapsible > .property-instance'
 
 export class ShaclProperty extends HTMLElement {
     template: ShaclPropertyTemplate
-    addButton: RokitSelect | undefined
     container: HTMLElement
+    parent: ShaclNode
 
-    constructor(shaclSubject: BlankNode | NamedNode, parent: ShaclNode, config: Config, valueSubject?: NamedNode | BlankNode) {
+    constructor(template: ShaclPropertyTemplate, parent: ShaclNode) {
         super()
-        this.template = new ShaclPropertyTemplate(config.store.getQuads(shaclSubject, null, null, null), parent, config)
+        this.template = template
+        this.parent = parent
         this.container = this
-        if (this.template.extendedShapes.length && this.template.config.attributes.collapse !== null && (!this.template.maxCount || this.template.maxCount > 1)) {
-            // Use standard HTML <details> instead of RokitCollapsible
-            const collapsible = document.createElement('details')
-            collapsible.classList.add('collapsible', 'mb-3', 'card', 'p-3') // Bootstrap card styling
-
-            const summary = document.createElement('summary')
-            summary.innerText = this.template.label
-            summary.classList.add('h5', 'mb-0', 'cursor-pointer') // Style of the title
-
-            collapsible.appendChild(summary)
-
-            if (this.template.config.attributes.collapse === 'open') {
-                (collapsible as HTMLDetailsElement).open = true
-            }
-            this.appendChild(collapsible)
+        this.setAttribute('part', 'property')
+        if (this.template.nodeShapes.size && this.template.config.attributes.collapse !== null && (this.template.maxCount === undefined || this.template.maxCount > 1)) {
+            const collapsible = new RokitCollapsible()
+            collapsible.classList.add('collapsible', 'shacl-group');
+            collapsible.open = template.config.attributes.collapse === 'open';
+            collapsible.label = this.template.label;
+            collapsible.setAttribute('part', 'collapsible')
             this.container = collapsible
+            this.appendChild(this.container)
         }
 
         if (this.template.order !== undefined) {
@@ -44,116 +41,132 @@ export class ShaclProperty extends HTMLElement {
         if (this.template.cssClass) {
             this.classList.add(this.template.cssClass)
         }
-        if (config.editMode && !parent.linked) {
-            this.addButton = this.createAddButton()
-            this.container.appendChild(this.addButton)
+        if (template.config.editMode && !parent.linked) {
+            this.addEventListener('change', async () => { await this.updateControls() })
         }
+    }
 
-        // bind existing values
+    // binds data graph triples to form fields and (if present) creates missing sh:hasValue form field
+    async bindValues(valueSubject: NamedNode | BlankNode | undefined, multiValuedPath?: boolean) {
         if (this.template.path) {
-            let values: Quad[] = []
-            if (valueSubject) {
-                if (parent.linked) {
-                    // for linked resource, get values in all graphs
-                    values = config.store.getQuads(valueSubject, this.template.path, null, null)
-                } else {
-                    // get values only from data graph
-                    values = config.store.getQuads(valueSubject, this.template.path, null, DATA_GRAPH)
-                }
-            }
             let valuesContainHasValue = false
-            for (const value of values) {
-                // ignore values that do not conform to this property.
-                // this might be the case when there are multiple properties with the same sh:path in a NodeShape.
-                if (this.isValueValid(value.object)) {
-                    this.addPropertyInstance(value.object)
+            if (valueSubject) {
+                // for linked resource, get values in all graphs, otherwise only from data graph
+                let values = this.template.config.store.getQuads(valueSubject, this.template.path, null, this.parent.linked ? null : DATA_GRAPH)
+                if (multiValuedPath) {
+                    // ignore values that do not conform to this property. this might be the case when there are multiple properties with the same sh:path in a NodeShape (i.e. sh:qualifiedValueShape).
+                    values = await this.filterValidValues(values, valueSubject)
+                }
+                for (const value of values) {
+                    // remove quad from data graph to prevent double binding if value is not linked
+                    if (!this.parent.linked) {
+                        this.template.config.store.delete(value)
+                    }
+                    // if value is not in data graph or has loaded via ResourceLinkProvider, then it is a linked resource
+                    await this.addPropertyInstance(value.object, !DATA_GRAPH.equals(value.graph) || this.template.config.providedResources[value.object.value] !== undefined, this.template.config.providedResources[value.object.value] !== undefined)
                     if (this.template.hasValue && value.object.equals(this.template.hasValue)) {
                         valuesContainHasValue = true
                     }
                 }
             }
-            if (config.editMode && this.template.hasValue && !valuesContainHasValue && !parent.linked) {
-                // sh:hasValue is defined in shapes graph, but does not exist in data graph, so force it
-                this.addPropertyInstance(this.template.hasValue)
-            }
-        }
-
-        if (config.editMode && !parent.linked) {
-            this.addEventListener('change', () => { this.updateControls() })
-            this.updateControls()
-        }
-
-        if (this.container instanceof RokitCollapsible) {
-            // in view mode, show collapsible only when we have something to show
-            if ((config.editMode && !parent.linked) || this.container.childElementCount > 0) {
-                this.appendChild(this.container)
+            if (this.template.config.editMode) {
+                if (this.template.hasValue && !valuesContainHasValue && !this.parent.linked) {
+                    // sh:hasValue is defined in shapes graph, but does not exist in data graph, so force it
+                    await this.addPropertyInstance(this.template.hasValue)
+                }
             }
         }
     }
 
-    addPropertyInstance(value?: Term): HTMLElement {
-        let instance: HTMLElement
-        if (this.template.shaclOr?.length || this.template.shaclXone?.length) {
-            const options = this.template.shaclOr?.length ? this.template.shaclOr : this.template.shaclXone as Term[]
+    async addPropertyInstance(value?: Term, linked?: boolean, forceRemovable = false): Promise<HTMLElement | undefined> {
+        let instance: HTMLElement | undefined
+        if (this.template.or?.length || this.template.xone?.length) {
+            const options = this.template.or?.length ? this.template.or : this.template.xone as Term[]
             let resolved = false
             if (value) {
                 const resolvedOptions = resolveShaclOrConstraintOnProperty(options, value, this.template.config)
                 if (resolvedOptions.length) {
-                    instance = createPropertyInstance(this.template.clone().merge(resolvedOptions), value, true)
+                    const merged = mergeQuads(cloneProperty(this.template), resolvedOptions)
+                    instance = await createPropertyInstance(merged, value, !this.parent.linked, this.parent.linked, this.parent)
                     resolved = true
                 }
-            } 
-            if (!resolved) {
+            }
+            // prevent creating constraint chooser in view mode
+            if (!resolved && this.template.config.editMode) {
                 instance = createShaclOrConstraint(options, this, this.template.config)
-                appendRemoveButton(instance, '')
+                appendRemoveButton(instance, '', this.template.config.theme.dense, this.template.config.hierarchyColorsStyleSheet !== undefined)
             }
         } else {
-            // check if value is part of the data graph. if not, create a linked resource
-            let linked = false
-            if (value && !(value instanceof Literal)) {
-                const clazz = this.getRdfClassToLinkOrCreate()
-                if (clazz && this.template.config.store.countQuads(value, RDF_PREDICATE_TYPE, clazz, DATA_GRAPH) === 0) {
-                    // value is not in data graph, so must be a link in the shapes graph
-                    linked = true
-                }
-            }
-            instance = createPropertyInstance(this.template, value, undefined, linked || this.template.parent.linked)
+            instance = await createPropertyInstance(this.template, value, forceRemovable, linked || this.parent.linked, this.parent)
         }
-        if (this.addButton) {
-            this.container.insertBefore(instance!, this.addButton)
-        } else {
-            this.container.appendChild(instance!)
+        if (instance) {
+            this.container.insertBefore(instance, this.querySelector(ADD_BUTTON_SELECTOR))
         }
-        return instance!
+        return instance
     }
 
-    updateControls() {
-        let instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > shacl-node").length
-        if (instanceCount === 0 && (!this.template.extendedShapes.length || (this.template.minCount !== undefined && this.template.minCount > 0))) {
-            this.addPropertyInstance()
-            instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > shacl-node").length
+    async updateControls() {
+        if (this.template.config.editMode && !this.parent.linked && !this.querySelector(ADD_BUTTON_SELECTOR)) {
+            this.container.appendChild(await this.createAddControls())
         }
-        let mayRemove: boolean
-        if (this.template.minCount !== undefined) {
-            mayRemove = instanceCount > this.template.minCount
-        } else {
-            mayRemove = this.template.extendedShapes.length > 0 || instanceCount > 1
+        const minCount = aggregatedMinCount(this.template)
+        const literal = this.template.nodeShapes.size === 0
+        const noLinkableResources = this.querySelector(':scope > .add-button-wrapper > .link-button, :scope > .collapsible > .add-button-wrapper > .link-button') === null
+        const mayAutocreateRequiredNode = literal || !this.hasRecursiveNodeShape()
+        let instanceCount = this.instanceCount()
+        if (instanceCount === 0 && mayAutocreateRequiredNode && (literal || (noLinkableResources && minCount > 0))) {
+            await this.addPropertyInstance()
+            instanceCount = 1
+        }
+        if (!literal) {
+            this.querySelector(ADD_BUTTON_SELECTOR)?.classList.toggle('required', instanceCount < minCount)
         }
 
-        const mayAdd = this.template.maxCount === undefined || instanceCount < this.template.maxCount
+        let mayRemove: boolean
+        if (minCount > 0) {
+            mayRemove = instanceCount > minCount
+        } else {
+            mayRemove = !literal || instanceCount > 1
+        }
+
+        const mayAdd = instanceCount < aggregatedMaxCount(this.template)
         this.classList.toggle('may-remove', mayRemove)
         this.classList.toggle('may-add', mayAdd)
     }
 
+    instanceCount() {
+        return this.querySelectorAll(PROPERTY_INSTANCE_SELECTOR).length
+    }
+
+    hasRecursiveNodeShape() {
+        const ancestorShapeIds = new Set<string>()
+        this.parent.ancestorShapeIds.forEach(id => ancestorShapeIds.add(id))
+        ancestorShapeIds.add(this.parent.template.id.value)
+        for (const shape of this.template.nodeShapes) {
+            if (ancestorShapeIds.has(shape.id.value)) {
+                return true
+            }
+        }
+        return false
+    }
+
     toRDF(graph: Store, subject: NamedNode | BlankNode) {
+        const pathNode = DataFactory.namedNode(this.template.path!)
         for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .collapsible > .property-instance')) {
-            const pathNode = DataFactory.namedNode((instance as HTMLElement).dataset.path!)
             if (instance.firstChild instanceof ShaclNode) {
                 const shapeSubject = instance.firstChild.toRDF(graph)
                 graph.addQuad(subject, pathNode, shapeSubject, this.template.config.valuesGraphId)
             } else {
-                for (const editor of instance.querySelectorAll<Editor>(':scope > .editor')) {
-                    const value = toRDF(editor)
+                if (this.template.config.editMode) {
+                    for (const editor of instance.querySelectorAll<Editor>(':scope > .editor')) {
+                        const value = toRDF(editor)
+                        if (value) {
+                            graph.addQuad(subject, pathNode, value, this.template.config.valuesGraphId)
+                        }
+                    }
+                }
+                else {
+                    const value = toRDF(instance as Editor)
                     if (value) {
                         graph.addQuad(subject, pathNode, value, this.template.config.valuesGraphId)
                     }
@@ -162,115 +175,74 @@ export class ShaclProperty extends HTMLElement {
         }
     }
 
-    getRdfClassToLinkOrCreate() {
-        if (this.template.class && this.template.node) {
-            return this.template.class
-        }
-        else {
-            for (const node of this.template.extendedShapes) {
-                // if this property has no sh:class but sh:node, then use the node shape's sh:targetClass to find protiential instances
-                const targetClasses = this.template.config.store.getObjects(node, SHACL_PREDICATE_TARGET_CLASS, null)
-                if (targetClasses.length > 0) {
-                    return targetClasses[0] as NamedNode
-                }
+    async filterValidValues(values: Quad[], valueSubject: NamedNode | BlankNode) {
+        // if this property is a sh:qualifiedValueShape, then filter values by validating against this shape
+        let nodeShapeToValidate = this.template.id
+        let dataSubjectsToValidate = [valueSubject]
+        if (this.template.qualifiedValueShape) {
+            nodeShapeToValidate = this.template.qualifiedValueShape.id
+            dataSubjectsToValidate = []
+            for (const value of values) {
+                dataSubjectsToValidate.push(value.object as NamedNode)
             }
         }
-        return undefined
-    }
-
-    isValueValid(value: Term) {
-        if (!this.template.extendedShapes.length) {
-            // property has no node shape, so value is valid
-            return true
-        }
-        // property has node shape(s), so check if value conforms to any targetClass
-        for (const node of this.template.extendedShapes) {
-            const targetClasses = this.template.config.store.getObjects(node, SHACL_PREDICATE_TARGET_CLASS, null)
-            for (const targetClass of targetClasses) {
-                if (this.template.config.store.countQuads(value, RDF_PREDICATE_TYPE, targetClass, null) > 0) {
-                    return true
-                }
+        const report = await this.template.config.validator.validate({ dataset: this.template.config.store, terms: dataSubjectsToValidate }, [{ terms: [nodeShapeToValidate] }])
+        const invalidTerms = new Set<string>()
+        for (const result of report.results) {
+            const reportObject = this.template.qualifiedValueShape ? result.focusNode : result.value
+            if (reportObject?.ptrs?.length) {
+                invalidTerms.add(reportObject.ptrs[0]._term.id)
             }
         }
-        return false
+        return values.filter(value => !invalidTerms.has(value.object.id))
     }
 
-    createAddButton() {
-        const addButton = new RokitSelect()
-        addButton.dense = true
-        addButton.label = "+ " + this.template.label
+    async createAddControls() {
+        const wrapper = document.createElement('div')
+        wrapper.classList.add('add-button-wrapper')
+        wrapper.setAttribute('part', 'add-controls')
+
+        const linker = await createLinker(this)
+        if (linker) {
+            wrapper.appendChild(linker)
+        }
+
+        const addButton = this.template.config.theme.createButton(this.template.label, false)
         addButton.title = 'Add ' + this.template.label
-        addButton.autoGrowLabelWidth = true
         addButton.classList.add('add-button')
-
-        // load potential value candidates for linking
-        let instances: InputListEntry[] = []
-        let clazz = this.getRdfClassToLinkOrCreate()
-        if (clazz) {
-            instances = findInstancesOf(clazz, this.template)
-        }
-        if (instances.length === 0) {
-            // no class instances found, so create an add button that creates a new instance
-            addButton.emptyMessage = ''
-            addButton.inputMinWidth = 0
-            addButton.addEventListener('click', _ => {
-                addButton.blur()
-                const instance = this.addPropertyInstance()
+        addButton.setAttribute('text', '')
+        const existingPart = addButton.getAttribute('part')
+        addButton.setAttribute('part', `${existingPart ? existingPart + ' ' : ''}add-button`)
+        addButton.addEventListener('click', async () => {
+            const instance = await this.addPropertyInstance()
+            if (instance) {
                 instance.classList.add('fadeIn')
-                this.updateControls()
+                await this.updateControls()
                 setTimeout(() => {
                     focusFirstInputElement(instance)
                     instance.classList.remove('fadeIn')
                 }, 200)
-            })
-        } else {
-            // some instances found, so create an add button that can create a new instance or link existing ones
-            const ul = document.createElement('ul')
-            const newItem = document.createElement('li')
-            newItem.innerHTML = '&#xFF0B; Create new ' + this.template.label + '...'
-            newItem.dataset.value = 'new'
-            newItem.classList.add('large')
-            ul.appendChild(newItem)
-            const divider = document.createElement('li')
-            divider.classList.add('divider')
-            ul.appendChild(divider)
-            const header = document.createElement('li')
-            header.classList.add('header')
-            header.innerText = 'Or link existing:'
-            ul.appendChild(header)
-            for (const instance of instances) {
-                const li = document.createElement('li')
-                const itemValue = (typeof instance.value === 'string') ? instance.value : instance.value.value
-                li.innerText = instance.label ? instance.label : itemValue
-                li.dataset.value = JSON.stringify(instance.value)
-                ul.appendChild(li)
             }
-            addButton.appendChild(ul)
-            addButton.collapsibleWidth = '250px'
-            addButton.collapsibleOrientationLeft = ''
-            addButton.addEventListener('change', () => {
-                if (addButton.value === 'new') {
-                    // user wants to create a new instance
-                    this.addPropertyInstance()
-                } else {
-                    // user wants to link existing instance
-                    const value = JSON.parse(addButton.value) as Term
-                    this.container.insertBefore(createPropertyInstance(this.template, value, true, true), addButton)
-                }
-                addButton.value = ''
-            })
-        }
-        return addButton
+        })
+        wrapper.appendChild(addButton)
+        return wrapper
     }
 }
 
-export function createPropertyInstance(template: ShaclPropertyTemplate, value?: Term, forceRemovable = false, linked = false): HTMLElement {
+export async function createPropertyInstance(template: ShaclPropertyTemplate, value?: Term, forceRemovable = false, linked = false, parentNode?: ShaclNode): Promise<HTMLElement> {
     let instance: HTMLElement
-    if (template.extendedShapes.length) {
+    if (template.nodeShapes.size) {
         instance = document.createElement('div')
         instance.classList.add('property-instance')
-        for (const node of template.extendedShapes) {
-            instance.appendChild(new ShaclNode(node, template.config, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked))
+        instance.setAttribute('part', 'property-instance')
+        const childAncestorShapeIds = new Set(parentNode?.ancestorShapeIds ?? [])
+        if (parentNode) {
+            childAncestorShapeIds.add(parentNode.template.id.value)
+        }
+        for (const shape of template.nodeShapes) {
+            const node = new ShaclNode(shape, value as NamedNode | BlankNode | undefined, template.nodeKind, template.label, linked, childAncestorShapeIds)
+            instance.appendChild(node)
+            await node.ready
         }
     } else {
         const plugin = findPlugin(template.path, template.datatype?.value)
@@ -283,25 +255,51 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
         } else {
             instance = fieldFactory(template, value || null, template.config.editMode && !linked)
         }
-        instance.classList.add('property-instance')
+        // count as property-instance only if not empty
+        if (instance.childNodes.length > 0) {
+            instance.classList.add('property-instance')
+            instance.setAttribute('part', 'property-instance')
+        }
         if (linked) {
             instance.classList.add('linked')
         }
     }
-    if (template.config.editMode) {
-        appendRemoveButton(instance, template.label, forceRemovable)
+    if (template.config.editMode && (!linked || forceRemovable)) {
+        appendRemoveButton(instance, template.label, template.config.theme.dense, template.config.hierarchyColorsStyleSheet !== undefined, forceRemovable)
+    } else if (template.config.hierarchyColorsStyleSheet !== undefined) {
+        // add remove button wrapper only (for coloring)
+        instance.appendChild(createRemoveButtonWrapper(true))
     }
+
+    if (value && !template.config.editMode) {
+        // in view mode, still enable RDF serialization of the form
+        if (value instanceof Literal) {
+            instance.dataset.value = value.value
+            if (value.language.length > 0) {
+                instance.dataset.lang = value.language
+            } else {
+                (instance as Editor).shaclDatatype = value.datatype
+            }
+        } else {
+            // assuming NamedNodes here
+            instance.dataset.value = '<' + value.value + '>'
+        }
+    }
+
     instance.dataset.path = template.path
     return instance
 }
 
-function appendRemoveButton(instance: HTMLElement, label: string, forceRemovable = false) {
+function appendRemoveButton(instance: HTMLElement, label: string, dense: boolean, colorize: boolean, forceRemovable = false) {
+    const wrapper = createRemoveButtonWrapper(colorize)
     const removeButton = new RokitButton()
     removeButton.classList.add('remove-button', 'clear')
     removeButton.title = 'Remove ' + label
-    removeButton.dense = true
+    removeButton.dense = dense
     removeButton.icon = true
-    removeButton.addEventListener('click', _ => {
+    const existingPart = removeButton.getAttribute('part')
+    removeButton.setAttribute('part', `${existingPart ? existingPart + ' ' : ''}remove-button`)
+    removeButton.addEventListener('click', () => {
         instance.classList.remove('fadeIn')
         instance.classList.add('fadeOut')
         setTimeout(() => {
@@ -313,7 +311,18 @@ function appendRemoveButton(instance: HTMLElement, label: string, forceRemovable
     if (forceRemovable) {
         removeButton.classList.add('persistent')
     }
-    instance.appendChild(removeButton)
+    wrapper.appendChild(removeButton)
+    instance.appendChild(wrapper)
+}
+
+function createRemoveButtonWrapper(colorize: boolean) {
+    const wrapper = document.createElement('div')
+    wrapper.className = 'remove-button-wrapper'
+    wrapper.setAttribute('part', 'remove-controls')
+    if (colorize) {
+        wrapper.classList.add('colorize')
+    }
+    return wrapper
 }
 
 window.customElements.define('shacl-property', ShaclProperty)
