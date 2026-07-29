@@ -118,6 +118,27 @@ export class ShaclNode extends HTMLElement {
                 header.innerText = label
                 this.prepend(header)
             }
+
+            if (this.config.editMode && !this.parent && !this.linked) {
+                const actions = document.createElement('div')
+                actions.classList.add('node-actions')
+
+                const saveButton = document.createElement('button')
+                saveButton.type = 'button'
+                saveButton.classList.add('node-save-button')
+                saveButton.innerText = 'Add node'
+                saveButton.title = 'Add node to created nodes'
+                saveButton.addEventListener('click', () => {
+                    this.dispatchEvent(new CustomEvent('save-node', {
+                        bubbles: true,
+                        composed: true,
+                        detail: { node: this }
+                    }))
+                })
+
+                actions.appendChild(saveButton)
+                this.appendChild(actions)
+            }
         }
     }
 

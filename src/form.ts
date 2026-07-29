@@ -2,11 +2,10 @@ import { ShaclNode } from './node'
 import { Config } from './config'
 import { ClassInstanceProvider, Plugin, listPlugins, registerPlugin } from './plugin'
 import { Store, NamedNode, DataFactory, Quad, BlankNode } from 'n3'
-import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_TARGET_CLASS, SHAPES_GRAPH } from './constants'
-import { Editor, Theme } from './theme'
+import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_TARGET_CLASS, SHAPES_GRAPH } from './constants'
+import { Theme } from './theme'
 import { serialize } from './serialize'
 import { Validator } from 'shacl-engine'
-import { RokitCollapsible } from '@ro-kit/ui-widgets'
 import { findLabel } from './util' // Import utility to find labels
 
 export class ShaclForm extends HTMLElement {
@@ -16,6 +15,8 @@ export class ShaclForm extends HTMLElement {
     // shape: ShaclNode | null = null
     // REPLACED WITH dynamic query in methods
     form: HTMLFormElement
+    private historyContainer: HTMLDetailsElement | undefined
+    private savedNodes = new Map<string, HTMLDetailsElement>()
     initDebounceTimeout: ReturnType<typeof setTimeout> | undefined
 
     constructor(theme: Theme) {
@@ -23,6 +24,12 @@ export class ShaclForm extends HTMLElement {
         this.attachShadow({ mode: 'open' })
         this.form = document.createElement('form')
         this.config = new Config(theme, this.form)
+        this.form.addEventListener('save-node', ev => {
+            const detail = (ev as CustomEvent<{ node: ShaclNode }>).detail
+            if (detail?.node) {
+                this.saveNodeToHistory(detail.node)
+            }
+        })
         this.form.addEventListener('change', ev => {
             ev.stopPropagation()
             if (this.config.editMode) {
@@ -55,6 +62,8 @@ export class ShaclForm extends HTMLElement {
                 this.form.replaceChildren()
                 // reset rendered node references
                 this.config.renderedNodes.clear()
+                this.savedNodes.clear()
+                this.historyContainer = undefined
                 // find root shacl shape
 
                 // Apply styles
@@ -107,6 +116,7 @@ export class ShaclForm extends HTMLElement {
                 // 2. Add Floating Action Button for adding new nodes (Only in Edit Mode)
                 if (this.config.editMode) {
                     this.createFloatingActionButton(availableShapes)
+                    this.ensureHistoryPanel()
                 }
 
                 // If nothing loaded and we have a forced single root shape attribute, load it empty
@@ -137,9 +147,35 @@ export class ShaclForm extends HTMLElement {
 
     // New helper to add a node to the form
     private addShaclNode(shapeSubject: NamedNode, dataSubject?: NamedNode | BlankNode) {
+        const { wrapper } = this.createNodeWrapper(shapeSubject, dataSubject, dataSubject !== undefined)
+        this.form.appendChild(wrapper)
+    }
+
+    private createNodeWrapper(shapeSubject: NamedNode, dataSubject?: NamedNode | BlankNode, open = dataSubject !== undefined) {
         const node = new ShaclNode(shapeSubject, this.config, dataSubject)
-        // Append to form or a specific content container if you create one
-        this.form.appendChild(node)
+        const wrapper = document.createElement('details')
+        wrapper.classList.add('node-wrapper')
+        wrapper.open = open
+
+        const title = document.createElement('summary')
+        const label = findLabel(this.config.store.getQuads(shapeSubject, null, null, SHAPES_GRAPH), this.config.languages) || shapeSubject.value
+        title.innerText = label
+        wrapper.appendChild(title)
+
+        wrapper.appendChild(node)
+        return { wrapper, node, title, shapeSubject }
+    }
+
+    private replaceNodeInPlace(node: ShaclNode) {
+        const wrapper = node.closest('.node-wrapper') as HTMLDetailsElement | null
+        if (!wrapper) {
+            return
+        }
+
+        const title = wrapper.querySelector(':scope > summary') as HTMLElement | null
+        const freshNode = new ShaclNode(node.shaclSubject, this.config, undefined)
+        wrapper.replaceChildren(title || document.createElement('summary'), freshNode)
+        wrapper.open = false
     }
 
     // New helper to scan all NodeShapes
@@ -177,11 +213,6 @@ export class ShaclForm extends HTMLElement {
         optionsList.classList.add('fab-options')
 
         for (const shape of shapes) {
-            // Filter shapes: We probably only want "Root" shapes (those that define a class)
-            // You might want to filter out auxiliary shapes here
-            const targetClass = this.config.store.getObjects(shape, SHACL_PREDICATE_TARGET_CLASS, SHAPES_GRAPH)
-            if (targetClass.length === 0) continue; // Skip shapes that are likely just mixins or property groups
-
             const li = document.createElement('li')
             // Get a nice label
             const label = findLabel(this.config.store.getQuads(shape, null, null, SHAPES_GRAPH), this.config.languages) || shape.value
@@ -210,9 +241,100 @@ export class ShaclForm extends HTMLElement {
         this.form.appendChild(container)
     }
 
-    public serialize(format = 'text/turtle', graph = this.toRDF()): string {
+    private ensureHistoryPanel() {
+        if (this.historyContainer) {
+            return this.historyContainer
+        }
+
+        const panel = document.createElement('details')
+        panel.classList.add('node-history-panel')
+        panel.open = false
+
+        const title = document.createElement('summary')
+        title.innerText = 'Created nodes'
+        panel.appendChild(title)
+
+        const content = document.createElement('div')
+        content.classList.add('node-history-content')
+
+        const emptyState = document.createElement('p')
+        emptyState.classList.add('node-history-empty')
+        emptyState.innerText = 'No saved node yet.'
+        content.appendChild(emptyState)
+
+        const list = document.createElement('div')
+        list.classList.add('node-history-list')
+        content.appendChild(list)
+
+        panel.appendChild(content)
+
+        this.historyContainer = panel
+        this.form.appendChild(panel)
+        return panel
+    }
+
+    private saveNodeToHistory(node: ShaclNode) {
+        const panel = this.ensureHistoryPanel()
+        const list = panel.querySelector(':scope .node-history-list') as HTMLDivElement
+        const emptyState = panel.querySelector(':scope .node-history-empty') as HTMLParagraphElement
+        const title = panel.querySelector(':scope > summary') as HTMLElement
+
+        const key = node.dataset.nodeId || node.nodeId.id
+        const label = findLabel(this.config.store.getQuads(node.shaclSubject, null, null, SHAPES_GRAPH), this.config.languages) || node.shaclSubject.value
+        let entry = this.savedNodes.get(key)
+        if (!entry) {
+            entry = document.createElement('details')
+            entry.classList.add('saved-node-entry')
+            this.savedNodes.set(key, entry)
+            list.appendChild(entry)
+        }
+
+        const store = new Store()
+        node.toRDF(store)
+        const rdf = this.serialize('text/turtle', store, false)
+        entry.replaceChildren()
+
+        const summary = document.createElement('summary')
+        summary.innerText = `${label} · ${key}`
+        entry.appendChild(summary)
+
+        const meta = document.createElement('div')
+        meta.classList.add('saved-node-meta')
+        meta.innerText = `Node shape: ${node.shaclSubject.value}`
+        entry.appendChild(meta)
+
+        const actions = document.createElement('div')
+        actions.classList.add('saved-node-actions')
+
+        const focusButton = document.createElement('button')
+        focusButton.type = 'button'
+        focusButton.classList.add('saved-node-focus')
+        focusButton.innerText = 'Modify'
+        focusButton.title = 'Modify this created node'
+        focusButton.addEventListener('click', () => node.closest('.node-wrapper')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+        actions.appendChild(focusButton)
+
+        entry.appendChild(actions)
+
+        const pre = document.createElement('pre')
+        pre.classList.add('saved-node-rdf')
+        pre.innerText = rdf || '# empty node'
+        entry.appendChild(pre)
+
+        if (emptyState) {
+            emptyState.style.display = 'none'
+        }
+
+        if (title) {
+            title.innerText = `Created nodes (${this.savedNodes.size})`
+        }
+
+        this.replaceNodeInPlace(node)
+    }
+
+    public serialize(format = 'text/turtle', graph = this.toRDF(), includePrefixes = true): string {
         const quads = graph.getQuads(null, null, null, null)
-        return serialize(quads, format, this.config.prefixes)
+        return serialize(quads, format, includePrefixes ? this.config.prefixes : undefined)
     }
 
     public toRDF(graph = new Store()): Store {
@@ -227,6 +349,7 @@ export class ShaclForm extends HTMLElement {
 
     /* Returns the validation report */
     public async validate(ignoreEmptyValues = false): Promise<any> {
+        void ignoreEmptyValues
         // Clean up previous errors
         for (const elem of this.form.querySelectorAll(':scope .validation-error')) {
             elem.remove()
@@ -257,7 +380,7 @@ export class ShaclForm extends HTMLElement {
                  // ... existing logic to highlight errors ...
                  if (result.focusNode?.ptrs?.length) {
                     for (const ptr of result.focusNode.ptrs) {
-                        const focusNode = ptr._term
+                        void ptr
                         // ... same logic as original file ...
                          if (result.path?.length) {
                              // ...
@@ -289,94 +412,4 @@ export class ShaclForm extends HTMLElement {
         this.initialize()
     }
 
-    private createValidationErrorDisplay(validatonResult?: any, clazz?: string): HTMLElement {
-        const messageElement = document.createElement('span')
-        messageElement.classList.add('validation-error')
-        if (clazz) {
-            messageElement.classList.add(clazz)
-        }
-        if (validatonResult) {
-            if (validatonResult.message?.length > 0) {
-                for (const message of validatonResult.message) {
-                    messageElement.title += message.value + '\n'
-                }
-            } else {
-                messageElement.title = validatonResult.sourceConstraintComponent?.value
-            }
-        }
-        return messageElement
-    }
-
-    private findRootShaclShapeSubject(): NamedNode | undefined {
-        let rootShapeShaclSubject: NamedNode | null = null
-        // if data-shape-subject is set, use that
-        if (this.config.attributes.shapeSubject) {
-            rootShapeShaclSubject = DataFactory.namedNode(this.config.attributes.shapeSubject)
-            if (this.config.store.getQuads(rootShapeShaclSubject, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null).length === 0) {
-                console.warn(`shapes graph does not contain requested root shape ${this.config.attributes.shapeSubject}`)
-                return
-            }
-        }
-        else {
-            // if we have a data graph and data-values-subject is set, use shape of that
-            if (this.config.attributes.valuesSubject && this.config.store.countQuads(null, null, null, DATA_GRAPH) > 0) {
-                const rootValueSubject = DataFactory.namedNode(this.config.attributes.valuesSubject)
-                const rootValueSubjectTypes = [
-                    ...this.config.store.getQuads(rootValueSubject, RDF_PREDICATE_TYPE, null, DATA_GRAPH),
-                    ...this.config.store.getQuads(rootValueSubject, DCTERMS_PREDICATE_CONFORMS_TO, null, DATA_GRAPH)
-                ]
-                if (rootValueSubjectTypes.length === 0) {
-                    console.warn(`value subject '${this.config.attributes.valuesSubject}' has neither ${RDF_PREDICATE_TYPE.id} nor ${DCTERMS_PREDICATE_CONFORMS_TO.id} statement`)
-                    return
-                }
-                // if type/conformsTo refers to a node shape, prioritize that over targetClass resolution
-                for (const rootValueSubjectType of rootValueSubjectTypes) {
-                    if (this.config.store.getQuads(rootValueSubjectType.object as NamedNode, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null).length > 0) {
-                        rootShapeShaclSubject = rootValueSubjectType.object as NamedNode
-                        break
-                    }
-                }
-                if (!rootShapeShaclSubject) {
-                    const rootShapes = this.config.store.getQuads(null, SHACL_PREDICATE_TARGET_CLASS, rootValueSubjectTypes[0].object, null)
-                    if (rootShapes.length === 0) {
-                        console.error(`value subject '${this.config.attributes.valuesSubject}' has no shacl shape definition in the shapes graph`)
-                        return
-                    }
-                    if (rootShapes.length > 1) {
-                        console.warn(`value subject '${this.config.attributes.valuesSubject}' has multiple shacl shape definitions in the shapes graph, choosing the first found (${rootShapes[0].subject})`)
-                    }
-                    if (this.config.store.getQuads(rootShapes[0].subject, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null).length === 0) {
-                        console.error(`value subject '${this.config.attributes.valuesSubject}' references a shape which is not a NodeShape (${rootShapes[0].subject})`)
-                        return
-                    }
-                    rootShapeShaclSubject = rootShapes[0].subject as NamedNode
-                }
-            }
-            else {
-                // choose first of all defined root shapes
-                const rootShapes = this.config.store.getQuads(null, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null)
-                if (rootShapes.length == 0) {
-                    console.warn('shapes graph does not contain any root shapes')
-                    return
-                }
-                if (rootShapes.length > 1) {
-                    console.warn('shapes graph contains', rootShapes.length, 'root shapes. choosing first found which is', rootShapes[0].subject.value)
-                    console.info('hint: set the shape to use with attribute "data-shape-subject"')
-                }
-                rootShapeShaclSubject = rootShapes[0].subject as NamedNode
-            }
-        }
-        return rootShapeShaclSubject
-    }
-
-    private removeFromDataGraph(subject: NamedNode | BlankNode) {
-        this.config.attributes.valuesSubject
-        for (const quad of this.config.store.getQuads(subject, null, null, DATA_GRAPH)) {
-            this.config.store.delete(quad)
-            if (quad.object.termType === 'NamedNode' || quad.object.termType === 'BlankNode') {
-                // recurse
-                this.removeFromDataGraph(quad.object)
-            }
-        }
-    }
 }

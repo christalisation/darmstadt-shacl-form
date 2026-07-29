@@ -3,11 +3,11 @@ import { PREFIX_XSD, RDF_PREDICATE_TYPE, PREFIX_SHACL } from './constants'
 import { Editor } from './theme'
 import { NodeObject } from 'jsonld'
 
-export function serialize(quads: Quad[], format: string, prefixes?: Prefixes): string {
+export function serialize(quads: Quad[], format: string, prefixes?: Prefixes, includePrefixes = true): string {
     if (format === 'application/ld+json') {
         return serializeJsonld(quads)
     } else {
-        const writer = new Writer({ format: format, prefixes: prefixes })
+        const writer = new Writer({ format: format, prefixes: includePrefixes ? prefixes : undefined })
         writer.addQuads(quads)
         let serialized = ''
         writer.end((error, result) => {

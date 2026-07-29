@@ -1,5 +1,5 @@
 import { ShaclForm as FormBase } from "./form"
-import { RMLTheme } from "./themes/rml-theme" // Ton nouveau fichier
+import { RMLTheme } from "./themes/rml-theme"
 
 export * from './exports'
 
@@ -9,4 +9,4 @@ export class RMLForm extends FormBase {
     }
 }
 
-window.customElements.define('shacl-form', RMLForm) // On garde le même nom de balise HTML
+window.customElements.define('shacl-form', RMLForm)
