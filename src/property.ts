@@ -267,10 +267,29 @@ export class ShaclProperty extends HTMLElement {
 export function createPropertyInstance(template: ShaclPropertyTemplate, value?: Term, forceRemovable = false, linked = false): HTMLElement {
     let instance: HTMLElement
     if (template.extendedShapes.length) {
-        instance = document.createElement('div')
-        instance.classList.add('property-instance')
+        // This is a nested node property:
+        // creates a container, a label, and then the ShaclNode without its own H1 title.
+
+        // Create the main container for the property instance
+        instance = document.createElement('div');
+        instance.classList.add('property-instance');
+
+        // Create the label for the property
+        const labelElem = document.createElement('label');
+        labelElem.innerText = template.label;
+        if (template.description) {
+            labelElem.setAttribute('title', template.description.value);
+        }
+        if (template.minCount && template.minCount > 0) {
+            labelElem.classList.add('required');
+        }
+        instance.appendChild(labelElem);
+
         for (const node of template.extendedShapes) {
-            instance.appendChild(new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked))
+            // template.label put as undefined to avoid duplicate label for the nested node
+            const shaclNodeElement = new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, undefined, linked);
+            shaclNodeElement.classList.add('editor'); // Treat the node as the editor
+            instance.appendChild(shaclNodeElement);
         }
     } else {
         const plugin = findPlugin(template.path, template.datatype?.value)

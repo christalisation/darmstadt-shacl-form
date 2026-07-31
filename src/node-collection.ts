@@ -1,6 +1,7 @@
 import { ShaclNode } from './node'
 import { Config } from './config'
-import { Store, NamedNode, DataFactory } from 'n3'
+import { Store, NamedNode, DataFactory } from 'n3';
+import { findLabel } from './util';
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_TARGET_CLASS } from './constants'
 /**
  * ADT for the internal representation of the form state.
@@ -23,7 +24,8 @@ export class ShaclNodeCollection {
         const valueSubject = this.config.attributes.valuesSubject ? DataFactory.namedNode(this.config.attributes.valuesSubject) : undefined;
 
         for (const subject of rootSubjects) {
-            const rootNode = new ShaclNode(subject, this, valueSubject);
+            const label = findLabel(this.config.store.getQuads(subject, null, null, null), this.config.languages);
+            const rootNode = new ShaclNode(subject, this, valueSubject, undefined, undefined, label || subject.value);
             this.rootNodes.push(rootNode);
         }
     }
