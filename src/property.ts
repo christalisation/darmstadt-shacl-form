@@ -270,7 +270,7 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
         instance = document.createElement('div')
         instance.classList.add('property-instance')
         for (const node of template.extendedShapes) {
-            instance.appendChild(new ShaclNode(node, template.config, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked))
+            instance.appendChild(new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked))
         }
     } else {
         const plugin = findPlugin(template.path, template.datatype?.value)

@@ -6,6 +6,7 @@ import { createShaclGroup } from './group'
 import { v4 as uuidv4 } from 'uuid'
 import { createShaclOrConstraint, resolveShaclOrConstraintOnNode } from './constraints'
 import { Config } from './config'
+import { ShaclNodeCollection } from './node-collection'
 
 export class ShaclNode extends HTMLElement {
     parent: ShaclNode | undefined
@@ -13,29 +14,31 @@ export class ShaclNode extends HTMLElement {
     nodeId: NamedNode | BlankNode
     targetClass: NamedNode | undefined
     owlImports: NamedNode[] = []
-    config: Config
+    config: Config // taken from the ShaclNodeCollection
     linked: boolean
+    nodeCollection: ShaclNodeCollection
 
-    constructor(shaclSubject: NamedNode, config: Config, valueSubject: NamedNode | BlankNode | undefined, parent?: ShaclNode, nodeKind?: NamedNode, label?: string, linked?: boolean) {
+    constructor(shaclSubject: NamedNode, nodeCollection: ShaclNodeCollection, valueSubject: NamedNode | BlankNode | undefined, parent?: ShaclNode, nodeKind?: NamedNode, label?: string, linked?: boolean) {
         super()
 
         this.parent = parent
-        this.config = config
+        this.nodeCollection = nodeCollection
+        this.config = this.nodeCollection.config
         this.shaclSubject = shaclSubject
         this.linked = linked || false
         let nodeId: NamedNode | BlankNode | undefined = valueSubject
         if (!nodeId) {
             // if no value subject given, create new node id with a type depending on own nodeKind or given parent property nodeKind
             if (!nodeKind) {
-                const spec = config.store.getObjects(shaclSubject, `${PREFIX_SHACL}nodeKind`, null)
+                const spec = this.config.store.getObjects(shaclSubject, `${PREFIX_SHACL}nodeKind`, null)
                 if (spec.length) {
                     nodeKind = spec[0] as NamedNode
                 }
             }
             // if nodeKind is not set, but a value namespace is configured or if nodeKind is sh:IRI, then create a NamedNode
-            if ((nodeKind === undefined && config.attributes.valuesNamespace) || nodeKind?.value === `${PREFIX_SHACL}IRI`) {
+            if ((nodeKind === undefined && this.config.attributes.valuesNamespace) || nodeKind?.value === `${PREFIX_SHACL}IRI`) {
                 // no requirements on node type, so create a NamedNode and use configured value namespace
-                nodeId = DataFactory.namedNode(config.attributes.valuesNamespace + uuidv4())
+                nodeId = DataFactory.namedNode(this.config.attributes.valuesNamespace + uuidv4())
             } else {
                 // otherwise create a BlankNode
                 nodeId = DataFactory.blankNode(uuidv4())
@@ -45,7 +48,7 @@ export class ShaclNode extends HTMLElement {
 
         // check if the form already contains the node/value pair to prevent recursion
         const id = JSON.stringify([shaclSubject, valueSubject])
-        if (valueSubject && config.renderedNodes.has(id)) {
+        if (valueSubject && this.config.renderedNodes.has(id)) {
             // node/value pair is already rendered in the form, so just display a reference
             label = label || "Link"
             const labelElem = document.createElement('label')
@@ -65,7 +68,7 @@ export class ShaclNode extends HTMLElement {
             this.style.flexDirection = 'row'
         } else {
             if (valueSubject) {
-                config.renderedNodes.add(id)
+                this.config.renderedNodes.add(id)
             }
             this.dataset.nodeId = this.nodeId.id
             if (this.config.attributes.showNodeIds !== null) {
@@ -76,39 +79,39 @@ export class ShaclNode extends HTMLElement {
             }
 
             // first initialize owl:imports, this is needed before adding properties to properly resolve class instances etc.
-            for (const owlImport of config.store.getQuads(shaclSubject, OWL_PREDICATE_IMPORTS, null, null)) {
+            for (const owlImport of this.config.store.getQuads(shaclSubject, OWL_PREDICATE_IMPORTS, null, null)) {
                 this.owlImports.push(owlImport.object as NamedNode)
             }
             // now parse other node quads
-            for (const quad of config.store.getQuads(shaclSubject, null, null, null)) {
+            for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
                 switch (quad.predicate.id) {
                     case SHACL_PREDICATE_PROPERTY.id:
-                        this.addPropertyInstance(quad.object, config, valueSubject)
+                        this.addPropertyInstance(quad.object, this.config, valueSubject)
                         break;
                     case `${PREFIX_SHACL}and`:
                         // inheritance via sh:and
-                        const list = config.lists[quad.object.value]
+                        const list = this.config.lists[quad.object.value]
                         if (list?.length) {
                             for (const shape of list) {
-                                this.prepend(new ShaclNode(shape as NamedNode, config, valueSubject, this))
+                                this.prepend(new ShaclNode(shape as NamedNode, this.nodeCollection, valueSubject, this))
                             }
                         }
                         else {
-                            console.error('list not found:', quad.object.value, 'existing lists:', config.lists)
+                            console.error('list not found:', quad.object.value, 'existing lists:', this.config.lists)
                         }
                         break;
                     case SHACL_PREDICATE_NODE.id:
                         // inheritance via sh:node
-                        this.prepend(new ShaclNode(quad.object as NamedNode, config, valueSubject, this))
+                        this.prepend(new ShaclNode(quad.object as NamedNode, this.nodeCollection, valueSubject, this))
                         break;
                     case `${PREFIX_SHACL}targetClass`:
                         this.targetClass = quad.object as NamedNode
                         break;
                     case `${PREFIX_SHACL}or`:
-                        this.tryResolve(quad.object, valueSubject, config)
+                        this.tryResolve(quad.object, valueSubject, this.config)
                         break;
                     case `${PREFIX_SHACL}xone`:
-                        this.tryResolve(quad.object, valueSubject, config)
+                        this.tryResolve(quad.object, valueSubject, this.config)
                         break;
                 }
             }
@@ -119,6 +122,7 @@ export class ShaclNode extends HTMLElement {
                 this.prepend(header)
             }
         }
+        this.nodeCollection.registerNode(this)  // add this node to the ShaclNodeCollection
     }
 
     toRDF(graph: Store, subject?: NamedNode | BlankNode): (NamedNode | BlankNode) {
