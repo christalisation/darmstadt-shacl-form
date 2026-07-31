@@ -1,3 +1,4 @@
+import { ShaclNode } from './node'
 import { ShaclNodeCollection } from './node-collection'
 import { Config } from './config'
 import { ClassInstanceProvider, Plugin, listPlugins, registerPlugin } from './plugin'
@@ -5,6 +6,7 @@ import { Store, NamedNode, DataFactory, Quad, BlankNode } from 'n3'
 import { DATA_GRAPH, PREFIX_SHACL, SHAPES_GRAPH } from './constants'
 import { Editor, Theme } from './theme'
 import { serialize } from './serialize'
+import { findLabel } from './util'
 import { Validator } from 'shacl-engine'
 import { RokitCollapsible } from '@ro-kit/ui-widgets'
 
@@ -13,9 +15,13 @@ export class ShaclForm extends HTMLElement {
 
     config: Config
     // shape: ShaclNode | null = null
-    nodeCollection: ShaclNodeCollection // |null = null ?
+    nodeCollection: ShaclNodeCollection
     form: HTMLFormElement
     initDebounceTimeout: ReturnType<typeof setTimeout> | undefined
+
+    private viewContainer: HTMLElement | undefined
+    private breadcrumbContainer: HTMLElement | undefined
+    private rootSelectorContainer: HTMLElement | undefined
 
     constructor(theme: Theme) {
         super()
@@ -58,7 +64,7 @@ export class ShaclForm extends HTMLElement {
                 this.config.renderedNodes.clear()
                 // find root shacl shape
                 this.nodeCollection.build()
-
+                
                 if (this.nodeCollection.rootNodes.length) {
                     // remove all previous css classes to have a defined state
                     this.form.classList.forEach(value => { this.form.classList.remove(value) })
@@ -67,7 +73,16 @@ export class ShaclForm extends HTMLElement {
                     // let theme add classes to form element
                     this.config.theme.apply(this.form)
                     // adopt stylesheets from theme and plugins
-                    const styles: CSSStyleSheet[] = [ this.config.theme.stylesheet ]
+                    const styles: CSSStyleSheet[] = [this.config.theme.stylesheet];
+                    const navigationStyleSheet = new CSSStyleSheet();
+                    // Multiple root nodes support: add a breadcrumb
+                    navigationStyleSheet.replaceSync(`
+                        .breadcrumb-container { margin-bottom: 1rem; font-size: 0.9em; }
+                        .breadcrumb-container a { color: var(--brand-color, #008877); cursor: pointer; text-decoration: underline; }
+                        .breadcrumb-container span.separator { margin: 0 0.5em; }
+                    `);
+                    styles.push(navigationStyleSheet);
+
                     for (const plugin of listPlugins()) {
                         if (plugin.stylesheet) {
                             styles.push(plugin.stylesheet)
@@ -75,12 +90,17 @@ export class ShaclForm extends HTMLElement {
                     }
                     this.shadowRoot!.adoptedStyleSheets = styles
 
-                    // this.shape = new ShaclNode(rootShapeShaclSubject, this.nodeCollection, this.config.attributes.valuesSubject ? DataFactory.namedNode(this.config.attributes.valuesSubject) : undefined)
-                    // this.form.appendChild(this.shape)
-                    for (const rootNode of this.nodeCollection.rootNodes) {
-                        this.form.appendChild(rootNode);
+                    // Multiple root nodes support: 
+                    if (this.nodeCollection.rootNodes.length > 1) {
+                        // more than one root node, create the selector UI 
+                        this.createNavigationUI()
+                        this.showRootSelector()
+                    } else {
+                        // only one root node, display it directly
+                        const rootNode = this.nodeCollection.rootNodes[0]
+                        this.form.appendChild(rootNode)
                     }
-
+                    
                     if (this.config.editMode) {
                         // add submit button
                         if (this.config.attributes.submitButton !== null) {
@@ -257,68 +277,78 @@ export class ShaclForm extends HTMLElement {
         return messageElement
     }
 
-    // findRootShaclShapeSubject() is now moved into class ShaclNodeCollection.
-    // private findRootShaclShapeSubject(): NamedNode | undefined {
-    //     let rootShapeShaclSubject: NamedNode | null = null
-    //     // if data-shape-subject is set, use that
-    //     if (this.config.attributes.shapeSubject) {
-    //         rootShapeShaclSubject = DataFactory.namedNode(this.config.attributes.shapeSubject)
-    //         if (this.config.store.getQuads(rootShapeShaclSubject, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null).length === 0) {
-    //             console.warn(`shapes graph does not contain requested root shape ${this.config.attributes.shapeSubject}`)
-    //             return
-    //         }
-    //     }
-    //     else {
-    //         // if we have a data graph and data-values-subject is set, use shape of that
-    //         if (this.config.attributes.valuesSubject && this.config.store.countQuads(null, null, null, DATA_GRAPH) > 0) {
-    //             const rootValueSubject = DataFactory.namedNode(this.config.attributes.valuesSubject)
-    //             const rootValueSubjectTypes = [
-    //                 ...this.config.store.getQuads(rootValueSubject, RDF_PREDICATE_TYPE, null, DATA_GRAPH),
-    //                 ...this.config.store.getQuads(rootValueSubject, DCTERMS_PREDICATE_CONFORMS_TO, null, DATA_GRAPH)
-    //             ]
-    //             if (rootValueSubjectTypes.length === 0) {
-    //                 console.warn(`value subject '${this.config.attributes.valuesSubject}' has neither ${RDF_PREDICATE_TYPE.id} nor ${DCTERMS_PREDICATE_CONFORMS_TO.id} statement`)
-    //                 return
-    //             }
-    //             // if type/conformsTo refers to a node shape, prioritize that over targetClass resolution
-    //             for (const rootValueSubjectType of rootValueSubjectTypes) {
-    //                 if (this.config.store.getQuads(rootValueSubjectType.object as NamedNode, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null).length > 0) {
-    //                     rootShapeShaclSubject = rootValueSubjectType.object as NamedNode
-    //                     break
-    //                 }
-    //             }
-    //             if (!rootShapeShaclSubject) {
-    //                 const rootShapes = this.config.store.getQuads(null, SHACL_PREDICATE_TARGET_CLASS, rootValueSubjectTypes[0].object, null)
-    //                 if (rootShapes.length === 0) {
-    //                     console.error(`value subject '${this.config.attributes.valuesSubject}' has no shacl shape definition in the shapes graph`)
-    //                     return
-    //                 }
-    //                 if (rootShapes.length > 1) {
-    //                     console.warn(`value subject '${this.config.attributes.valuesSubject}' has multiple shacl shape definitions in the shapes graph, choosing the first found (${rootShapes[0].subject})`)
-    //                 }
-    //                 if (this.config.store.getQuads(rootShapes[0].subject, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null).length === 0) {
-    //                     console.error(`value subject '${this.config.attributes.valuesSubject}' references a shape which is not a NodeShape (${rootShapes[0].subject})`)
-    //                     return
-    //                 }
-    //                 rootShapeShaclSubject = rootShapes[0].subject as NamedNode
-    //             }
-    //         }
-    //         else {
-    //             // choose first of all defined root shapes
-    //             const rootShapes = this.config.store.getQuads(null, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null)
-    //             if (rootShapes.length == 0) {
-    //                 console.warn('shapes graph does not contain any root shapes')
-    //                 return
-    //             }
-    //             if (rootShapes.length > 1) {
-    //                 console.warn('shapes graph contains', rootShapes.length, 'root shapes. choosing first found which is', rootShapes[0].subject.value)
-    //                 console.info('hint: set the shape to use with attribute "data-shape-subject"')
-    //             }
-    //             rootShapeShaclSubject = rootShapes[0].subject as NamedNode
-    //         }
-    //     }
-    //     return rootShapeShaclSubject
-    // }
+    private createNavigationUI() {
+        this.breadcrumbContainer = document.createElement('div');
+        this.breadcrumbContainer.className = 'breadcrumb-container';
+
+        this.rootSelectorContainer = document.createElement('div');
+        this.rootSelectorContainer.className = 'root-selector-container';
+
+        this.viewContainer = document.createElement('div');
+        this.viewContainer.className = 'view-container';
+
+        const select = document.createElement('select');
+        select.classList.add('form-select', 'editor'); // Use theme-agnostic classes
+
+        const placeholder = document.createElement('option');
+        placeholder.innerText = 'Select a shape to edit...';
+        placeholder.value = '';
+        select.appendChild(placeholder);
+
+        this.nodeCollection.rootNodes.forEach((node, index) => {
+            const option = document.createElement('option');
+            const label = findLabel(this.config.store.getQuads(node.shaclSubject, null, null, null), this.config.languages) || node.shaclSubject.value;
+            option.innerText = label;
+            option.value = index.toString();
+            select.appendChild(option);
+        });
+
+        select.addEventListener('change', () => {
+            const selectedIndex = parseInt(select.value, 10);
+            if (!isNaN(selectedIndex)) {
+                const selectedNode = this.nodeCollection.rootNodes[selectedIndex];
+                this.setActiveNode(selectedNode);
+            }
+        });
+
+        this.rootSelectorContainer.appendChild(select);
+        this.form.appendChild(this.breadcrumbContainer);
+        this.form.appendChild(this.rootSelectorContainer);
+        this.form.appendChild(this.viewContainer);
+    }
+
+    private setActiveNode(node: ShaclNode) {
+        this.viewContainer!.replaceChildren(node);
+        this.rootSelectorContainer!.style.display = 'none';
+        this.updateBreadcrumb(node);
+    }
+
+    private showRootSelector() {
+        this.viewContainer!.replaceChildren();
+        this.breadcrumbContainer!.replaceChildren();
+        this.rootSelectorContainer!.style.display = 'block';
+    }
+
+    private updateBreadcrumb(node: ShaclNode) {
+        this.breadcrumbContainer!.replaceChildren();
+        const homeLink = document.createElement('a');
+        homeLink.innerText = 'Select Shape';
+        homeLink.onclick = (e) => { e.preventDefault(); this.showRootSelector(); };
+        this.breadcrumbContainer!.appendChild(homeLink);
+
+        const separator = document.createElement('span');
+        separator.className = 'separator';
+        separator.innerText = '›';
+        this.breadcrumbContainer!.appendChild(separator);
+
+        const activeNodeLabel = document.createElement('span');
+        const label = findLabel(this.config.store.getQuads(node.shaclSubject, null, null, null), this.config.languages) || node.shaclSubject.value;
+        activeNodeLabel.innerText = label;
+        this.breadcrumbContainer!.appendChild(activeNodeLabel);
+    }
+
+    // private findRootShaclShapeSubject(): NamedNode | undefined 
+    // is now moved into class ShaclNodeCollection.
 
     private removeFromDataGraph(subject: NamedNode | BlankNode) {
         this.config.attributes.valuesSubject
