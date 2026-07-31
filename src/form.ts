@@ -278,73 +278,63 @@ export class ShaclForm extends HTMLElement {
     }
 
     private createNavigationUI() {
-        this.breadcrumbContainer = document.createElement('div');
-        this.breadcrumbContainer.className = 'breadcrumb-container';
-
-        this.rootSelectorContainer = document.createElement('div');
-        this.rootSelectorContainer.className = 'root-selector-container';
-
-        this.viewContainer = document.createElement('div');
-        this.viewContainer.className = 'view-container';
-
-        const select = document.createElement('select');
-        select.classList.add('form-select', 'editor'); // Use theme-agnostic classes
-
-        const placeholder = document.createElement('option');
-        placeholder.innerText = 'Select a shape to edit...';
-        placeholder.value = '';
-        select.appendChild(placeholder);
-
-        this.nodeCollection.rootNodes.forEach((node, index) => {
-            const option = document.createElement('option');
+        const options = this.nodeCollection.rootNodes.map((node, index) => {
             const label = findLabel(this.config.store.getQuads(node.shaclSubject, null, null, null), this.config.languages) || node.shaclSubject.value;
-            option.innerText = label;
-            option.value = index.toString();
-            select.appendChild(option);
+            return { label, value: index.toString() };
         });
 
-        select.addEventListener('change', () => {
-            const selectedIndex = parseInt(select.value, 10);
+        const { container, selector } = this.config.theme.createRootSelector(options);
+        this.rootSelectorContainer = container;
+
+        selector.addEventListener('change', () => {
+            const selectedIndex = parseInt(selector.value, 10);
             if (!isNaN(selectedIndex)) {
                 const selectedNode = this.nodeCollection.rootNodes[selectedIndex];
                 this.setActiveNode(selectedNode);
             }
         });
 
-        this.rootSelectorContainer.appendChild(select);
-        this.form.appendChild(this.breadcrumbContainer);
+        this.viewContainer = document.createElement('div');
+        this.viewContainer.className = 'view-container';
         this.form.appendChild(this.rootSelectorContainer);
         this.form.appendChild(this.viewContainer);
     }
 
     private setActiveNode(node: ShaclNode) {
         this.viewContainer!.replaceChildren(node);
-        this.rootSelectorContainer!.style.display = 'none';
+        if (this.rootSelectorContainer) {
+            this.rootSelectorContainer.style.display = 'none';
+        }
         this.updateBreadcrumb(node);
     }
 
     private showRootSelector() {
         this.viewContainer!.replaceChildren();
-        this.breadcrumbContainer!.replaceChildren();
-        this.rootSelectorContainer!.style.display = 'block';
+        if (this.breadcrumbContainer) {
+            this.breadcrumbContainer.remove();
+            this.breadcrumbContainer = undefined;
+        }
+        if (this.rootSelectorContainer) {
+            this.rootSelectorContainer.style.display = 'block';
+            // Reset selector
+            const selector = this.rootSelectorContainer.querySelector('select, mdui-select');
+            if (selector) {
+                (selector as HTMLSelectElement).value = '';
+            }
+        }
     }
 
     private updateBreadcrumb(node: ShaclNode) {
-        this.breadcrumbContainer!.replaceChildren();
-        const homeLink = document.createElement('a');
-        homeLink.innerText = 'Select Shape';
-        homeLink.onclick = (e) => { e.preventDefault(); this.showRootSelector(); };
-        this.breadcrumbContainer!.appendChild(homeLink);
-
-        const separator = document.createElement('span');
-        separator.className = 'separator';
-        separator.innerText = '›';
-        this.breadcrumbContainer!.appendChild(separator);
-
-        const activeNodeLabel = document.createElement('span');
+        if (this.breadcrumbContainer) {
+            this.breadcrumbContainer.remove();
+        }
+        const homeItem = {
+            label: 'Select Shape',
+            action: () => this.showRootSelector()
+        };
         const label = findLabel(this.config.store.getQuads(node.shaclSubject, null, null, null), this.config.languages) || node.shaclSubject.value;
-        activeNodeLabel.innerText = label;
-        this.breadcrumbContainer!.appendChild(activeNodeLabel);
+        this.breadcrumbContainer = this.config.theme.createBreadcrumb([homeItem], label);
+        this.form.prepend(this.breadcrumbContainer);
     }
 
     // private findRootShaclShapeSubject(): NamedNode | undefined 

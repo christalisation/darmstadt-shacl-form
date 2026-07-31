@@ -16,6 +16,7 @@ export class ShaclNodeCollection {
     }
 
     public build() {
+        // remove all previously registered nodes and root nodes
         this.rootNodes = [];
         this.allNodesById.clear();
         const rootSubjects = this.findRootShaclShapeSubjects();

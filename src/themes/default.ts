@@ -255,4 +255,51 @@ export class DefaultTheme extends Theme {
         button.innerHTML = label
         return button
     }
+
+    createRootSelector(options: { label: string; value: string }[]): { container: HTMLElement; selector: HTMLSelectElement } {
+        const container = document.createElement('div');
+        container.className = 'root-selector-container';
+
+        const select = document.createElement('select');
+        select.classList.add('editor');
+
+        const placeholder = document.createElement('option');
+        placeholder.innerText = 'Select a shape to edit...';
+        placeholder.value = '';
+        select.appendChild(placeholder);
+
+        for (const opt of options) {
+            const option = document.createElement('option');
+            option.innerText = opt.label;
+            option.value = opt.value;
+            select.appendChild(option);
+        }
+
+        container.appendChild(select);
+        return { container, selector: select };
+    }
+
+    createBreadcrumb(items: {label: string, action: () => void}[], activeItemLabel: string): HTMLElement {
+        const container = document.createElement('div');
+        container.className = 'breadcrumb-container';
+
+        for (const item of items) {
+            const link = document.createElement('a');
+            link.innerText = item.label;
+            link.href = '#';
+            link.onclick = (e) => { e.preventDefault(); item.action(); };
+            container.appendChild(link);
+
+            const separator = document.createElement('span');
+            separator.className = 'separator';
+            separator.innerHTML = ' &rsaquo; '; // ›
+            container.appendChild(separator);
+        }
+
+        const activeItem = document.createElement('span');
+        activeItem.innerText = activeItemLabel;
+        container.appendChild(activeItem);
+
+        return container;
+    }
 }

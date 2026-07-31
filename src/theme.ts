@@ -77,6 +77,9 @@ export abstract class Theme {
     abstract createBooleanEditor(label: string, value: Term | null, required: boolean, template: ShaclPropertyTemplate): HTMLElement
     abstract createFileEditor(label: string, value: Term | null, required: boolean, template: ShaclPropertyTemplate): HTMLElement
     abstract createButton(label: string, primary: boolean): HTMLElement
+    abstract createRootSelector(options: {label: string, value: string}[]): { container: HTMLElement, selector: HTMLSelectElement };
+    abstract createBreadcrumb(items: {label: string, action: () => void}[], activeItemLabel: string): HTMLElement;
+
 }
 
 export function fieldFactory(template: ShaclPropertyTemplate, value: Term | null, editable: boolean): HTMLElement {

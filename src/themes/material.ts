@@ -1,6 +1,6 @@
 import { ShaclPropertyTemplate } from '../property-template'
 import { Term } from '@rdfjs/types'
-import { Button, TextField, Checkbox } from 'mdui'
+import { Button, TextField, Checkbox, Select, MenuItem, Breadcrumb, BreadcrumbItem } from 'mdui'
 import { Theme } from '../theme'
 import { InputListEntry, Editor } from '../theme'
 import { Literal, NamedNode } from 'n3'
@@ -249,5 +249,48 @@ export class MaterialTheme extends Theme {
         }
         button.innerHTML = label
         return button
+    }
+
+    createRootSelector(options: { label: string; value: string }[]): { container: HTMLElement; selector: HTMLSelectElement } {
+        const container = document.createElement('div');
+        container.className = 'root-selector-container';
+
+        const select = new Select();
+        select.variant = 'outlined';
+        select.label = 'Select a shape to edit...';
+
+        for (const opt of options) {
+            const item = new MenuItem();
+            item.innerText = opt.label;
+            item.value = opt.value;
+            select.appendChild(item);
+        }
+
+        container.appendChild(select);
+        // The mdui Select is a custom element, so we return it cast as HTMLSelectElement for the event listener.
+        // The 'value' property should work similarly.
+        return { container, selector: select as unknown as HTMLSelectElement };
+    }
+
+    createBreadcrumb(items: { label: string; action: () => void }[], activeItemLabel: string): HTMLElement {
+        const breadcrumb = new Breadcrumb();
+
+        for (const item of items) {
+            const breadcrumbItem = new BreadcrumbItem();
+            breadcrumbItem.innerText = item.label;
+            breadcrumbItem.href = '#';
+            breadcrumbItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                item.action();
+            });
+            breadcrumb.appendChild(breadcrumbItem);
+        }
+
+        const activeItem = new BreadcrumbItem();
+        activeItem.innerText = activeItemLabel;
+        activeItem.active = true;
+        breadcrumb.appendChild(activeItem);
+
+        return breadcrumb;
     }
 }

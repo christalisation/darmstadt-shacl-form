@@ -41,4 +41,39 @@ export class BootstrapTheme extends DefaultTheme {
         button.classList.add('btn', primary ? 'btn-primary' : 'btn-outline-secondary')
         return button
     }
+
+    createRootSelector(options: { label: string; value: string }[]): { container: HTMLElement; selector: HTMLSelectElement } {
+        const { container, selector } = super.createRootSelector(options);
+        selector.classList.add('form-select');
+        return { container, selector };
+    }
+
+    createBreadcrumb(items: { label: string; action: () => void }[], activeItemLabel: string): HTMLElement {
+        const nav = document.createElement('nav');
+        nav.setAttribute('aria-label', 'breadcrumb');
+
+        const ol = document.createElement('ol');
+        ol.classList.add('breadcrumb');
+
+        for (const item of items) {
+            const li = document.createElement('li');
+            li.classList.add('breadcrumb-item');
+
+            const a = document.createElement('a');
+            a.href = '#';
+            a.innerText = item.label;
+            a.onclick = (e) => { e.preventDefault(); item.action(); };
+            li.appendChild(a);
+            ol.appendChild(li);
+        }
+
+        const activeLi = document.createElement('li');
+        activeLi.classList.add('breadcrumb-item', 'active');
+        activeLi.setAttribute('aria-current', 'page');
+        activeLi.innerText = activeItemLabel;
+        ol.appendChild(activeLi);
+
+        nav.appendChild(ol);
+        return nav;
+    }
 }
