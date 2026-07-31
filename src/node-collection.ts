@@ -16,6 +16,8 @@ export class ShaclNodeCollection {
     }
 
     public build() {
+        this.rootNodes = [];
+        this.allNodesById.clear();
         const rootSubjects = this.findRootShaclShapeSubjects();
         const valueSubject = this.config.attributes.valuesSubject ? DataFactory.namedNode(this.config.attributes.valuesSubject) : undefined;
 

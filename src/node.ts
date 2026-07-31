@@ -86,7 +86,7 @@ export class ShaclNode extends HTMLElement {
             for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
                 switch (quad.predicate.id) {
                     case SHACL_PREDICATE_PROPERTY.id:
-                        this.addPropertyInstance(quad.object, this.config, valueSubject)
+                        this.addPropertyInstance(quad.object, valueSubject)
                         break;
                     case `${PREFIX_SHACL}and`:
                         // inheritance via sh:and
@@ -108,10 +108,10 @@ export class ShaclNode extends HTMLElement {
                         this.targetClass = quad.object as NamedNode
                         break;
                     case `${PREFIX_SHACL}or`:
-                        this.tryResolve(quad.object, valueSubject, this.config)
+                        this.tryResolve(quad.object, valueSubject)
                         break;
                     case `${PREFIX_SHACL}xone`:
-                        this.tryResolve(quad.object, valueSubject, this.config)
+                        this.tryResolve(quad.object, valueSubject)
                         break;
                 }
             }
@@ -145,50 +145,50 @@ export class ShaclNode extends HTMLElement {
         return subject
     }
 
-    addPropertyInstance(shaclSubject: Term, config: Config, valueSubject: NamedNode | BlankNode | undefined) {
+    addPropertyInstance(shaclSubject: Term, valueSubject: NamedNode | BlankNode | undefined) {
         let parentElement: HTMLElement = this
         // check if property belongs to a group
-        const groupRef = config.store.getQuads(shaclSubject as Term, `${PREFIX_SHACL}group`, null, null)
+        const groupRef = this.config.store.getQuads(shaclSubject as Term, `${PREFIX_SHACL}group`, null, null)
         if (groupRef.length > 0) {
             const groupSubject = groupRef[0].object.value
-            if (config.groups.indexOf(groupSubject) > -1) {
+            if (this.config.groups.indexOf(groupSubject) > -1) {
                 // check if group element already exists, otherwise create it
                 let group = this.querySelector(`:scope > .shacl-group[data-subject='${groupSubject}']`) as HTMLElement
                 if (!group) {
-                    group = createShaclGroup(groupSubject, config)
+                    group = createShaclGroup(groupSubject, this.config)
                     this.appendChild(group)
                 }
                 parentElement = group
             } else {
-                console.warn('ignoring unknown group reference', groupRef[0], 'existing groups:', config.groups)
+                console.warn('ignoring unknown group reference', groupRef[0], 'existing groups:', this.config.groups)
             }
         }
-        const property = new ShaclProperty(shaclSubject as NamedNode | BlankNode, this, config, valueSubject)
+        const property = new ShaclProperty(shaclSubject as NamedNode | BlankNode, this, this.config, valueSubject)
         // do not add empty properties (i.e. properties with no instances). This can be the case e.g. in viewer mode when there is no data for the respective property.
         if (property.childElementCount > 0) {
             parentElement.appendChild(property)
         }
     }
 
-    tryResolve(subject: Term, valueSubject: NamedNode | BlankNode | undefined, config: Config) {
-        const list = config.lists[subject.value]
+    tryResolve(subject: Term, valueSubject: NamedNode | BlankNode | undefined) {
+        const list = this.config.lists[subject.value]
         if (list?.length) {
             let resolved = false
             if (valueSubject) {
-                const resolvedPropertySubjects = resolveShaclOrConstraintOnNode(list, valueSubject, config)
+                const resolvedPropertySubjects = resolveShaclOrConstraintOnNode(list, valueSubject, this.config)
                 if (resolvedPropertySubjects.length) {
                     for (const propertySubject of resolvedPropertySubjects) {
-                        this.addPropertyInstance(propertySubject, config, valueSubject)
+                        this.addPropertyInstance(propertySubject, valueSubject)
                     }
                     resolved = true
                 }
             }
             if (!resolved) {
-                this.appendChild(createShaclOrConstraint(list, this, config))
+                this.appendChild(createShaclOrConstraint(list, this, this.config))
             }
         }
         else {
-            console.error('list for sh:or/sh:xone not found:', subject, 'existing lists:', config.lists)
+            console.error('list for sh:or/sh:xone not found:', subject, 'existing lists:', this.config.lists)
         }
     }
 }
