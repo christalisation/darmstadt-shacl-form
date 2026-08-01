@@ -48,7 +48,8 @@ export function focusFirstInputElement(context: HTMLElement) {
 }
 
 export function findLabel(quads: Quad[], languages: string[]): string {
-    return findObjectValueByPredicate(quads, 'prefLabel', PREFIX_SKOS, languages) ||
+    return findObjectValueByPredicate(quads, 'name', PREFIX_SHACL, languages) ||
+    findObjectValueByPredicate(quads, 'prefLabel', PREFIX_SKOS, languages) ||
     findObjectValueByPredicate(quads, 'label', PREFIX_RDFS, languages) ||
     findObjectValueByPredicate(quads, 'name', PREFIX_FOAF, languages)
 }
