@@ -38,6 +38,13 @@ export class ShaclForm extends HTMLElement {
                 }).catch(e => { console.warn(e) })
             }
         })
+        this.form.addEventListener('focus-node', (ev: Event) => {
+            const customEvent = ev as CustomEvent;
+            ev.stopPropagation();
+            if (customEvent.detail.node) {
+                this.setActiveNode(customEvent.detail.node);
+            }
+        })
     }
 
     connectedCallback() {
@@ -328,12 +335,39 @@ export class ShaclForm extends HTMLElement {
         if (this.breadcrumbContainer) {
             this.breadcrumbContainer.remove();
         }
-        const homeItem = {
-            label: 'Select Shape',
-            action: () => this.showRootSelector()
-        };
-        const label = findLabel(this.config.store.getQuads(node.shaclSubject, null, null, null), this.config.languages) || node.shaclSubject.value;
-        this.breadcrumbContainer = this.config.theme.createBreadcrumb([homeItem], label);
+
+        const path: { label: string, node: ShaclNode }[] = [];
+        let current: ShaclNode | undefined = node;
+        while (current) {
+            let label = '';
+            if (current.parent) {
+                // nested node, use the label from the parent property
+                label = current.parentPropertyLabel || 'Nested Section';
+            } else {
+                 // root node, find its sh:name or rdfs:label
+                 label = findLabel(this.config.store.getQuads(current.shaclSubject, null, null, null), this.config.languages) || current.shaclSubject.value;
+            }
+            path.unshift({ label, node: current });
+            current = current.parent;
+        }
+
+        const breadcrumbItems: { label: string, action: () => void }[] = [];
+        // add root selector link only if there are multiple root shapes
+        if (this.nodeCollection.rootNodes.length > 1) {
+            breadcrumbItems.push({
+                label: 'Select Shape',
+                action: () => this.showRootSelector()
+            });
+        }
+
+        // add intermediate path items (all except the last one, which is the active item)
+        for (let i = 0; i < path.length - 1; i++) {
+            const item = path[i];
+            breadcrumbItems.push({ label: item.label, action: () => this.setActiveNode(item.node) });
+        }
+
+        const activeItemLabel = path.length > 0 ? path[path.length - 1].label : 'Unknown';
+        this.breadcrumbContainer = this.config.theme.createBreadcrumb(breadcrumbItems, activeItemLabel);
         this.form.prepend(this.breadcrumbContainer);
     }
 
