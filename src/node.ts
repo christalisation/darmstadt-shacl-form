@@ -10,6 +10,7 @@ import { ShaclNodeCollection } from './node-collection'
 
 export class ShaclNode extends HTMLElement {
     parent: ShaclNode | undefined
+    parentPropertyLabel?: string; // label of the parent property,
     shaclSubject: NamedNode
     nodeId: NamedNode | BlankNode
     targetClass: NamedNode | undefined
@@ -22,6 +23,7 @@ export class ShaclNode extends HTMLElement {
         super()
 
         this.parent = parent
+        this.parentPropertyLabel = label
         this.nodeCollection = nodeCollection
         this.config = this.nodeCollection.config
         this.shaclSubject = shaclSubject
@@ -116,7 +118,8 @@ export class ShaclNode extends HTMLElement {
                 }
             }
 
-            if (label) {
+            // a top-level title only for root nodes
+            if (label && !parent) {
                 const header = document.createElement('h1')
                 header.innerText = label
                 this.prepend(header)

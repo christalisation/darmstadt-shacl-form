@@ -286,8 +286,8 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
         instance.appendChild(labelElem);
 
         for (const node of template.extendedShapes) {
-            // template.label put as undefined to avoid duplicate label for the nested node
-            const shaclNodeElement = new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, undefined, linked);
+            // pass the property label to the nested node.
+            const shaclNodeElement = new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked);
             shaclNodeElement.classList.add('editor'); // Treat the node as the editor
             instance.appendChild(shaclNodeElement);
         }
