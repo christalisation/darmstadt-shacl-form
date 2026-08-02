@@ -4,6 +4,7 @@ import { Config } from './config'
 import { isURL } from './util'
 import { RdfXmlParser } from 'rdfxml-streaming-parser'
 import { toRDF } from 'jsonld'
+import { ShaclShapeGraphValidator } from './shacl-spec'
 
 
 // cache external data in module scope (and not in Loader instance) to avoid requesting
@@ -27,12 +28,26 @@ export class Loader {
         this.loadedClasses = []
         this.config.prefixes = {}
 
-
-        const promises: Promise<void>[] = []
         const store =  new Store()
-        promises.push(this.importRDF(this.config.attributes.shapes ? this.config.attributes.shapes : this.config.attributes.shapesUrl ? this.fetchRDF(this.config.attributes.shapesUrl) : '', store, SHAPES_GRAPH))
-        promises.push(this.importRDF(this.config.attributes.values ? this.config.attributes.values : this.config.attributes.valuesUrl ? this.fetchRDF(this.config.attributes.valuesUrl) : '', store, DATA_GRAPH))
-        await Promise.all(promises)
+
+        // 1. load shapes
+        const shapesInput = this.config.attributes.shapes ? this.config.attributes.shapes : this.config.attributes.shapesUrl ? this.fetchRDF(this.config.attributes.shapesUrl) : '';
+        if (shapesInput) {
+            // 2. rdf validation of the shapes graph (syntactic pass)
+            await this.importRDF(shapesInput, store, SHAPES_GRAPH);
+
+            // 3. shapes shacl validation (semantic pass)
+            const shaclValidator = new ShaclShapeGraphValidator();
+            const report = await shaclValidator.validate(store);
+            if (!report.conforms) {
+                console.error('SHACL shapes validation report:', report);
+                const errorMessages = shaclValidator.formatReport(report);
+                throw new Error(`The provided SHACL shapes graph is not well-formed according to the SHACL-SHACL syntax checks:\n${errorMessages}`);
+            }
+        }
+
+        // 4. load values ---
+        await this.importRDF(this.config.attributes.values ? this.config.attributes.values : this.config.attributes.valuesUrl ? this.fetchRDF(this.config.attributes.valuesUrl) : '', store, DATA_GRAPH);
 
         // if shapes graph is empty, but we have the following triples:
         // <valueSubject> a <uri> or <valueSubject> dcterms:conformsTo <uri>

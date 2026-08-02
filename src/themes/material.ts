@@ -1,6 +1,6 @@
 import { ShaclPropertyTemplate } from '../property-template'
 import { Term } from '@rdfjs/types'
-import { Button, TextField, Checkbox, Select, MenuItem, Breadcrumb, BreadcrumbItem } from 'mdui'
+import { Button, TextField, Checkbox, Select, MenuItem } from 'mdui'
 import { Theme } from '../theme'
 import { InputListEntry, Editor } from '../theme'
 import { Literal, NamedNode } from 'n3'
@@ -273,22 +273,29 @@ export class MaterialTheme extends Theme {
     }
 
     createBreadcrumb(items: { label: string; action: () => void }[], activeItemLabel: string): HTMLElement {
-        const breadcrumb = new Breadcrumb();
+        const breadcrumb = document.createElement('nav');
+        breadcrumb.classList.add('breadcrumb-container');
+        breadcrumb.setAttribute('aria-label', 'breadcrumb');
 
         for (const item of items) {
-            const breadcrumbItem = new BreadcrumbItem();
+            const breadcrumbItem = document.createElement('a');
             breadcrumbItem.innerText = item.label;
             breadcrumbItem.href = '#';
-            breadcrumbItem.addEventListener('click', (e) => {
+            breadcrumbItem.addEventListener('click', (e: MouseEvent) => {
                 e.preventDefault();
                 item.action();
             });
             breadcrumb.appendChild(breadcrumbItem);
+
+            const separator = document.createElement('span');
+            separator.classList.add('separator');
+            separator.innerHTML = ' &rsaquo; ';
+            breadcrumb.appendChild(separator);
         }
 
-        const activeItem = new BreadcrumbItem();
+        const activeItem = document.createElement('span');
         activeItem.innerText = activeItemLabel;
-        activeItem.active = true;
+        activeItem.setAttribute('aria-current', 'page');
         breadcrumb.appendChild(activeItem);
 
         return breadcrumb;
