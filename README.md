@@ -67,6 +67,7 @@ data-values-graph | If set, serializing the form will create a named graph with 
 data-language | Language to use if shapes contain langStrings, e.g. in `sh:name` or `rdfs:label`. Default is [`navigator.language`](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/language) with fallback to [`navigator.languages`](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/languages)
 data-loading | Text to display while the web component is initializing. Default: `"Loading..."`
 data&#x2011;ignore&#x2011;owl&#x2011;imports | By default, `owl:imports` URLs are fetched and the resulting RDF triples are added to the shapes graph. Setting this attribute to any value disables this feature
+data&#x2011;skip&#x2011;shape&#x2011;validation | By default, the loaded shapes graph is checked with SHACL-SHACL before rendering. Setting this attribute to any value disables this check, which can be useful for backward compatibility, debugging incomplete shapes, or very large graphs.
 data-view | When set, turns the web component into a viewer that displays the given data graph without editing functionality
 data-collapse | When set, `sh:group`s and properties with `sh:node` and `sh:maxCount` != 1 are displayed in a collapsible accordion-like widget to reduce visual complexity of the form. The collapsible element is initially shown closed, except when this attribute's value is `"open"`
 data-submit-button | [Ignored when `data-view` attribute is set] Whether to add a submit button to the form. The value of this attribute is used as the button label. `submit` events get emitted only when the form data validates
@@ -110,6 +111,8 @@ Sets a callback function that is invoked when a SHACL property has an `sh:class`
 ## Features
 
 ### Validation
+
+Before rendering, `<shacl-form>` checks the provided shapes graph against SHACL-SHACL syntax checks. This check can be disabled with `data-skip-shape-validation`.
 
 In edit mode, `<shacl-form>` validates the constructed data graph using the library [shacl-engine](https://github.com/rdf-ext/shacl-engine) and displays validation results as icons next to the respective form fields.
 

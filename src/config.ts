@@ -1,10 +1,9 @@
 import { DataFactory, NamedNode, Prefixes, Store } from 'n3'
 import { Term } from '@rdfjs/types'
-import { PREFIX_SHACL, RDF_PREDICATE_TYPE } from './constants'
 import { ClassInstanceProvider } from './plugin'
 import { Loader } from './loader'
 import { Theme } from './theme'
-import { extractLists } from './util'
+import { ShapeGraphModel } from './shape-graph-model'
 
 export class ElementAttributes {
     shapes: string | null = null
@@ -24,6 +23,7 @@ export class ElementAttributes {
     loading: string = 'Loading\u2026'
     proxy: string | null = null
     ignoreOwlImports: string | null = null
+    skipShapeValidation: string | null = null
     collapse: string | null = null
     submitButton: string | null = null
     generateNodeShapeReference: string | null = null
@@ -37,6 +37,7 @@ export class Config {
     prefixes: Prefixes = {}
     editMode = true
     languages: string[]
+    shapeGraph: ShapeGraphModel
 
     lists: Record<string, Term[]> = {}
     groups: Array<string> = []
@@ -56,6 +57,7 @@ export class Config {
             } 
             return lang
         })), ''] // <-- append empty string to accept RDF literals with no language
+        this.shapeGraph = new ShapeGraphModel(this._store, this.languages)
     }
  
     updateAttributes(elem: HTMLElement) {
@@ -101,10 +103,8 @@ export class Config {
 
     set store(store: Store) {
         this._store = store
-        this.lists = extractLists(store, { ignoreErrors: true })
-        this.groups = []
-        store.forSubjects(subject => {
-            this.groups.push(subject.id)
-        }, RDF_PREDICATE_TYPE, `${PREFIX_SHACL}PropertyGroup`, null)
+        this.shapeGraph = new ShapeGraphModel(store, this.languages)
+        this.lists = this.shapeGraph.lists
+        this.groups = this.shapeGraph.groupIds
     }
 }

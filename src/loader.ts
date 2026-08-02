@@ -37,12 +37,14 @@ export class Loader {
             await this.importRDF(shapesInput, store, SHAPES_GRAPH);
 
             // 3. shapes shacl validation (semantic pass)
-            const shaclValidator = new ShaclShapeGraphValidator();
-            const report = await shaclValidator.validate(store);
-            if (!report.conforms) {
-                console.error('SHACL shapes validation report:', report);
-                const errorMessages = shaclValidator.formatReport(report);
-                throw new Error(`The provided SHACL shapes graph is not well-formed according to the SHACL-SHACL syntax checks:\n${errorMessages}`);
+            if (this.config.attributes.skipShapeValidation === null) {
+                const shaclValidator = new ShaclShapeGraphValidator();
+                const report = await shaclValidator.validate(store);
+                if (!report.conforms) {
+                    console.error('SHACL shapes validation report:', report);
+                    const errorMessages = shaclValidator.formatReport(report);
+                    throw new Error(`The provided SHACL shapes graph is not well-formed according to the SHACL-SHACL syntax checks:\n${errorMessages}`);
+                }
             }
         }
 
