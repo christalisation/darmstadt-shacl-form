@@ -1,7 +1,8 @@
-import { DataFactory, NamedNode, Store } from 'n3'
-import { Term } from '@rdfjs/types'
+import { DataFactory, NamedNode, Store, Term as N3Term } from 'n3'
+import { Term as RdfTerm } from '@rdfjs/types'
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_PROPERTY, SHACL_PREDICATE_TARGET_CLASS } from './constants'
 import { extractLists, findLabel } from './util'
+import { ShaclPath } from './shacl-path'
 
 export type RootShapeOptions = {
     shapeSubject?: string | null,
@@ -15,7 +16,7 @@ export type RootShapeOptions = {
  * do not need to interpret raw RDF triples directly.
  */
 export class ShapeGraphModel {
-    private listsCache: Record<string, Term[]> | undefined
+    private listsCache: Record<string, RdfTerm[]> | undefined
     private groupIdsCache: string[] | undefined
 
     constructor(
@@ -23,7 +24,7 @@ export class ShapeGraphModel {
         private readonly languages: string[],
     ) {}
 
-    get lists(): Record<string, Term[]> {
+    get lists(): Record<string, RdfTerm[]> {
         if (!this.listsCache) {
             this.listsCache = extractLists(this.store, { ignoreErrors: true })
         }
@@ -105,7 +106,7 @@ export class ShapeGraphModel {
         )
     }
 
-    getPropertyShapes(nodeShape: NamedNode): Term[] {
+    getPropertyShapes(nodeShape: NamedNode): N3Term[] {
         return this.store.getObjects(nodeShape, SHACL_PREDICATE_PROPERTY, null)
     }
 
@@ -114,28 +115,100 @@ export class ShapeGraphModel {
             .filter((term): term is NamedNode => term.termType === 'NamedNode')
     }
 
-    getGroup(propertyShape: Term): Term | undefined {
+    getGroup(propertyShape: RdfTerm): N3Term | undefined {
         return this.store.getObjects(propertyShape, `${PREFIX_SHACL}group`, null)[0]
     }
 
-    getList(listNode: Term): Term[] {
+    getList(listNode: RdfTerm): RdfTerm[] {
         return this.lists[listNode.value] || []
     }
 
-    getLabel(subject: Term): string {
+    getLabel(subject: RdfTerm): string {
         return findLabel(this.store.getQuads(subject, null, null, null), this.languages)
     }
 
-    getPath(propertyShape: Term): Term | undefined {
-        return this.store.getObjects(propertyShape, `${PREFIX_SHACL}path`, null)[0]
+    getPath(propertyShape: RdfTerm): ShaclPath | undefined {
+        const pathTerm = this.store.getObjects(propertyShape, `${PREFIX_SHACL}path`, null)[0]
+        return pathTerm ? this.parsePath(pathTerm) : undefined
     }
 
-    private isNodeShape(term: Term): term is NamedNode {
+    private isNodeShape(term: RdfTerm): term is NamedNode {
         return term.termType === 'NamedNode' &&
             this.store.countQuads(term, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null) > 0
     }
 
     private uniqueNamedNodes(nodes: NamedNode[]): NamedNode[] {
         return [...new Map(nodes.map(node => [node.value, node])).values()]
+    }
+
+    private parsePath(term: RdfTerm, visited = new Set<string>()): ShaclPath | undefined {
+        if (term.termType === 'NamedNode') {
+            return { kind: 'predicate', predicate: term }
+        }
+
+        const key = this.termKey(term)
+        if (visited.has(key)) {
+            console.warn(`recursive SHACL path ignored: ${key}`)
+            return undefined
+        }
+        visited.add(key)
+
+        const sequenceItems = this.getList(term)
+        if (sequenceItems.length > 0) {
+            const paths = sequenceItems.flatMap(item => {
+                const path = this.parsePath(item, visited)
+                return path ? [path] : []
+            })
+            return paths.length > 0 ? { kind: 'sequence', paths } : undefined
+        }
+
+        const alternativePath = this.parsePathListObject(term, 'alternativePath', visited)
+        if (alternativePath.length > 0) {
+            return { kind: 'alternative', paths: alternativePath }
+        }
+
+        const inversePath = this.parsePathObject(term, 'inversePath', visited)
+        if (inversePath) {
+            return { kind: 'inverse', path: inversePath }
+        }
+
+        const zeroOrMorePath = this.parsePathObject(term, 'zeroOrMorePath', visited)
+        if (zeroOrMorePath) {
+            return { kind: 'zeroOrMore', path: zeroOrMorePath }
+        }
+
+        const oneOrMorePath = this.parsePathObject(term, 'oneOrMorePath', visited)
+        if (oneOrMorePath) {
+            return { kind: 'oneOrMore', path: oneOrMorePath }
+        }
+
+        const zeroOrOnePath = this.parsePathObject(term, 'zeroOrOnePath', visited)
+        if (zeroOrOnePath) {
+            return { kind: 'zeroOrOne', path: zeroOrOnePath }
+        }
+
+        console.warn(`unsupported SHACL path expression ignored: ${key}`)
+        return undefined
+    }
+
+    private parsePathObject(subject: RdfTerm, predicate: string, visited: Set<string>): ShaclPath | undefined {
+        const object = this.store.getObjects(subject, `${PREFIX_SHACL}${predicate}`, null)[0]
+        return object ? this.parsePath(object, visited) : undefined
+    }
+
+    private parsePathListObject(subject: RdfTerm, predicate: string, visited: Set<string>): ShaclPath[] {
+        const listNode = this.store.getObjects(subject, `${PREFIX_SHACL}${predicate}`, null)[0]
+        if (!listNode) {
+            return []
+        }
+
+        return this.getList(listNode).flatMap(item => {
+            const path = this.parsePath(item, visited)
+            return path ? [path] : []
+        })
+    }
+
+    private termKey(term: RdfTerm): string {
+        return `${term.termType}:${term.value}`
     }
 }

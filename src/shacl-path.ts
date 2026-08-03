@@ -1,4 +1,4 @@
-import { NamedNode } from 'n3'
+import { NamedNode } from '@rdfjs/types'
 
 export type PredicatePath = { kind: 'predicate', predicate: NamedNode }
 export type AlternativePath = { kind: 'alternative', paths: ShaclPath[] }
