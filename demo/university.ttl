@@ -140,6 +140,7 @@ uni:DepartmentShape
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:node uni:FacultyShape ;
+        sh:nodeKind sh:IRI ;
     ] ;
     sh:property [
         sh:path uni:organizes ;
@@ -147,6 +148,7 @@ uni:DepartmentShape
         sh:description "Courses organized by the department" ;
         sh:class uni:Course ;
         sh:node uni:CourseShape ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 1 ;
     ] .
 

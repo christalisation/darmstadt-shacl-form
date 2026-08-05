@@ -3,6 +3,9 @@ import { Validator } from 'shacl-engine'
 // the SHACL-SHACL spec itself
 import shaclShacl from './assets/shacl-shacl.ttl?raw'
 
+/**
+ * Shape lookup
+ */
 export class ShaclShapeGraphValidator {
     private static shapes: Store | null = null;
     private static promise: Promise<Store> | null = null;

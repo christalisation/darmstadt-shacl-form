@@ -13,6 +13,7 @@ export const PREFIX_FOAF = 'http://xmlns.com/foaf/0.1/'
 
 export const SHAPES_GRAPH = DataFactory.namedNode('loaded-shapes')
 export const DATA_GRAPH = DataFactory.namedNode('loaded-data')
+export const REFERENCE_GRAPH = DataFactory.namedNode('loaded-references')
 
 export const RDF_PREDICATE_TYPE = DataFactory.namedNode(PREFIX_RDF + 'type')
 export const DCTERMS_PREDICATE_CONFORMS_TO = DataFactory.namedNode(PREFIX_DCTERMS + 'conformsTo')

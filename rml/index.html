@@ -14,19 +14,19 @@
         const outputPre = document.getElementById('rdf-output');
 
         // To update the RDF output
-        form.addEventListener('submit', event => {
+        function updateOutput(valid) {
             outputPre.innerText = form.serialize();
-            outputPre.style.color = 'green';
+            outputPre.style.color = valid === false ? '#922' : 'green';
+        }
+
+        form.addEventListener('change', event => {
+            updateOutput(event.detail?.valid);
         });
-        // form.addEventListener('change', event => {
-        //     if (event.detail?.valid) {
-        //         outputPre.innerText = form.serialize();
-        //         outputPre.style.color = 'green';
-        //     } else {
-        //         outputPre.innerText = 'Invalid data (check constraints)';
-        //         outputPre.style.color = 'red';
-        //     }
-        // });
+
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            updateOutput(true);
+        });
 
         // The Toggle Button for full screen
         const toggleBtn = document.getElementById('toggle-view-btn');

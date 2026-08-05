@@ -4,11 +4,12 @@ import { OWL_PREDICATE_IMPORTS, PREFIX_DASH, PREFIX_OA, PREFIX_RDF, PREFIX_SHACL
 import { Config } from './config'
 import { findLabel, prioritizeByLanguage, removePrefixes } from './util'
 import { ShaclNode } from './node'
+import { getAlternativePredicatePaths, getPredicatePath, pathToString, ShaclPath } from './shacl-path'
 
 const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => void> = {
     [`${PREFIX_SHACL}name`]:         (template, term) => { const literal = term as Literal; template.name = prioritizeByLanguage(template.config.languages, template.name, literal) },
     [`${PREFIX_SHACL}description`]:  (template, term) => { const literal = term as Literal; template.description = prioritizeByLanguage(template.config.languages, template.description, literal) },
-    [`${PREFIX_SHACL}path`]:         (template, term) => { template.path = term.value },
+    [`${PREFIX_SHACL}path`]:         (template, term) => { template.setPath(term) },
     [`${PREFIX_SHACL}node`]:         (template, term) => { template.node = term as NamedNode },
     [`${PREFIX_SHACL}datatype`]:     (template, term) => { template.datatype = term as NamedNode },
     [`${PREFIX_SHACL}nodeKind`]:     (template, term) => { template.nodeKind = term as NamedNode },
@@ -62,11 +63,15 @@ const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => v
 }
 
 export class ShaclPropertyTemplate {
+    id: Term | undefined
     parent: ShaclNode
     label = ''
     name: Literal | undefined
     description: Literal | undefined
     path: string | undefined
+    pathExpression: ShaclPath | undefined
+    pathAlternatives: string[] | undefined
+    pathAlternativeLabels: Record<string, string> = {}
     node: NamedNode | undefined
     class: NamedNode | undefined
     minCount: number | undefined
@@ -98,6 +103,7 @@ export class ShaclPropertyTemplate {
     extendedShapes: NamedNode[]  = []
 
     constructor(quads: Quad[], parent: ShaclNode, config: Config) {
+        this.id = quads[0]?.subject
         this.parent = parent
         this.config = config
         this.merge(quads)
@@ -113,7 +119,11 @@ export class ShaclPropertyTemplate {
         // provide best fitting label for UI
         this.label = this.name?.value || findLabel(quads, this.config.languages)
         if (!this.label && !this.shaclAnd) {
-            this.label = this.path ? removePrefixes(this.path, this.config.prefixes) : 'unknown'
+            if (this.pathAlternatives?.length) {
+                this.label = this.pathAlternatives.map(path => removePrefixes(path, this.config.prefixes)).join(' / ')
+            } else {
+                this.label = this.path ? removePrefixes(this.path, this.config.prefixes) : 'unknown'
+            }
         }
         // register extended shapes
         if (this.node) {
@@ -130,6 +140,58 @@ export class ShaclPropertyTemplate {
         return this
     }
 
+    setPath(term: Term) {
+        const path = this.id ? this.config.shapeGraph.getPath(this.id) : undefined
+        this.pathExpression = path
+
+        if (!path) {
+            this.path = term.termType === 'NamedNode' ? term.value : undefined
+            return
+        }
+
+        const predicate = getPredicatePath(path)
+        if (predicate) {
+            this.path = predicate.value
+            return
+        }
+
+        const alternatives = getAlternativePredicatePaths(path)
+        if (alternatives) {
+            this.pathAlternatives = alternatives.map(alternative => alternative.value)
+            this.pathAlternativeLabels = Object.fromEntries(
+                this.pathAlternatives.map(path => [path, this.findAlternativePathLabel(path)])
+            )
+            this.path = this.pathAlternatives[0]
+            return
+        }
+
+        console.warn(`unsupported SHACL property path ignored: ${pathToString(path)}`)
+    }
+
+    getPathLabel(path: string): string {
+        return this.pathAlternativeLabels[path] || removePrefixes(path, this.config.prefixes)
+    }
+
+    private findAlternativePathLabel(path: string): string {
+        for (const propertyShape of this.config.shapeGraph.getPropertyShapes(this.parent.shaclSubject)) {
+            if (this.id?.termType === propertyShape.termType && this.id.value === propertyShape.value) {
+                continue
+            }
+
+            const siblingPath = this.config.shapeGraph.getPath(propertyShape)
+            const siblingPredicate = siblingPath ? getPredicatePath(siblingPath) : undefined
+            if (siblingPredicate?.value === path) {
+                const label = this.config.shapeGraph.getLabel(propertyShape)
+                if (label) {
+                    return label
+                }
+            }
+        }
+
+        const predicateLabel = this.config.shapeGraph.getLabel(DataFactory.namedNode(path))
+        return predicateLabel || removePrefixes(path, this.config.prefixes)
+    }
+
     clone(): ShaclPropertyTemplate {
         const copy = Object.assign({}, this)
         // arrays are not cloned but referenced, so create them manually
@@ -138,6 +200,10 @@ export class ShaclPropertyTemplate {
         if (this.languageIn) {
             copy.languageIn = [ ...this.languageIn ]
         }
+        if (this.pathAlternatives) {
+            copy.pathAlternatives = [ ...this.pathAlternatives ]
+        }
+        copy.pathAlternativeLabels = { ...this.pathAlternativeLabels }
         if (this.shaclOr) {
             copy.shaclOr = [ ...this.shaclOr ]
         }

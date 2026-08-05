@@ -1,5 +1,5 @@
 import { Literal, NamedNode, Prefixes, Quad, Store } from 'n3'
-import { DATA_GRAPH, PREFIX_FOAF, PREFIX_RDF, PREFIX_RDFS, PREFIX_SHACL, PREFIX_SKOS, RDFS_PREDICATE_SUBCLASS_OF, RDF_PREDICATE_TYPE, SHAPES_GRAPH, SKOS_PREDICATE_BROADER, SKOS_PREDICATE_NARROWER } from './constants'
+import { DATA_GRAPH, PREFIX_FOAF, PREFIX_RDF, PREFIX_RDFS, PREFIX_SHACL, PREFIX_SKOS, REFERENCE_GRAPH, RDFS_PREDICATE_SUBCLASS_OF, RDF_PREDICATE_TYPE, SHAPES_GRAPH, SKOS_PREDICATE_BROADER, SKOS_PREDICATE_NARROWER } from './constants'
 import { Term } from '@rdfjs/types'
 import { InputListEntry } from './theme'
 import { ShaclPropertyTemplate } from './property-template'
@@ -91,6 +91,8 @@ export function findInstancesOf(clazz: NamedNode, template: ShaclPropertyTemplat
     } else {
         // find instances in the shapes graph
         const instances = template.config.store.getSubjects(RDF_PREDICATE_TYPE, clazz, SHAPES_GRAPH)
+        // find instances provided as reference data for linking
+        instances.push(...template.config.store.getSubjects(RDF_PREDICATE_TYPE, clazz, REFERENCE_GRAPH))
         // find instances in the data graph
         instances.push(...template.config.store.getSubjects(RDF_PREDICATE_TYPE, clazz, DATA_GRAPH))
         // find instances in imported taxonomies

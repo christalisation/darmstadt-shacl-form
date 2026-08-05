@@ -3,7 +3,7 @@ import { ShaclNodeCollection } from './node-collection'
 import { Config } from './config'
 import { ClassInstanceProvider, Plugin, listPlugins, registerPlugin } from './plugin'
 import { Store, NamedNode, DataFactory, Quad, BlankNode } from 'n3'
-import { DATA_GRAPH, PREFIX_SHACL, SHAPES_GRAPH } from './constants'
+import { DATA_GRAPH, PREFIX_SHACL, REFERENCE_GRAPH, SHAPES_GRAPH } from './constants'
 import { Editor, Theme } from './theme'
 import { serialize } from './serialize'
 import { findLabel } from './util'
@@ -22,6 +22,7 @@ export class ShaclForm extends HTMLElement {
     private viewContainer: HTMLElement | undefined
     private breadcrumbContainer: HTMLElement | undefined
     private rootSelectorContainer: HTMLElement | undefined
+    private activeRootNode: ShaclNode | undefined
 
     constructor(theme: Theme) {
         super()
@@ -69,6 +70,7 @@ export class ShaclForm extends HTMLElement {
                 this.form.replaceChildren()
                 // reset rendered node references
                 this.config.renderedNodes.clear()
+                this.activeRootNode = undefined
                 // find root shacl shape
                 this.nodeCollection.build()
                 
@@ -105,6 +107,7 @@ export class ShaclForm extends HTMLElement {
                     } else {
                         // only one root node, display it directly
                         const rootNode = this.nodeCollection.rootNodes[0]
+                        this.activeRootNode = rootNode
                         this.form.appendChild(rootNode)
                     }
                     
@@ -162,7 +165,9 @@ export class ShaclForm extends HTMLElement {
 
     public toRDF(graph = new Store()): Store {
         // this.shape?.toRDF(graph)
-        this.nodeCollection?.toRDF(graph)
+        for (const rootNode of this.getSerializableRootNodes()) {
+            rootNode.toRDF(graph)
+        }
         return graph
     }
 
@@ -195,20 +200,23 @@ export class ShaclForm extends HTMLElement {
             }
         }
 
-        this.config.store.deleteGraph(this.config.valuesGraphId || '')
+        this.clearGeneratedValuesGraph()
         // if (this.shape) {
         //     this.shape.toRDF(this.config.store)
         //     // add node target for validation. this is required in case of missing sh:targetClass in root shape
         //     this.config.store.add(new Quad(this.shape.shaclSubject, DataFactory.namedNode(PREFIX_SHACL + 'targetNode'), this.shape.nodeId, this.config.valuesGraphId))
-        if (this.nodeCollection?.rootNodes.length) {
-            this.nodeCollection.toRDF(this.config.store)
+        const rootNodes = this.getSerializableRootNodes()
+        if (rootNodes.length) {
+            for (const rootNode of rootNodes) {
+                rootNode.toRDF(this.config.store)
+            }
             // add node target for validation for each root node. this is required in case of missing sh:targetClass in root shape
-            for (const rootNode of this.nodeCollection.rootNodes) {
+            for (const rootNode of rootNodes) {
                 this.config.store.add(new Quad(rootNode.shaclSubject, DataFactory.namedNode(PREFIX_SHACL + 'targetNode'), rootNode.nodeId, this.config.valuesGraphId))
             }
         }
         try {
-            const dataset = this.config.store
+            const dataset = this.createValidationDataset()
             const report = await new Validator(dataset, { details: true, factory: DataFactory }).validate({ dataset })
 
             for (const result of report.results) {
@@ -308,6 +316,7 @@ export class ShaclForm extends HTMLElement {
     }
 
     private setActiveNode(node: ShaclNode) {
+        this.activeRootNode = this.getTopLevelNode(node);
         this.viewContainer!.replaceChildren(node);
         if (this.rootSelectorContainer) {
             this.rootSelectorContainer.style.display = 'none';
@@ -316,6 +325,7 @@ export class ShaclForm extends HTMLElement {
     }
 
     private showRootSelector() {
+        this.activeRootNode = undefined;
         this.viewContainer!.replaceChildren();
         if (this.breadcrumbContainer) {
             this.breadcrumbContainer.remove();
@@ -369,6 +379,35 @@ export class ShaclForm extends HTMLElement {
         const activeItemLabel = path.length > 0 ? path[path.length - 1].label : 'Unknown';
         this.breadcrumbContainer = this.config.theme.createBreadcrumb(breadcrumbItems, activeItemLabel);
         this.form.prepend(this.breadcrumbContainer);
+    }
+
+    private getSerializableRootNodes(): ShaclNode[] {
+        if (this.activeRootNode) {
+            return [this.activeRootNode]
+        }
+        if (this.nodeCollection.rootNodes.length <= 1) {
+            return this.nodeCollection.rootNodes
+        }
+        return []
+    }
+
+    private getTopLevelNode(node: ShaclNode): ShaclNode {
+        let current = node
+        while (current.parent) {
+            current = current.parent
+        }
+        return current
+    }
+
+    private clearGeneratedValuesGraph() {
+        const graph = this.config.valuesGraphId || DataFactory.defaultGraph()
+        this.config.store.removeQuads(this.config.store.getQuads(null, null, null, graph))
+    }
+
+    private createValidationDataset(): Store {
+        const dataset = new Store()
+        dataset.addQuads(this.config.store.getQuads(null, null, null, null).filter(quad => !quad.graph.equals(REFERENCE_GRAPH)))
+        return dataset
     }
 
     // private findRootShaclShapeSubject(): NamedNode | undefined 

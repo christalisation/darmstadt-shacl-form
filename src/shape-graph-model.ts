@@ -11,9 +11,8 @@ export type RootShapeOptions = {
 
 /**
  * Semantic view over a SHACL shapes graph.
- *
- * This class centralizes SHACL-specific graph queries so rendering components
- * do not need to interpret raw RDF triples directly.
+ * 
+ * This class centralises SHACL-specific graph queries
  */
 export class ShapeGraphModel {
     private listsCache: Record<string, RdfTerm[]> | undefined
@@ -106,7 +105,7 @@ export class ShapeGraphModel {
         )
     }
 
-    getPropertyShapes(nodeShape: NamedNode): N3Term[] {
+    getPropertyShapes(nodeShape: RdfTerm): N3Term[] {
         return this.store.getObjects(nodeShape, SHACL_PREDICATE_PROPERTY, null)
     }
 

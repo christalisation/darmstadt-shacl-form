@@ -1,7 +1,7 @@
 import { BlankNode, DataFactory, Literal, NamedNode, Quad, Store } from 'n3'
 import { Term } from '@rdfjs/types'
 import { ShaclNode } from './node'
-import { createShaclOrConstraint, resolveShaclOrConstraintOnProperty } from './constraints'
+import { createAlternativePathConstraint, createShaclOrConstraint, resolveShaclOrConstraintOnProperty } from './constraints'
 import { findInstancesOf, focusFirstInputElement } from './util'
 import { Config } from './config'
 import { ShaclPropertyTemplate } from './property-template'
@@ -51,14 +51,17 @@ export class ShaclProperty extends HTMLElement {
 
         // bind existing values
         if (this.template.path) {
+            const paths = this.template.pathAlternatives || [this.template.path]
             let values: Quad[] = []
             if (valueSubject) {
-                if (parent.linked) {
-                    // for linked resource, get values in all graphs
-                    values = config.store.getQuads(valueSubject, this.template.path, null, null)
-                } else {
-                    // get values only from data graph
-                    values = config.store.getQuads(valueSubject, this.template.path, null, DATA_GRAPH)
+                for (const path of paths) {
+                    if (parent.linked) {
+                        // for linked resource, get values in all graphs
+                        values.push(...config.store.getQuads(valueSubject, path, null, null))
+                    } else {
+                        // get values only from data graph
+                        values.push(...config.store.getQuads(valueSubject, path, null, DATA_GRAPH))
+                    }
                 }
             }
             let valuesContainHasValue = false
@@ -66,7 +69,7 @@ export class ShaclProperty extends HTMLElement {
                 // ignore values that do not conform to this property.
                 // this might be the case when there are multiple properties with the same sh:path in a NodeShape.
                 if (this.isValueValid(value.object)) {
-                    this.addPropertyInstance(value.object)
+                    this.addPropertyInstance(value.object, value.predicate.value)
                     if (this.template.hasValue && value.object.equals(this.template.hasValue)) {
                         valuesContainHasValue = true
                     }
@@ -91,7 +94,7 @@ export class ShaclProperty extends HTMLElement {
         }
     }
 
-    addPropertyInstance(value?: Term): HTMLElement {
+    addPropertyInstance(value?: Term, selectedPath?: string): HTMLElement {
         let instance: HTMLElement
         if (this.template.shaclOr?.length || this.template.shaclXone?.length) {
             const options = this.template.shaclOr?.length ? this.template.shaclOr : this.template.shaclXone as Term[]
@@ -117,7 +120,15 @@ export class ShaclProperty extends HTMLElement {
                     linked = true
                 }
             }
-            instance = createPropertyInstance(this.template, value, undefined, linked || this.template.parent.linked)
+            if (this.template.pathAlternatives?.length && !selectedPath) {
+                instance = createAlternativePathConstraint(this, value, linked || this.template.parent.linked)
+            } else {
+                const effectiveTemplate = selectedPath && selectedPath !== this.template.path ? this.template.clone() : this.template
+                if (selectedPath) {
+                    effectiveTemplate.path = selectedPath
+                }
+                instance = createPropertyInstance(effectiveTemplate, value, undefined, linked || this.template.parent.linked)
+            }
         }
         if (this.addButton) {
             this.container.insertBefore(instance!, this.addButton)
@@ -128,10 +139,10 @@ export class ShaclProperty extends HTMLElement {
     }
 
     updateControls() {
-        let instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > shacl-node").length
+        let instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > .alternative-path-constraint, :scope > shacl-node").length
         if (instanceCount === 0 && (!this.template.extendedShapes.length || (this.template.minCount !== undefined && this.template.minCount > 0))) {
             this.addPropertyInstance()
-            instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > shacl-node").length
+            instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > .alternative-path-constraint, :scope > shacl-node").length
         }
         let mayRemove: boolean
         if (this.template.minCount !== undefined) {
@@ -148,9 +159,16 @@ export class ShaclProperty extends HTMLElement {
     toRDF(graph: Store, subject: NamedNode | BlankNode) {
         for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .collapsible > .property-instance')) {
             const pathNode = DataFactory.namedNode((instance as HTMLElement).dataset.path!)
-            if (instance.firstChild instanceof ShaclNode) {
-                const shapeSubject = instance.firstChild.toRDF(graph)
-                graph.addQuad(subject, pathNode, shapeSubject, this.template.config.valuesGraphId)
+            const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node')
+
+            if (nestedNodes.length) {
+                for (const nestedNode of nestedNodes) {
+                    if (!nestedNode.hasSerializableValue()) {
+                        continue
+                    }
+                    const shapeSubject = nestedNode.toRDF(graph)
+                    graph.addQuad(subject, pathNode, shapeSubject, this.template.config.valuesGraphId)
+                }
             } else {
                 for (const editor of instance.querySelectorAll<Editor>(':scope > .editor')) {
                     const value = toRDF(editor)
@@ -160,6 +178,27 @@ export class ShaclProperty extends HTMLElement {
                 }
             }
         }
+    }
+
+    hasSerializableValue(): boolean {
+        for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .collapsible > .property-instance')) {
+            const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node')
+
+            if (nestedNodes.length) {
+                for (const nestedNode of nestedNodes) {
+                    if (nestedNode.hasSerializableValue()) {
+                        return true
+                    }
+                }
+            } else {
+                for (const editor of instance.querySelectorAll<Editor>(':scope > .editor')) {
+                    if (toRDF(editor)) {
+                        return true
+                    }
+                }
+            }
+        }
+        return false
     }
 
     getRdfClassToLinkOrCreate() {
@@ -255,7 +294,7 @@ export class ShaclProperty extends HTMLElement {
                 } else {
                     // user wants to link existing instance
                     const value = JSON.parse(addButton.value) as Term
-                    this.container.insertBefore(createPropertyInstance(this.template, value, true, true), addButton)
+                    this.addPropertyInstance(value)
                 }
                 addButton.value = ''
             })

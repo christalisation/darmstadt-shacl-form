@@ -6,6 +6,47 @@ import { Config } from './config'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHACL_PREDICATE_NODE_KIND, SHACL_OBJECT_IRI, SHACL_PREDICATE_PROPERTY } from './constants'
 import { findLabel, removePrefixes } from './util'
 
+export function createAlternativePathConstraint(property: ShaclProperty, value?: Term, linked = false): HTMLElement {
+    const wrapper = document.createElement('div')
+    wrapper.classList.add('alternative-path-constraint', 'w-100', 'd-flex', 'flex-column')
+    wrapper.style.gap = '0.5rem'
+    wrapper.style.marginBottom = '1rem'
+
+    const select = document.createElement('select')
+    select.classList.add('form-select', 'w-100', 'editor')
+    select.required = property.template.minCount !== undefined && property.template.minCount > 0
+
+    const placeholder = document.createElement('option')
+    placeholder.value = ''
+    placeholder.innerText = `Select ${property.template.label || 'path'}`
+    select.appendChild(placeholder)
+
+    for (let i = 0; i < (property.template.pathAlternatives?.length || 0); i++) {
+        const path = property.template.pathAlternatives![i]
+        const option = document.createElement('option')
+        option.value = i.toString()
+        option.innerText = property.template.getPathLabel(path)
+        select.appendChild(option)
+    }
+
+    select.addEventListener('change', ev => {
+        ev.stopPropagation()
+        if (select.value === '') {
+            return
+        }
+
+        const selectedPath = property.template.pathAlternatives![parseInt(select.value)]
+        const effectiveTemplate = property.template.clone()
+        effectiveTemplate.path = selectedPath
+        const instance = createPropertyInstance(effectiveTemplate, value, true, linked)
+        wrapper.replaceWith(instance)
+        instance.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }))
+    })
+
+    wrapper.appendChild(select)
+    return wrapper
+}
+
 export function createShaclOrConstraint(options: Term[], context: ShaclNode | ShaclProperty, config: Config): HTMLElement {
     // 1. LE CONTENEUR GLOBAL
     // Wrapper vertical simple qui prend toute la largeur

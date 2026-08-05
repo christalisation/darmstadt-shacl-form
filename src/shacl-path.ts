@@ -34,6 +34,20 @@ export function getPredicatePath(path: ShaclPath): NamedNode | undefined {
 }
 
 /**
+ * Returns the predicate IRIs of a supported sh:alternativePath expression.
+ */
+export function getAlternativePredicatePaths(path: ShaclPath): NamedNode[] | undefined {
+    if (path.kind !== 'alternative') {
+        return undefined
+    }
+
+    const predicates = path.paths.map(getPredicatePath)
+    return predicates.every((predicate): predicate is NamedNode => predicate !== undefined)
+        ? predicates
+        : undefined
+}
+
+/**
  * Human-readable representation for debugging and error messages.
  */
 export function pathToString(path: ShaclPath): string {

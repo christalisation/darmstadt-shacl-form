@@ -5,8 +5,8 @@ import { Store, DataFactory } from 'n3'
 /**
  * Runtime collection of rendered SHACL nodes.
  *
- * Shape lookup is delegated to ShapeGraphModel; this class tracks the DOM nodes
- * that currently represent the form state.
+ * This class tracks the DOM nodes
+ * that represent the current form state.
  **/
 export class ShaclNodeCollection {
     public rootNodes: ShaclNode[] = []

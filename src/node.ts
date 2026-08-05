@@ -148,6 +148,18 @@ export class ShaclNode extends HTMLElement {
         return subject
     }
 
+    hasSerializableValue(): boolean {
+        if (this.linked) {
+            return true
+        }
+        for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property')) {
+            if ((shape as ShaclNode | ShaclProperty).hasSerializableValue()) {
+                return true
+            }
+        }
+        return false
+    }
+
     addPropertyInstance(shaclSubject: Term, valueSubject: NamedNode | BlankNode | undefined) {
         let parentElement: HTMLElement = this
         // check if property belongs to a group
