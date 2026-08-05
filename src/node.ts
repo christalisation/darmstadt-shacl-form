@@ -49,8 +49,8 @@ export class ShaclNode extends HTMLElement {
         this.nodeId = nodeId
 
         // check if the form already contains the node/value pair to prevent recursion
-        const id = JSON.stringify([shaclSubject, valueSubject])
-        if (valueSubject && this.config.renderedNodes.has(id)) {
+        const renderedNodeKey = JSON.stringify([shaclSubject.id, this.nodeId.id])
+        if (this.config.renderedNodes.has(renderedNodeKey)) {
             // node/value pair is already rendered in the form, so just display a reference
             label = label || "Link"
             const labelElem = document.createElement('label')
@@ -59,7 +59,7 @@ export class ShaclNode extends HTMLElement {
             this.appendChild(labelElem)
 
             const anchor = document.createElement('a')
-            let refId = (valueSubject.termType === 'BlankNode') ? '_:' + valueSubject.value : valueSubject.value
+            let refId = this.nodeId.id
             anchor.innerText = refId
             anchor.classList.add('ref-link')
             anchor.onclick = () => {
@@ -69,9 +69,7 @@ export class ShaclNode extends HTMLElement {
             this.appendChild(anchor)
             this.style.flexDirection = 'row'
         } else {
-            if (valueSubject) {
-                this.config.renderedNodes.add(id)
-            }
+            this.config.renderedNodes.add(renderedNodeKey)
             this.dataset.nodeId = this.nodeId.id
             if (this.config.attributes.showNodeIds !== null) {
                 const div = document.createElement('div')
@@ -128,22 +126,33 @@ export class ShaclNode extends HTMLElement {
         this.nodeCollection.registerNode(this)  // add this node to the ShaclNodeCollection
     }
 
-    toRDF(graph: Store, subject?: NamedNode | BlankNode): (NamedNode | BlankNode) {
+    toRDF(graph: Store, subject?: NamedNode | BlankNode, serializedNodes = new Set<string>()): (NamedNode | BlankNode) {
         if (!subject) {
             subject = this.nodeId
         }
-        // output triples only if node is not a link
-        if (!this.linked) {
-            for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property')) {
-                (shape as ShaclNode | ShaclProperty).toRDF(graph, subject)
+        const serializationKey = JSON.stringify([this.shaclSubject.id, subject.id])
+        if (serializedNodes.has(serializationKey)) {
+            return subject
+        }
+        if (this.linked) {
+            const originalNode = this.nodeCollection.findNodeById(subject)
+            if (originalNode && originalNode !== this) {
+                originalNode.toRDF(graph, subject, serializedNodes)
             }
-            if (this.targetClass) {
-                graph.addQuad(subject, RDF_PREDICATE_TYPE, this.targetClass, this.config.valuesGraphId)
-            }
-            // if this is the root shacl node, check if we should add one of the rdf:type or dcterms:conformsTo predicates
-            if (this.config.attributes.generateNodeShapeReference && !this.parent) {
-                graph.addQuad(subject, DataFactory.namedNode(this.config.attributes.generateNodeShapeReference), this.shaclSubject, this.config.valuesGraphId)
-            }
+            return subject
+        }
+
+        serializedNodes.add(serializationKey)
+        // Output triples for the concrete node once; linked references delegate to the original node above.
+        for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property')) {
+            (shape as ShaclNode | ShaclProperty).toRDF(graph, subject, serializedNodes)
+        }
+        if (this.targetClass) {
+            graph.addQuad(subject, RDF_PREDICATE_TYPE, this.targetClass, this.config.valuesGraphId)
+        }
+        // if this is the root shacl node, check if we should add one of the rdf:type or dcterms:conformsTo predicates
+        if (this.config.attributes.generateNodeShapeReference && !this.parent) {
+            graph.addQuad(subject, DataFactory.namedNode(this.config.attributes.generateNodeShapeReference), this.shaclSubject, this.config.valuesGraphId)
         }
         return subject
     }

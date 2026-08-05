@@ -1,6 +1,6 @@
 import { ShaclNode } from './node'
 import { Config } from './config'
-import { Store, DataFactory } from 'n3'
+import { BlankNode, DataFactory, NamedNode, Store } from 'n3'
 
 /**
  * Runtime collection of rendered SHACL nodes.
@@ -39,7 +39,28 @@ export class ShaclNodeCollection {
      * @param node The ShaclNode to register.
      */
     public registerNode(node: ShaclNode) {
-        this.allNodesById.set(node.nodeId.id, node)
+        if (!node.linked || !this.allNodesById.has(node.nodeId.id)) {
+            this.allNodesById.set(node.nodeId.id, node)
+        }
+    }
+
+    public findNodeById(nodeId: NamedNode | BlankNode | string): ShaclNode | undefined {
+        const id = typeof nodeId === 'string' ? nodeId : nodeId.id
+        return this.allNodesById.get(id)
+    }
+
+    public findNodesByClass(clazz: NamedNode): ShaclNode[] {
+        return this.findReusableNodes(node => node.targetClass?.equals(clazz) || false)
+    }
+
+    public findNodesByShape(shape: NamedNode): ShaclNode[] {
+        return this.findReusableNodes(node => node.shaclSubject.equals(shape))
+    }
+
+    private findReusableNodes(predicate: (node: ShaclNode) => boolean): ShaclNode[] {
+        return Array.from(this.allNodesById.values()).filter(node => {
+            return !node.linked && node.hasSerializableValue() && predicate(node)
+        })
     }
 
     public toRDF(graph: Store): Store {

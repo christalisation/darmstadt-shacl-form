@@ -156,7 +156,7 @@ export class ShaclProperty extends HTMLElement {
         this.classList.toggle('may-add', mayAdd)
     }
 
-    toRDF(graph: Store, subject: NamedNode | BlankNode) {
+    toRDF(graph: Store, subject: NamedNode | BlankNode, serializedNodes = new Set<string>()) {
         for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .collapsible > .property-instance')) {
             const pathNode = DataFactory.namedNode((instance as HTMLElement).dataset.path!)
             const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node')
@@ -166,7 +166,7 @@ export class ShaclProperty extends HTMLElement {
                     if (!nestedNode.hasSerializableValue()) {
                         continue
                     }
-                    const shapeSubject = nestedNode.toRDF(graph)
+                    const shapeSubject = nestedNode.toRDF(graph, undefined, serializedNodes)
                     graph.addQuad(subject, pathNode, shapeSubject, this.template.config.valuesGraphId)
                 }
             } else {
@@ -248,7 +248,8 @@ export class ShaclProperty extends HTMLElement {
         if (clazz) {
             instances = findInstancesOf(clazz, this.template)
         }
-        if (instances.length === 0) {
+        const reusableNodes = this.findReusableNodes(clazz)
+        if (instances.length === 0 && reusableNodes.length === 0) {
             // no class instances found, so create an add button that creates a new instance
             addButton.emptyMessage = ''
             addButton.inputMinWidth = 0
@@ -263,26 +264,41 @@ export class ShaclProperty extends HTMLElement {
                 }, 200)
             })
         } else {
-            // some instances found, so create an add button that can create a new instance or link existing ones
+            // some instances found, so create an add button that can create, link or reuse instances
             const ul = document.createElement('ul')
             const newItem = document.createElement('li')
             newItem.innerHTML = '&#xFF0B; Create new ' + this.template.label + '...'
             newItem.dataset.value = 'new'
             newItem.classList.add('large')
             ul.appendChild(newItem)
-            const divider = document.createElement('li')
-            divider.classList.add('divider')
-            ul.appendChild(divider)
-            const header = document.createElement('li')
-            header.classList.add('header')
-            header.innerText = 'Or link existing:'
-            ul.appendChild(header)
-            for (const instance of instances) {
-                const li = document.createElement('li')
-                const itemValue = (typeof instance.value === 'string') ? instance.value : instance.value.value
-                li.innerText = instance.label ? instance.label : itemValue
-                li.dataset.value = JSON.stringify(instance.value)
-                ul.appendChild(li)
+
+            if (instances.length) {
+                ul.appendChild(createMenuDivider())
+                const header = document.createElement('li')
+                header.classList.add('header')
+                header.innerText = 'Or link existing:'
+                ul.appendChild(header)
+                for (const instance of instances) {
+                    const li = document.createElement('li')
+                    const itemValue = (typeof instance.value === 'string') ? instance.value : instance.value.value
+                    li.innerText = instance.label ? instance.label : itemValue
+                    li.dataset.value = JSON.stringify(instance.value)
+                    ul.appendChild(li)
+                }
+            }
+
+            if (reusableNodes.length) {
+                ul.appendChild(createMenuDivider())
+                const header = document.createElement('li')
+                header.classList.add('header')
+                header.innerText = 'Or reuse from this form:'
+                ul.appendChild(header)
+                for (const node of reusableNodes) {
+                    const li = document.createElement('li')
+                    li.innerText = this.getReusableNodeLabel(node)
+                    li.dataset.value = JSON.stringify(node.nodeId)
+                    ul.appendChild(li)
+                }
             }
             addButton.appendChild(ul)
             addButton.collapsibleWidth = '250px'
@@ -293,13 +309,80 @@ export class ShaclProperty extends HTMLElement {
                     this.addPropertyInstance()
                 } else {
                     // user wants to link existing instance
-                    const value = JSON.parse(addButton.value) as Term
+                    const value = parseTerm(addButton.value)
                     this.addPropertyInstance(value)
                 }
                 addButton.value = ''
             })
         }
         return addButton
+    }
+
+    private findReusableNodes(clazz?: NamedNode): ShaclNode[] {
+        const nodes = new Map<string, ShaclNode>()
+        if (clazz) {
+            for (const node of this.template.parent.nodeCollection.findNodesByClass(clazz)) {
+                nodes.set(node.nodeId.id, node)
+            }
+        }
+        for (const shape of this.template.extendedShapes) {
+            if (shape.termType === 'NamedNode') {
+                for (const node of this.template.parent.nodeCollection.findNodesByShape(shape)) {
+                    nodes.set(node.nodeId.id, node)
+                }
+            }
+        }
+        return Array.from(nodes.values()).filter(node => !this.isCurrentPathNode(node))
+    }
+
+    private isCurrentPathNode(node: ShaclNode): boolean {
+        let current: ShaclNode | undefined = this.template.parent
+        while (current) {
+            if (current.nodeId.equals(node.nodeId)) {
+                return true
+            }
+            current = current.parent
+        }
+        return false
+    }
+
+    private getReusableNodeLabel(node: ShaclNode): string {
+        const shapeLabel = this.template.config.shapeGraph.getLabel(node.shaclSubject) || this.shortNodeId(node)
+        const valueLabel = this.findFirstEditorValue(node)
+        return valueLabel ? `${shapeLabel}: ${valueLabel}` : `${shapeLabel} (${this.shortNodeId(node)})`
+    }
+
+    private findFirstEditorValue(node: ShaclNode): string | undefined {
+        for (const editor of node.querySelectorAll<Editor>(':scope shacl-property > .property-instance > .editor')) {
+            if (editor.value) {
+                return editor.value
+            }
+        }
+        return undefined
+    }
+
+    private shortNodeId(node: ShaclNode): string {
+        const value = node.nodeId.value
+        const lastSegment = value.split(/[\/#]/).filter(Boolean).pop() || value
+        return lastSegment.length > 12 ? `${lastSegment.slice(0, 8)}...` : lastSegment
+    }
+}
+
+function createMenuDivider(): HTMLLIElement {
+    const divider = document.createElement('li')
+    divider.classList.add('divider')
+    return divider
+}
+
+function parseTerm(value: string): Term {
+    const term = JSON.parse(value)
+    switch (term.termType) {
+        case 'NamedNode':
+            return DataFactory.namedNode(term.value)
+        case 'BlankNode':
+            return DataFactory.blankNode(term.value)
+        default:
+            return term as Term
     }
 }
 
