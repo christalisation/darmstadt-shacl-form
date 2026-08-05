@@ -62,6 +62,22 @@ const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => v
     }
 }
 
+const valueNodeConstraintPredicates = new Set<string>([
+    `${PREFIX_SHACL}datatype`,
+    `${PREFIX_SHACL}nodeKind`,
+    `${PREFIX_SHACL}minLength`,
+    `${PREFIX_SHACL}maxLength`,
+    `${PREFIX_SHACL}minInclusive`,
+    `${PREFIX_SHACL}maxInclusive`,
+    `${PREFIX_SHACL}minExclusive`,
+    `${PREFIX_SHACL}maxExclusive`,
+    `${PREFIX_SHACL}pattern`,
+    `${PREFIX_SHACL}in`,
+    `${PREFIX_SHACL}languageIn`,
+    `${PREFIX_SHACL}defaultValue`,
+    `${PREFIX_SHACL}hasValue`,
+])
+
 export class ShaclPropertyTemplate {
     id: Term | undefined
     parent: ShaclNode
@@ -125,19 +141,37 @@ export class ShaclPropertyTemplate {
                 this.label = this.path ? removePrefixes(this.path, this.config.prefixes) : 'unknown'
             }
         }
-        // register extended shapes
+        // register structural node shapes, or absorb value-shape constraints
         if (this.node) {
-            this.extendedShapes.push(this.node)
+            if (this.config.shapeGraph.hasRenderableNodeShapeContent(this.node)) {
+                this.addExtendedShape(this.node)
+            } else {
+                this.mergeValueNodeShapeConstraints(this.node)
+            }
         }
         if (this.shaclAnd) {
             const list = this.config.lists[this.shaclAnd]
             if (list?.length) {
                 for (const node of list) {
-                    this.extendedShapes.push(node as NamedNode)
+                    this.addExtendedShape(node as NamedNode)
                 }
             }
         }
         return this
+    }
+
+    private addExtendedShape(node: NamedNode): void {
+        if (!this.extendedShapes.some(shape => shape.value === node.value)) {
+            this.extendedShapes.push(node)
+        }
+    }
+
+    private mergeValueNodeShapeConstraints(node: NamedNode): void {
+        for (const quad of this.config.store.getQuads(node, null, null, null)) {
+            if (valueNodeConstraintPredicates.has(quad.predicate.id)) {
+                mappers[quad.predicate.id]?.call(this, this, quad.object)
+            }
+        }
     }
 
     setPath(term: Term) {
@@ -172,7 +206,36 @@ export class ShaclPropertyTemplate {
         return this.pathAlternativeLabels[path] || removePrefixes(path, this.config.prefixes)
     }
 
+    createTemplateForAlternativePath(path: string): ShaclPropertyTemplate {
+        const propertyShape = this.findSiblingPropertyShapeByPath(path)
+        if (propertyShape) {
+            const template = new ShaclPropertyTemplate(this.config.store.getQuads(propertyShape, null, null, null), this.parent, this.config)
+            template.minCount = this.minCount
+            template.maxCount = this.maxCount
+            return template
+        }
+
+        const template = this.clone()
+        template.path = path
+        template.pathAlternatives = undefined
+        template.pathAlternativeLabels = {}
+        return template
+    }
+
     private findAlternativePathLabel(path: string): string {
+        const propertyShape = this.findSiblingPropertyShapeByPath(path)
+        if (propertyShape) {
+            const label = this.config.shapeGraph.getLabel(propertyShape)
+            if (label) {
+                return label
+            }
+        }
+
+        const predicateLabel = this.config.shapeGraph.getLabel(DataFactory.namedNode(path))
+        return predicateLabel || removePrefixes(path, this.config.prefixes)
+    }
+
+    private findSiblingPropertyShapeByPath(path: string): Term | undefined {
         for (const propertyShape of this.config.shapeGraph.getPropertyShapes(this.parent.shaclSubject)) {
             if (this.id?.termType === propertyShape.termType && this.id.value === propertyShape.value) {
                 continue
@@ -181,19 +244,13 @@ export class ShaclPropertyTemplate {
             const siblingPath = this.config.shapeGraph.getPath(propertyShape)
             const siblingPredicate = siblingPath ? getPredicatePath(siblingPath) : undefined
             if (siblingPredicate?.value === path) {
-                const label = this.config.shapeGraph.getLabel(propertyShape)
-                if (label) {
-                    return label
-                }
+                return propertyShape
             }
         }
-
-        const predicateLabel = this.config.shapeGraph.getLabel(DataFactory.namedNode(path))
-        return predicateLabel || removePrefixes(path, this.config.prefixes)
     }
 
     clone(): ShaclPropertyTemplate {
-        const copy = Object.assign({}, this)
+        const copy = Object.assign(Object.create(Object.getPrototypeOf(this)), this) as ShaclPropertyTemplate
         // arrays are not cloned but referenced, so create them manually
         copy.extendedShapes = [ ...this.extendedShapes ]
         copy.owlImports = [ ...this.owlImports ]
@@ -210,8 +267,6 @@ export class ShaclPropertyTemplate {
         if (this.shaclXone) {
             copy.shaclXone = [ ...this.shaclXone ]
         }
-        copy.merge = this.merge.bind(copy)
-        copy.clone = this.clone.bind(copy)
         return copy
     }
 }

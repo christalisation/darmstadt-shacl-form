@@ -10,6 +10,7 @@ import { BlankNode, DataFactory, NamedNode, Store } from 'n3'
  **/
 export class ShaclNodeCollection {
     public rootNodes: ShaclNode[] = []
+    public committedRootNodes: ShaclNode[] = []
     private allNodesById: Map<string, ShaclNode> = new Map() // the key string will be node.nodeId.id
     public readonly config: Config
 
@@ -20,6 +21,7 @@ export class ShaclNodeCollection {
     public build() {
         // remove all previously registered nodes and root nodes
         this.rootNodes = [];
+        this.committedRootNodes = [];
         this.allNodesById.clear();
         const rootSubjects = this.config.shapeGraph.findRootNodeShapes({
             shapeSubject: this.config.attributes.shapeSubject,
@@ -28,10 +30,36 @@ export class ShaclNodeCollection {
         const valueSubject = this.config.attributes.valuesSubject ? DataFactory.namedNode(this.config.attributes.valuesSubject) : undefined;
 
         for (const subject of rootSubjects) {
-            const label = this.config.shapeGraph.getLabel(subject);
-            const rootNode = new ShaclNode(subject, this, valueSubject, undefined, undefined, label || subject.value);
-            this.rootNodes.push(rootNode);
+            this.rootNodes.push(this.createRootNode(subject, valueSubject));
         }
+    }
+
+    public createRootNode(subject: NamedNode, valueSubject?: NamedNode | BlankNode): ShaclNode {
+        const label = this.config.shapeGraph.getLabel(subject);
+        return new ShaclNode(subject, this, valueSubject, undefined, undefined, label || subject.value);
+    }
+
+    public commitRootNode(node: ShaclNode): void {
+        if (!this.committedRootNodes.includes(node)) {
+            this.committedRootNodes.push(node);
+        }
+    }
+
+    public replaceRootNode(node: ShaclNode): ShaclNode {
+        const replacement = this.createRootNode(node.shaclSubject);
+        const index = this.rootNodes.indexOf(node);
+        if (index >= 0) {
+            this.rootNodes[index] = replacement;
+        }
+        return replacement;
+    }
+
+    public getSerializableRootNodes(activeRootNode?: ShaclNode, includeEmptyActiveRootNode = false): ShaclNode[] {
+        const nodes = [...this.committedRootNodes];
+        if (activeRootNode && (includeEmptyActiveRootNode || activeRootNode.hasSerializableValue()) && !nodes.includes(activeRootNode)) {
+            nodes.push(activeRootNode);
+        }
+        return nodes;
     }
 
     /**
@@ -59,12 +87,20 @@ export class ShaclNodeCollection {
 
     private findReusableNodes(predicate: (node: ShaclNode) => boolean): ShaclNode[] {
         return Array.from(this.allNodesById.values()).filter(node => {
-            return !node.linked && node.hasSerializableValue() && predicate(node)
+            return !node.linked && this.belongsToCommittedRoot(node) && node.hasSerializableValue() && predicate(node)
         })
     }
 
+    private belongsToCommittedRoot(node: ShaclNode): boolean {
+        let current: ShaclNode = node
+        while (current.parent) {
+            current = current.parent
+        }
+        return this.committedRootNodes.includes(current)
+    }
+
     public toRDF(graph: Store): Store {
-        for (const rootNode of this.rootNodes) {
+        for (const rootNode of this.committedRootNodes) {
             rootNode.toRDF(graph);
         }
         return graph;

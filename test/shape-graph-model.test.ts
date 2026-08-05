@@ -179,4 +179,62 @@ describe('ShapeGraphModel', () => {
         expect(path.kind).toBe('sequence')
         expect(pathToString(path)).toBe(`${EX}author / ^${EX}createdBy / ${EX}parent*`)
     })
+
+    it('keeps alternative path branches available as templates but not visible duplicates', () => {
+        const model = shapeGraph(`
+            ex:Shape a sh:NodeShape ;
+                sh:property [
+                    sh:path [ sh:alternativePath ( ex:subjectMap ex:subject ) ] ;
+                    sh:maxCount 1 ;
+                ] ;
+                sh:property [
+                    sh:path ex:subject ;
+                    sh:nodeKind sh:IRI ;
+                ] ;
+                sh:property [
+                    sh:path ex:subjectMap ;
+                    sh:node ex:SubjectMapShape ;
+                ] ;
+                sh:property [
+                    sh:path ex:baseIRI ;
+                    sh:nodeKind sh:IRI ;
+                ] .
+
+            ex:SubjectMapShape a sh:NodeShape .
+        `)
+
+        const allLabels = model.getPropertyShapes(DataFactory.namedNode(`${EX}Shape`))
+            .map(shape => pathToString(model.getPath(shape)!))
+        const renderedLabels = model.getRenderablePropertyShapes(DataFactory.namedNode(`${EX}Shape`))
+            .map(shape => pathToString(model.getPath(shape)!))
+
+        expect(allLabels).toEqual([
+            `${EX}subjectMap | ${EX}subject`,
+            `${EX}subject`,
+            `${EX}subjectMap`,
+            `${EX}baseIRI`,
+        ])
+        expect(renderedLabels).toEqual([
+            `${EX}subjectMap | ${EX}subject`,
+            `${EX}baseIRI`,
+        ])
+    })
+
+    it('detects renderable node-shape content through sh:and inheritance', () => {
+        const model = shapeGraph(`
+            ex:StructuralShape a sh:NodeShape ;
+                sh:and ( ex:InheritedShape ) .
+
+            ex:InheritedShape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:value ;
+                ] .
+
+            ex:ValueShape a sh:NodeShape ;
+                sh:nodeKind sh:IRI .
+        `)
+
+        expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}StructuralShape`))).toBe(true)
+        expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}ValueShape`))).toBe(false)
+    })
 })

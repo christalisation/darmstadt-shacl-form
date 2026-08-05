@@ -66,7 +66,11 @@ export function removePrefixes(id: string, prefixes: Prefixes): string {
     for (const key in prefixes) {
         // need to ignore type check. 'prefix' is a string and not a NamedNode<string> (seems to be a bug in n3 typings)
         // @ts-ignore
-        id = id.replace(prefixes[key], '')
+        const namespace = typeof prefixes[key] === 'string' ? prefixes[key] : prefixes[key].value
+        id = id.replace(namespace, '')
+    }
+    if (/^https?:\/\//.test(id)) {
+        return id.split(/[\/#]/).filter(Boolean).pop() || id
     }
     return id
 }

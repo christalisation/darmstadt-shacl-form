@@ -8,17 +8,26 @@ import { findLabel, removePrefixes } from './util'
 
 export function createAlternativePathConstraint(property: ShaclProperty, value?: Term, linked = false): HTMLElement {
     const wrapper = document.createElement('div')
-    wrapper.classList.add('alternative-path-constraint', 'w-100', 'd-flex', 'flex-column')
-    wrapper.style.gap = '0.5rem'
-    wrapper.style.marginBottom = '1rem'
+    wrapper.classList.add('alternative-path-constraint')
+    wrapper.dataset.path = property.template.path
+
+    const label = document.createElement('label')
+    label.innerText = property.template.label
+    if (property.template.description) {
+        label.setAttribute('title', property.template.description.value)
+    }
+    if (property.template.minCount && property.template.minCount > 0) {
+        label.classList.add('required')
+    }
+    wrapper.appendChild(label)
 
     const select = document.createElement('select')
-    select.classList.add('form-select', 'w-100', 'editor')
+    select.classList.add('editor')
     select.required = property.template.minCount !== undefined && property.template.minCount > 0
 
     const placeholder = document.createElement('option')
     placeholder.value = ''
-    placeholder.innerText = `Select ${property.template.label || 'path'}`
+    placeholder.innerText = 'Select path'
     select.appendChild(placeholder)
 
     for (let i = 0; i < (property.template.pathAlternatives?.length || 0); i++) {
@@ -36,8 +45,7 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
         }
 
         const selectedPath = property.template.pathAlternatives![parseInt(select.value)]
-        const effectiveTemplate = property.template.clone()
-        effectiveTemplate.path = selectedPath
+        const effectiveTemplate = property.template.createTemplateForAlternativePath(selectedPath)
         const instance = createPropertyInstance(effectiveTemplate, value, true, linked)
         wrapper.replaceWith(instance)
         instance.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }))

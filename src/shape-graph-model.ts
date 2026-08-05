@@ -1,8 +1,8 @@
 import { DataFactory, NamedNode, Store, Term as N3Term } from 'n3'
 import { Term as RdfTerm } from '@rdfjs/types'
-import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_PROPERTY, SHACL_PREDICATE_TARGET_CLASS } from './constants'
+import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_NODE, SHACL_PREDICATE_PROPERTY, SHACL_PREDICATE_TARGET_CLASS } from './constants'
 import { extractLists, findLabel } from './util'
-import { ShaclPath } from './shacl-path'
+import { getAlternativePredicatePaths, getPredicatePath, ShaclPath } from './shacl-path'
 
 export type RootShapeOptions = {
     shapeSubject?: string | null,
@@ -107,6 +107,67 @@ export class ShapeGraphModel {
 
     getPropertyShapes(nodeShape: RdfTerm): N3Term[] {
         return this.store.getObjects(nodeShape, SHACL_PREDICATE_PROPERTY, null)
+    }
+
+    /**
+     * Returns the property shapes that should become visible form controls.
+     *
+     * Some SHACL graphs define both an `sh:alternativePath` constraint and
+     * separate property shapes for each branch. The separate shapes are useful
+     * as branch-specific templates, but rendering them next to the alternative
+     * control would duplicate the same logical choice in the UI.
+     */
+    getRenderablePropertyShapes(nodeShape: RdfTerm): N3Term[] {
+        const propertyShapes = this.getPropertyShapes(nodeShape)
+        const pathsCoveredByAlternative = new Set<string>()
+
+        for (const propertyShape of propertyShapes) {
+            const path = this.getPath(propertyShape)
+            if (path) {
+                const alternatives = getAlternativePredicatePaths(path)
+                for (const alternative of alternatives || []) {
+                    pathsCoveredByAlternative.add(alternative.value)
+                }
+            }
+        }
+
+        return propertyShapes.filter(propertyShape => {
+            const path = this.getPath(propertyShape)
+            const predicatePath = path ? getPredicatePath(path) : undefined
+            return !predicatePath || !pathsCoveredByAlternative.has(predicatePath.value)
+        })
+    }
+
+    /**
+     * Checks whether a node shape contains form controls, directly or through
+     * inherited `sh:and` / `sh:node` shapes.
+     */
+    hasRenderableNodeShapeContent(nodeShape: RdfTerm, visited = new Set<string>()): boolean {
+        const key = this.termKey(nodeShape)
+        if (visited.has(key)) {
+            return false
+        }
+        visited.add(key)
+
+        if (this.getRenderablePropertyShapes(nodeShape).length > 0) {
+            return true
+        }
+
+        for (const shaclAnd of this.store.getObjects(nodeShape, `${PREFIX_SHACL}and`, null)) {
+            for (const inheritedShape of this.getList(shaclAnd)) {
+                if (this.hasRenderableNodeShapeContent(inheritedShape, visited)) {
+                    return true
+                }
+            }
+        }
+
+        for (const inheritedShape of this.store.getObjects(nodeShape, SHACL_PREDICATE_NODE, null)) {
+            if (this.hasRenderableNodeShapeContent(inheritedShape, visited)) {
+                return true
+            }
+        }
+
+        return false
     }
 
     getTargetClasses(nodeShape: NamedNode): NamedNode[] {

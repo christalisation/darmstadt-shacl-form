@@ -1,4 +1,4 @@
-import { DataFactory, NamedNode, Writer, Quad, Literal, Prefixes } from 'n3'
+import { BlankNode, DataFactory, NamedNode, Writer, Quad, Literal, Prefixes } from 'n3'
 import { PREFIX_XSD, RDF_PREDICATE_TYPE, PREFIX_SHACL } from './constants'
 import { Editor } from './theme'
 import { NodeObject } from 'jsonld'
@@ -45,13 +45,15 @@ function serializeJsonld(quads: Quad[]): string {
     return JSON.stringify(triples)
 }
 
-export function toRDF(editor: Editor): NamedNode | Literal | undefined {
+export function toRDF(editor: Editor): NamedNode | BlankNode | Literal | undefined {
     let languageOrDatatype: NamedNode<string> | string | undefined = editor.shaclDatatype
     let value: number | string = editor.value
     if (value) {
         if (value.startsWith('<') && value.endsWith('>') && value.indexOf(':') > -1) {
             return DataFactory.namedNode(value.substring(1, value.length - 1))
-        } else if (editor.dataset.class || editor.dataset.nodeKind === PREFIX_SHACL + 'IRI') {
+        } else if (editor.dataset.nodeKind === PREFIX_SHACL + 'BlankNodeOrIRI' && value.startsWith('_:')) {
+            return DataFactory.blankNode(value.slice(2))
+        } else if (editor.dataset.class || editor.dataset.nodeKind === PREFIX_SHACL + 'IRI' || editor.dataset.nodeKind === PREFIX_SHACL + 'BlankNodeOrIRI') {
             return DataFactory.namedNode(value)
         } else if (editor.dataset.link) {
             return JSON.parse(editor.dataset.link)

@@ -12,12 +12,19 @@ shacl-property:not(.may-add) > .add-button { display: none; }
 shacl-property:not(.may-remove) > .property-instance > .remove-button:not(.persistent) { visibility: hidden; }
 shacl-property:not(.may-remove) > .shacl-or-constraint > .remove-button:not(.persistent) { visibility: hidden; }
 .mode-view .shacl-group:not(:has(shacl-property)) { display: none; }
-.property-instance, .shacl-or-constraint { display: flex; align-items: flex-start; padding: 4px 0; width: 100%; position: relative; }
-.shacl-or-constraint > div { display: flex; flex-grow: 1; align-items: flex-start; }
+.property-instance, .shacl-or-constraint, .alternative-path-constraint { display: flex; align-items: flex-start; padding: 4px 0; width: 100%; position: relative; }
+.shacl-or-constraint { flex-direction: column; align-items: stretch; }
+.shacl-or-constraint > div { display: flex; flex-grow: 1; align-items: flex-start; width: 100%; }
+.shacl-or-content { flex-direction: column; }
+.alternative-path-constraint label { display: inline-flex; word-break: break-word; line-height: 1em; padding-top: 0.15em; padding-right: 1em; flex-shrink: 0; position: relative; width: var(--label-width); }
 /* .shacl-or-constraint label { display: inline-block; word-break: break-word; width: var(--label-width); line-height: 1em; padding-top: 0.15em; padding-right: 1em; flex-shrink: 0; position: relative; } */
 .property-instance label[title] { cursor: help; text-decoration: underline dashed #AAA; }
 .property-instance.linked label:after, label.linked:after { content: '\1F517'; font-size: 0.6em; padding-left: 6px; }
 .mode-edit .property-instance label.required::before { color: red; content: '\2736'; font-size: 0.6rem; position: absolute; left: -1.4em; top: 0.15rem; }
+.mode-edit .alternative-path-constraint label.required::before { color: red; content: '\2736'; font-size: 0.6rem; position: absolute; left: -1.4em; top: 0.15rem; }
+.property-instance:has(> shacl-node) { flex-direction: column; align-items: stretch; }
+.property-instance:has(> shacl-node) > label { width: auto; max-height: none; visibility: visible; padding-bottom: 0.35em; }
+.property-instance:has(> shacl-node) > shacl-node { width: 100%; }
 .property-instance.valid::before { content: ''; position: absolute; left: calc(var(--label-width) - 1em); top:0.5em; width: 0.9em; height: 0.9em; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1024 1024" fill="green" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M866.133333 258.133333L362.666667 761.6l-204.8-204.8L98.133333 618.666667 362.666667 881.066667l563.2-563.2z"/></svg>'); }
 .editor:not([type='checkbox']) { flex-grow: 1; }
 textarea.editor { resize: vertical; }
@@ -28,6 +35,8 @@ textarea.editor { resize: vertical; }
 .invalid > .editor { border-color: red !important; }
 .ml-0  { margin-left: 0 !important; }
 .pr-0  { padding-right: 0 !important; }
+.w-100 { width: 100%; }
+.flex-column { flex-direction: column; }
 .mode-view .property-instance:not(:first-child) > label { visibility: hidden; }
 .mode-view .property-instance label { width: var(--label-width); }
 

@@ -8,7 +8,7 @@ import { ShaclPropertyTemplate } from './property-template'
 import { Editor, fieldFactory, InputListEntry } from './theme'
 import { toRDF } from './serialize'
 import { findPlugin } from './plugin'
-import { DATA_GRAPH, RDF_PREDICATE_TYPE, SHACL_PREDICATE_TARGET_CLASS } from './constants'
+import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_TARGET_CLASS } from './constants'
 import { RokitButton, RokitCollapsible, RokitSelect } from '@ro-kit/ui-widgets'
 
 export class ShaclProperty extends HTMLElement {
@@ -123,10 +123,7 @@ export class ShaclProperty extends HTMLElement {
             if (this.template.pathAlternatives?.length && !selectedPath) {
                 instance = createAlternativePathConstraint(this, value, linked || this.template.parent.linked)
             } else {
-                const effectiveTemplate = selectedPath && selectedPath !== this.template.path ? this.template.clone() : this.template
-                if (selectedPath) {
-                    effectiveTemplate.path = selectedPath
-                }
+                const effectiveTemplate = selectedPath ? this.template.createTemplateForAlternativePath(selectedPath) : this.template
                 instance = createPropertyInstance(effectiveTemplate, value, undefined, linked || this.template.parent.linked)
             }
         }
@@ -140,7 +137,7 @@ export class ShaclProperty extends HTMLElement {
 
     updateControls() {
         let instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > .alternative-path-constraint, :scope > shacl-node").length
-        if (instanceCount === 0 && (!this.template.extendedShapes.length || (this.template.minCount !== undefined && this.template.minCount > 0))) {
+        if (instanceCount === 0 && !this.template.extendedShapes.length) {
             this.addPropertyInstance()
             instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > .alternative-path-constraint, :scope > shacl-node").length
         }
@@ -242,14 +239,8 @@ export class ShaclProperty extends HTMLElement {
         addButton.autoGrowLabelWidth = true
         addButton.classList.add('add-button')
 
-        // load potential value candidates for linking
-        let instances: InputListEntry[] = []
-        let clazz = this.getRdfClassToLinkOrCreate()
-        if (clazz) {
-            instances = findInstancesOf(clazz, this.template)
-        }
-        const reusableNodes = this.findReusableNodes(clazz)
-        if (instances.length === 0 && reusableNodes.length === 0) {
+        const supportsReferences = this.template.extendedShapes.length > 0 || Boolean(this.getRdfClassToLinkOrCreate())
+        if (!supportsReferences) {
             // no class instances found, so create an add button that creates a new instance
             addButton.emptyMessage = ''
             addButton.inputMinWidth = 0
@@ -265,42 +256,7 @@ export class ShaclProperty extends HTMLElement {
             })
         } else {
             // some instances found, so create an add button that can create, link or reuse instances
-            const ul = document.createElement('ul')
-            const newItem = document.createElement('li')
-            newItem.innerHTML = '&#xFF0B; Create new ' + this.template.label + '...'
-            newItem.dataset.value = 'new'
-            newItem.classList.add('large')
-            ul.appendChild(newItem)
-
-            if (instances.length) {
-                ul.appendChild(createMenuDivider())
-                const header = document.createElement('li')
-                header.classList.add('header')
-                header.innerText = 'Or link existing:'
-                ul.appendChild(header)
-                for (const instance of instances) {
-                    const li = document.createElement('li')
-                    const itemValue = (typeof instance.value === 'string') ? instance.value : instance.value.value
-                    li.innerText = instance.label ? instance.label : itemValue
-                    li.dataset.value = JSON.stringify(instance.value)
-                    ul.appendChild(li)
-                }
-            }
-
-            if (reusableNodes.length) {
-                ul.appendChild(createMenuDivider())
-                const header = document.createElement('li')
-                header.classList.add('header')
-                header.innerText = 'Or reuse from this form:'
-                ul.appendChild(header)
-                for (const node of reusableNodes) {
-                    const li = document.createElement('li')
-                    li.innerText = this.getReusableNodeLabel(node)
-                    li.dataset.value = JSON.stringify(node.nodeId)
-                    ul.appendChild(li)
-                }
-            }
-            addButton.appendChild(ul)
+            this.refreshAddButtonOptions(addButton)
             addButton.collapsibleWidth = '250px'
             addButton.collapsibleOrientationLeft = ''
             addButton.addEventListener('change', () => {
@@ -316,6 +272,61 @@ export class ShaclProperty extends HTMLElement {
             })
         }
         return addButton
+    }
+
+    public refreshReusableOptions() {
+        const supportsReferences = this.template.extendedShapes.length > 0 || Boolean(this.getRdfClassToLinkOrCreate())
+        if (this.addButton && supportsReferences) {
+            this.refreshAddButtonOptions(this.addButton)
+        }
+    }
+
+    private refreshAddButtonOptions(addButton: RokitSelect) {
+        // Reload candidates because nodes can be committed after this property was constructed.
+        let instances: InputListEntry[] = []
+        const clazz = this.getRdfClassToLinkOrCreate()
+        if (clazz) {
+            instances = findInstancesOf(clazz, this.template)
+        }
+        const reusableNodes = this.findReusableNodes(clazz)
+
+        const ul = document.createElement('ul')
+        const newItem = document.createElement('li')
+        newItem.innerHTML = '&#xFF0B; Create new ' + this.template.label + '...'
+        newItem.dataset.value = 'new'
+        newItem.classList.add('large')
+        ul.appendChild(newItem)
+
+        if (instances.length) {
+            ul.appendChild(createMenuDivider())
+            const header = document.createElement('li')
+            header.classList.add('header')
+            header.innerText = 'Or link existing:'
+            ul.appendChild(header)
+            for (const instance of instances) {
+                const li = document.createElement('li')
+                const itemValue = (typeof instance.value === 'string') ? instance.value : instance.value.value
+                li.innerText = instance.label ? instance.label : itemValue
+                li.dataset.value = JSON.stringify(instance.value)
+                ul.appendChild(li)
+            }
+        }
+
+        if (reusableNodes.length) {
+            ul.appendChild(createMenuDivider())
+            const header = document.createElement('li')
+            header.classList.add('header')
+            header.innerText = 'Or reuse from this form:'
+            ul.appendChild(header)
+            for (const node of reusableNodes) {
+                const li = document.createElement('li')
+                li.innerText = this.getReusableNodeLabel(node)
+                li.dataset.value = JSON.stringify(node.nodeId)
+                ul.appendChild(li)
+            }
+        }
+
+        addButton.replaceChildren(ul)
     }
 
     private findReusableNodes(clazz?: NamedNode): ShaclNode[] {
@@ -389,6 +400,15 @@ function parseTerm(value: string): Term {
 export function createPropertyInstance(template: ShaclPropertyTemplate, value?: Term, forceRemovable = false, linked = false): HTMLElement {
     let instance: HTMLElement
     if (template.extendedShapes.length) {
+        if (linked && value) {
+            instance = createReferenceInstance(template, value)
+            if (template.config.editMode) {
+                appendRemoveButton(instance, template.label, forceRemovable)
+            }
+            instance.dataset.path = template.path
+            return instance
+        }
+
         // This is a nested node property:
         // creates a container, a label, and then the ShaclNode without its own H1 title.
 
@@ -433,6 +453,27 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
         appendRemoveButton(instance, template.label, forceRemovable)
     }
     instance.dataset.path = template.path
+    return instance
+}
+
+function createReferenceInstance(template: ShaclPropertyTemplate, value: Term): HTMLElement {
+    const instance = template.config.theme.createViewer(template.label, value, template)
+    instance.classList.add('property-instance', 'linked')
+
+    const editor = document.createElement('input') as Editor
+    editor.type = 'hidden'
+    editor.value = value.value
+    editor.classList.add('editor', 'reference-editor')
+    if (template.class) {
+        editor.dataset.class = template.class.value
+    }
+    if (template.nodeKind) {
+        editor.dataset.nodeKind = template.nodeKind.value
+    } else if (value.termType === 'NamedNode') {
+        editor.dataset.nodeKind = PREFIX_SHACL + 'IRI'
+    }
+    instance.appendChild(editor)
+
     return instance
 }
 

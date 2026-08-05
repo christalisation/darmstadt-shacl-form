@@ -6,7 +6,7 @@ import { Store, NamedNode, DataFactory, Quad, BlankNode } from 'n3'
 import { DATA_GRAPH, PREFIX_SHACL, REFERENCE_GRAPH, SHAPES_GRAPH } from './constants'
 import { Editor, Theme } from './theme'
 import { serialize } from './serialize'
-import { findLabel } from './util'
+import { findLabel, removePrefixes } from './util'
 import { Validator } from 'shacl-engine'
 import { RokitCollapsible } from '@ro-kit/ui-widgets'
 
@@ -22,6 +22,7 @@ export class ShaclForm extends HTMLElement {
     private viewContainer: HTMLElement | undefined
     private breadcrumbContainer: HTMLElement | undefined
     private rootSelectorContainer: HTMLElement | undefined
+    private commitRootButtonContainer: HTMLElement | undefined
     private activeRootNode: ShaclNode | undefined
 
     constructor(theme: Theme) {
@@ -35,7 +36,7 @@ export class ShaclForm extends HTMLElement {
             ev.stopPropagation()
             if (this.config.editMode) {
                 this.validate(true).then(report => {
-                    this.dispatchEvent(new CustomEvent('change', { bubbles: true, cancelable: false, composed: true, detail: { 'valid': report.conforms, 'report': report } }))
+                    this.dispatchChange(report)
                 }).catch(e => { console.warn(e) })
             }
         })
@@ -89,6 +90,8 @@ export class ShaclForm extends HTMLElement {
                         .breadcrumb-container { margin-bottom: 1rem; font-size: 0.9em; }
                         .breadcrumb-container a { color: var(--brand-color, #008877); cursor: pointer; text-decoration: underline; }
                         .breadcrumb-container span.separator { margin: 0 0.5em; }
+                        .commit-root-container { display: flex; justify-content: flex-end; margin: 0.25rem 0 0.75rem; }
+                        .commit-root-button { align-self: flex-end; }
                     `);
                     styles.push(navigationStyleSheet);
 
@@ -109,6 +112,7 @@ export class ShaclForm extends HTMLElement {
                         const rootNode = this.nodeCollection.rootNodes[0]
                         this.activeRootNode = rootNode
                         this.form.appendChild(rootNode)
+                        this.updateCommitRootButton(rootNode)
                     }
                     
                     if (this.config.editMode) {
@@ -126,12 +130,7 @@ export class ShaclForm extends HTMLElement {
                                             this.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
                                         } else {
                                             // focus first invalid element
-                                            let invalidEditor = this.form.querySelector(':scope .invalid > .editor')
-                                            if (invalidEditor) {
-                                                (invalidEditor as HTMLElement).focus()
-                                            } else {
-                                                this.form.querySelector(':scope .invalid')?.scrollIntoView()
-                                            }
+                                            this.focusFirstInvalidElement()
                                         }
                                     })
                                 }
@@ -187,7 +186,7 @@ export class ShaclForm extends HTMLElement {
     }
 
     /* Returns the validation report */
-    public async validate(ignoreEmptyValues = false): Promise<any> {
+    public async validate(ignoreEmptyValues = false, includeEmptyActiveRootNode = false): Promise<any> {
         for (const elem of this.form.querySelectorAll(':scope .validation-error')) {
             elem.remove()
         }
@@ -205,7 +204,7 @@ export class ShaclForm extends HTMLElement {
         //     this.shape.toRDF(this.config.store)
         //     // add node target for validation. this is required in case of missing sh:targetClass in root shape
         //     this.config.store.add(new Quad(this.shape.shaclSubject, DataFactory.namedNode(PREFIX_SHACL + 'targetNode'), this.shape.nodeId, this.config.valuesGraphId))
-        const rootNodes = this.getSerializableRootNodes()
+        const rootNodes = this.getSerializableRootNodes(includeEmptyActiveRootNode)
         if (rootNodes.length) {
             for (const rootNode of rootNodes) {
                 rootNode.toRDF(this.config.store)
@@ -219,25 +218,15 @@ export class ShaclForm extends HTMLElement {
             const dataset = this.createValidationDataset()
             const report = await new Validator(dataset, { details: true, factory: DataFactory }).validate({ dataset })
 
-            for (const result of report.results) {
+            for (const result of this.flattenValidationResults(report.results)) {
                 if (result.focusNode?.ptrs?.length) {
                     for (const ptr of result.focusNode.ptrs) {
                         const focusNode = ptr._term
                         // result.path can be empty, e.g. if a focus node does not contain a required property node
                         if (result.path?.length) {
-                            const path = result.path[0].predicates[0]
+                            const paths = this.getValidationPathPredicates(result)
                             // try to find most specific editor elements first
-                            let invalidElements = this.form.querySelectorAll(`
-                                :scope shacl-node[data-node-id='${focusNode.id}'] > shacl-property > .property-instance[data-path='${path.id}'] > .editor,
-                                :scope shacl-node[data-node-id='${focusNode.id}'] > shacl-property > .shacl-group > .property-instance[data-path='${path.id}'] > .editor,
-                                :scope shacl-node[data-node-id='${focusNode.id}'] > .shacl-group > shacl-property > .property-instance[data-path='${path.id}'] > .editor,
-                                :scope shacl-node[data-node-id='${focusNode.id}'] > .shacl-group > shacl-property > .shacl-group > .property-instance[data-path='${path.id}'] > .editor`)
-                            if (invalidElements.length === 0) {
-                                // if no editors found, select respective node. this will be the case for node shape violations.
-                                invalidElements = this.form.querySelectorAll(`
-                                    :scope [data-node-id='${focusNode.id}']  > shacl-property > .property-instance[data-path='${path.id}'],
-                                    :scope [data-node-id='${focusNode.id}']  > shacl-property > .shacl-group > .property-instance[data-path='${path.id}']`)
-                            }
+                            let invalidElements = this.findInvalidElementsForPaths(focusNode.id, paths)
 
                             for (const invalidElement of invalidElements) {
                                 if (invalidElement.classList.contains('editor')) {
@@ -281,13 +270,10 @@ export class ShaclForm extends HTMLElement {
             messageElement.classList.add(clazz)
         }
         if (validatonResult) {
-            if (validatonResult.message?.length > 0) {
-                for (const message of validatonResult.message) {
-                    messageElement.title += message.value + '\n'
-                }
-            } else {
-                messageElement.title = validatonResult.sourceConstraintComponent?.value
-            }
+            messageElement.title = this.getValidationMessages(validatonResult).join('\n')
+        }
+        if (!messageElement.title) {
+            messageElement.title = 'Validation failed'
         }
         return messageElement
     }
@@ -317,11 +303,23 @@ export class ShaclForm extends HTMLElement {
 
     private setActiveNode(node: ShaclNode) {
         this.activeRootNode = this.getTopLevelNode(node);
-        this.viewContainer!.replaceChildren(node);
+        if (this.viewContainer) {
+            this.viewContainer.replaceChildren(node);
+        } else {
+            const displayNode = this.activeRootNode;
+            const visibleNode = this.form.querySelector(':scope > shacl-node');
+            if (visibleNode && visibleNode !== displayNode) {
+                visibleNode.replaceWith(displayNode);
+            } else if (!visibleNode) {
+                this.form.appendChild(displayNode);
+            }
+        }
         if (this.rootSelectorContainer) {
             this.rootSelectorContainer.style.display = 'none';
         }
         this.updateBreadcrumb(node);
+        this.updateCommitRootButton(node);
+        this.refreshReusablePropertyOptions();
     }
 
     private showRootSelector() {
@@ -331,6 +329,7 @@ export class ShaclForm extends HTMLElement {
             this.breadcrumbContainer.remove();
             this.breadcrumbContainer = undefined;
         }
+        this.removeCommitRootButton();
         if (this.rootSelectorContainer) {
             this.rootSelectorContainer.style.display = 'block';
             // Reset selector
@@ -381,14 +380,65 @@ export class ShaclForm extends HTMLElement {
         this.form.prepend(this.breadcrumbContainer);
     }
 
-    private getSerializableRootNodes(): ShaclNode[] {
-        if (this.activeRootNode) {
-            return [this.activeRootNode]
+    private updateCommitRootButton(node: ShaclNode) {
+        this.removeCommitRootButton();
+        if (!this.config.editMode || this.config.attributes.valuesSubject) {
+            return;
         }
-        if (this.nodeCollection.rootNodes.length <= 1) {
-            return this.nodeCollection.rootNodes
+
+        const rootNode = this.getTopLevelNode(node);
+        const label = findLabel(this.config.store.getQuads(rootNode.shaclSubject, null, null, null), this.config.languages) || 'node';
+        const button = this.config.theme.createButton(`Add ${label}`, true);
+        button.classList.add('commit-root-button');
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.commitActiveRootNode().catch(error => console.warn(error));
+        });
+
+        const container = document.createElement('div');
+        container.className = 'commit-root-container';
+        container.appendChild(button);
+        this.commitRootButtonContainer = container;
+
+        if (this.breadcrumbContainer) {
+            this.breadcrumbContainer.after(container);
+        } else {
+            this.form.prepend(container);
         }
-        return []
+    }
+
+    private removeCommitRootButton() {
+        if (this.commitRootButtonContainer) {
+            this.commitRootButtonContainer.remove();
+            this.commitRootButtonContainer = undefined;
+        }
+    }
+
+    private async commitActiveRootNode() {
+        const rootNode = this.activeRootNode;
+        if (!rootNode || this.config.attributes.valuesSubject) {
+            return;
+        }
+        if (!this.form.reportValidity()) {
+            return;
+        }
+
+        const report = await this.validate(false, true);
+        if (!report?.conforms) {
+            this.focusFirstInvalidElement();
+            return;
+        }
+
+        this.nodeCollection.commitRootNode(rootNode);
+        this.refreshReusablePropertyOptions();
+        const replacement = this.nodeCollection.replaceRootNode(rootNode);
+        this.setActiveNode(replacement);
+        const updatedReport = await this.validate(true);
+        this.dispatchChange(updatedReport);
+    }
+
+    private getSerializableRootNodes(includeEmptyActiveRootNode = false): ShaclNode[] {
+        return this.nodeCollection.getSerializableRootNodes(this.activeRootNode, includeEmptyActiveRootNode)
     }
 
     private getTopLevelNode(node: ShaclNode): ShaclNode {
@@ -408,6 +458,86 @@ export class ShaclForm extends HTMLElement {
         const dataset = new Store()
         dataset.addQuads(this.config.store.getQuads(null, null, null, null).filter(quad => !quad.graph.equals(REFERENCE_GRAPH)))
         return dataset
+    }
+
+    private dispatchChange(report: any) {
+        this.dispatchEvent(new CustomEvent('change', { bubbles: true, cancelable: false, composed: true, detail: { 'valid': report?.conforms, 'report': report } }))
+    }
+
+    private focusFirstInvalidElement() {
+        const invalidEditor = this.form.querySelector(':scope .invalid > .editor')
+        if (invalidEditor) {
+            (invalidEditor as HTMLElement).focus()
+        } else {
+            this.form.querySelector(':scope .invalid')?.scrollIntoView()
+        }
+    }
+
+    private flattenValidationResults(results: any[]): any[] {
+        return results.flatMap(result => {
+            if (result.results?.length) {
+                return this.flattenValidationResults(result.results)
+            }
+            return [result]
+        })
+    }
+
+    private getValidationPathPredicates(result: any): { id: string }[] {
+        return result.path?.flatMap((path: any) => path.predicates || []) || []
+    }
+
+    private findInvalidElementsForPaths(focusNodeId: string, paths: { id: string }[]): NodeListOf<Element> | Element[] {
+        for (const path of paths) {
+            const invalidElements = this.form.querySelectorAll(`
+                :scope shacl-node[data-node-id='${focusNodeId}'] > shacl-property > .property-instance[data-path='${path.id}'] > .editor,
+                :scope shacl-node[data-node-id='${focusNodeId}'] > shacl-property > .alternative-path-constraint[data-path='${path.id}'] > .editor,
+                :scope shacl-node[data-node-id='${focusNodeId}'] > shacl-property > .shacl-group > .property-instance[data-path='${path.id}'] > .editor,
+                :scope shacl-node[data-node-id='${focusNodeId}'] > shacl-property > .shacl-group > .alternative-path-constraint[data-path='${path.id}'] > .editor,
+                :scope shacl-node[data-node-id='${focusNodeId}'] > .shacl-group > shacl-property > .property-instance[data-path='${path.id}'] > .editor,
+                :scope shacl-node[data-node-id='${focusNodeId}'] > .shacl-group > shacl-property > .alternative-path-constraint[data-path='${path.id}'] > .editor,
+                :scope shacl-node[data-node-id='${focusNodeId}'] > .shacl-group > shacl-property > .shacl-group > .property-instance[data-path='${path.id}'] > .editor,
+                :scope shacl-node[data-node-id='${focusNodeId}'] > .shacl-group > shacl-property > .shacl-group > .alternative-path-constraint[data-path='${path.id}'] > .editor`)
+            if (invalidElements.length > 0) {
+                return invalidElements
+            }
+        }
+
+        for (const path of paths) {
+            const invalidElements = this.form.querySelectorAll(`
+                :scope [data-node-id='${focusNodeId}'] > shacl-property > .property-instance[data-path='${path.id}'],
+                :scope [data-node-id='${focusNodeId}'] > shacl-property > .alternative-path-constraint[data-path='${path.id}'],
+                :scope [data-node-id='${focusNodeId}'] > shacl-property > .shacl-group > .property-instance[data-path='${path.id}'],
+                :scope [data-node-id='${focusNodeId}'] > shacl-property > .shacl-group > .alternative-path-constraint[data-path='${path.id}']`)
+            if (invalidElements.length > 0) {
+                return invalidElements
+            }
+        }
+
+        return []
+    }
+
+    private getValidationMessages(result: any): string[] {
+        const messages: string[] = []
+        for (const message of result.message || []) {
+            if (message.value?.trim()) {
+                messages.push(message.value.trim())
+            }
+        }
+        for (const nestedResult of result.results || []) {
+            messages.push(...this.getValidationMessages(nestedResult))
+        }
+
+        const constraint = result.constraintComponent?.value || result.sourceConstraintComponent?.value
+        if (messages.length === 0 && constraint) {
+            messages.push(removePrefixes(constraint, this.config.prefixes))
+        }
+        return [...new Set(messages)]
+    }
+
+    private refreshReusablePropertyOptions() {
+        for (const property of this.form.querySelectorAll('shacl-property')) {
+            (property as HTMLElement & { refreshReusableOptions?: () => void }).refreshReusableOptions?.()
+        }
     }
 
     // private findRootShaclShapeSubject(): NamedNode | undefined 

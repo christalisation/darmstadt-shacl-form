@@ -82,11 +82,14 @@ export class ShaclNode extends HTMLElement {
             for (const owlImport of this.config.store.getQuads(shaclSubject, OWL_PREDICATE_IMPORTS, null, null)) {
                 this.owlImports.push(owlImport.object as NamedNode)
             }
+            const renderablePropertyShapes = new Set(this.config.shapeGraph.getRenderablePropertyShapes(shaclSubject).map(shape => shape.id))
             // now parse other node quads
             for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
                 switch (quad.predicate.id) {
                     case SHACL_PREDICATE_PROPERTY.id:
-                        this.addPropertyInstance(quad.object, valueSubject)
+                        if (renderablePropertyShapes.has(quad.object.id)) {
+                            this.addPropertyInstance(quad.object, valueSubject)
+                        }
                         break;
                     case `${PREFIX_SHACL}and`:
                         // inheritance via sh:and
@@ -208,12 +211,34 @@ export class ShaclNode extends HTMLElement {
                 }
             }
             if (!resolved) {
-                this.appendChild(createShaclOrConstraint(list, this, this.config))
+                if (this.hasRenderableConstraintOptions(list)) {
+                    this.appendChild(createShaclOrConstraint(list, this, this.config))
+                }
             }
         }
         else {
             console.error('list for sh:or/sh:xone not found:', subject, 'existing lists:', this.config.lists)
         }
+    }
+
+    private hasRenderableConstraintOptions(options: Term[]): boolean {
+        if (!options.length) {
+            return false
+        }
+
+        const optionsReferenceProperties = options.every(option => this.config.store.countQuads(option, SHACL_PREDICATE_PROPERTY, null, null) > 0)
+        if (optionsReferenceProperties) {
+            return options.every(option => {
+                const propertySubjects = this.config.store.getObjects(option, SHACL_PREDICATE_PROPERTY, null)
+                return propertySubjects.length > 0 && propertySubjects.every(propertySubject => this.hasRenderablePropertyShape(propertySubject))
+            })
+        }
+
+        return options.every(option => this.hasRenderablePropertyShape(option))
+    }
+
+    private hasRenderablePropertyShape(subject: Term): boolean {
+        return this.config.store.countQuads(subject, `${PREFIX_SHACL}path`, null, null) > 0
     }
 }
 
