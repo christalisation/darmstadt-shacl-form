@@ -1,5 +1,5 @@
-// rdf/list-reader.ts
-import { Store, Term } from "n3";
+import type { Term } from "@rdfjs/types";
+import { Store } from "n3";
 import { PREFIX_RDF, RDF_PREDICATE_TYPE } from "../constants";
 
 /**
@@ -25,7 +25,7 @@ export class RdfListReader {
  This code is taken from https://github.com/rdfjs/N3.js/blob/main/src/N3Store.js and adapted to allow rdf:type triples in lists.
  Can be removed as soon as https://github.com/rdfjs/N3.js/issues/546 is fixed.
 */
-export function  extractLists(store: Store, { remove = false, ignoreErrors = false } = {}) {
+export function extractLists(store: Store, { remove = false, ignoreErrors = false } = {}) {
     const lists: Record<string, Term[]> = {} // has scalar keys so could be a simple Object
     const onError = ignoreErrors ? (() => true) :
                   ((node: Term, message: string) => { throw new Error(`${node.value} ${message}`) })
@@ -41,10 +41,10 @@ export function  extractLists(store: Store, { remove = false, ignoreErrors = fal
       const graph = tailQuad.graph // make sure list is in exactly one graph
 
       // Traverse the list from tail to end
-      let current: Term | null = tailQuad.subject
+      let current: Term | null = tailQuad.subject as Term
       while (current && !malformed) {
-        const objectQuads = store.getQuads(null, null, current, null)
-        const subjectQuads = store.getQuads(current, null, null, null).filter(quad => !quad.predicate.equals(RDF_PREDICATE_TYPE))
+        const objectQuads = store.getQuads(null, null, current as any, null)
+        const subjectQuads = store.getQuads(current as any, null, null, null).filter(quad => !quad.predicate.equals(RDF_PREDICATE_TYPE))
         let quad, first = null, rest = null, parent = null
 
         // Find the first and rest of this list node
@@ -104,7 +104,7 @@ export function  extractLists(store: Store, { remove = false, ignoreErrors = fal
           malformed = onError(current, 'has no list head')
         else
           items.unshift(first.object)
-        current = parent && parent.subject
+        current = parent ? parent.subject as Term : null
       }
 
       // Don't remove any quads if the list is malformed
@@ -113,7 +113,7 @@ export function  extractLists(store: Store, { remove = false, ignoreErrors = fal
       // Store the list under the value of its head
       else if (head) {
         // @ts-ignore
-        lists[head[headPos].value] = items
+        lists[head[headPos].value] = items as Term[]
       }
     })
 

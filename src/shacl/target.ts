@@ -1,12 +1,7 @@
-// shacl/target.ts
-
-import type {
-  NamedNode,
-  Term
-} from "@rdfjs/types";
+import type { NamedNode, Term } from "@rdfjs/types";
 
 /**
- * Semantic representation of a SHACL target declaration.
+ * Semantic representation of SHACL Core target declarations.
  */
 export type ShaclTarget =
   | ShaclTargetClass

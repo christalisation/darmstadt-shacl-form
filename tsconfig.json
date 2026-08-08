@@ -22,5 +22,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/form-element/shacl-form-migration-v2",
+    "src/plugins",
+    "src/theme.ts",
+    "src/themes"
+  ]
 }

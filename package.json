@@ -11,28 +11,13 @@
             "import": "./dist/form-default.js",
             "types": "./dist/form-default.d.ts"
         },
-        "./form-default.js": {
-            "import": "./dist/form-default.js",
-            "types": "./dist/form-default.d.ts"
-        },
-        "./form-bootstrap.js": {
-            "import": "./dist/form-bootstrap.js",
-            "types": "./dist/form-bootstrap.d.ts"
-        },
-        "./form-material.js": {
-            "import": "./dist/form-material.js",
-            "types": "./dist/form-material.d.ts"
-        },
-        "./plugins/leaflet.js": {
-            "import": "./dist/plugins/leaflet.js",
-            "types": "./dist/plugins/leaflet.d.ts"
-        },
-        "./plugins/mapbox.js": {
-            "import": "./dist/plugins/mapbox.js",
-            "types": "./dist/plugins/mapbox.d.ts"
-        },
         "./*.ts": "./src/*.ts",
-        "./plugins/*.ts": "./src/plugins/*.ts"
+        "./rdf/*.ts": "./src/rdf/*.ts",
+        "./shacl/*.ts": "./src/shacl/*.ts",
+        "./form-template/*.ts": "./src/form-template/*.ts",
+        "./form-instance/*.ts": "./src/form-instance/*.ts",
+        "./rdf-binding/*.ts": "./src/rdf-binding/*.ts",
+        "./form-element/*.ts": "./src/form-element/*.ts"
     },
     "files": [
         "dist",
@@ -56,14 +41,9 @@
     ],
     "scripts": {
         "dev": "vite serve . --host",
-        "build": "tsc && npm run build-default && npm run build-bootstrap && npm run build-material && npm run build-leaflet && npm run build-mapbox",
+        "build": "tsc && vite build -c ./vite.library.config.ts",
         "preview": "vite preview",
-        "test": "vitest run",
-        "build-default": "vite build  -c ./vite.form-default.config.ts",
-        "build-bootstrap": "vite build -c ./vite.form-bootstrap.config.ts",
-        "build-material": "vite build -c ./vite.form-material.config.ts",
-        "build-leaflet": "vite build -c ./vite.plugin-leaflet.config.ts",
-        "build-mapbox": "vite build -c ./vite.plugin-mapbox.config.ts"
+        "test": "vitest run"
     },
     "devDependencies": {
         "@open-wc/testing": "^4.0.0",

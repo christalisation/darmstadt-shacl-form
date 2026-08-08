@@ -1,110 +1,102 @@
-import { DataFactory, NamedNode, Prefixes, Store } from 'n3'
-import { Term } from '@rdfjs/types'
-import { ClassInstanceProvider } from './plugin'
-import { Loader } from './loader'
-import { Theme } from './theme'
-import { ShapeGraphRepository } from './shape-graph-repository'
+export type FormCollapseMode = "open" | "closed" | false;
 
-export class ElementAttributes {
-    shapes: string | null = null
-    shapesUrl: string | null = null
-    shapeSubject: string | null = null
-    values: string | null = null
-    valuesUrl: string | null = null
-    /**
-     * @deprecated Use valuesSubject instead
-     */
-    valueSubject: string | null = null // for backward compatibility
-    valuesSubject: string | null = null
-    valuesNamespace = ''
-    valuesGraph: string | null = null
-    view: string | null = null
-    language: string | null = null
-    loading: string = 'Loading\u2026'
-    proxy: string | null = null
-    ignoreOwlImports: string | null = null
-    skipShapeValidation: string | null = null
-    collapse: string | null = null
-    submitButton: string | null = null
-    generateNodeShapeReference: string | null = null
-    showNodeIds: string | null = null
-}
+export type ClassInstanceProvider = (
+  classIri: string
+) => string | Promise<string>;
 
-export class Config {
-    attributes = new ElementAttributes()
-    loader = new Loader(this)
-    classInstanceProvider: ClassInstanceProvider | undefined
-    prefixes: Prefixes = {}
-    editMode = true
-    languages: string[]
-    shapeGraph: ShapeGraphRepository
+/**
+ * User-facing configuration for <shacl-form>.
+ *
+ * RDF stores, parsers, runtime nodes and DOM state deliberately do not live
+ * here. This class only represents configuration supplied by the host page.
+ */
+export class FormConfig {
+  static readonly observedAttributes = [
+    "data-shapes",
+    "data-shapes-url",
+    "data-values",
+    "data-values-url",
+    "data-shape-subject",
+    "data-values-subject",
+    "data-values-namespace",
+    "data-submit-button",
+    "data-collapse",
+    "data-view",
+    "data-languages",
+    "data-loading",
+    "data-skip-shape-validation",
+    "data-ignore-owl-imports",
+    "data-proxy",
+    "data-show-node-ids"
+  ];
 
-    lists: Record<string, Term[]> = {}
-    groups: Array<string> = []
-    theme: Theme
-    form: HTMLElement
-    renderedNodes = new Set<string>()
-    valuesGraphId: NamedNode | undefined
-    private _store = new Store()
+  shapes?: string;
+  shapesUrl?: string;
+  values?: string;
+  valuesUrl?: string;
 
-    constructor(theme: Theme, form: HTMLElement) {
-        this.theme = theme
-        this.form = form
-        this.languages = [...new Set(navigator.languages.flatMap(lang => {
-            if (lang.length > 2) {
-                // for each 5 letter lang code (e.g. de-DE) append its corresponding 2 letter code (e.g. de) directly afterwards
-                return [lang.toLocaleLowerCase(), lang.substring(0, 2)]
-            } 
-            return lang
-        })), ''] // <-- append empty string to accept RDF literals with no language
-        this.shapeGraph = new ShapeGraphRepository(this._store, this.languages)
-    }
- 
-    updateAttributes(elem: HTMLElement) {
-        const atts = new ElementAttributes();
-        (Object.keys(atts) as Array<keyof ElementAttributes>).forEach(key => {
-            const value = elem.dataset[key]
-            if (value !== undefined) {
-                atts[key] = value
-            }
-        })
-        this.editMode = atts.view === null
-        this.attributes = atts
-        // for backward compatibility
-        if (this.attributes.valueSubject && !this.attributes.valuesSubject) {
-            this.attributes.valuesSubject = this.attributes.valueSubject
-        }
-        if (atts.language) {
-            const index = this.languages.indexOf(atts.language)
-            if (index > -1) {
-                // remove preferred language from the list of languages
-                this.languages.splice(index, 1)
-            }
-            // now prepend preferred language at start of the list of languages
-            this.languages.unshift(atts.language)
-        }
-        if (atts.valuesGraph) {
-            this.valuesGraphId = DataFactory.namedNode(atts.valuesGraph)
-        }
-    }
+  shapeSubject?: string;
+  valuesSubject?: string;
+  valuesNamespace?: string;
 
-    static dataAttributes(): Array<string> {
-        const atts = new ElementAttributes()
-        return Object.keys(atts).map(key => {
-            // convert camelcase key to kebap case
-            key = key.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
-            return 'data-' + key
-        })
-    }
+  submitButton?: string;
+  collapse: FormCollapseMode = false;
+  viewMode = false;
 
-    get store() {
-        return this._store
-    }
+  languages: string[] = [];
+  loading = "Loading...";
 
-    set store(store: Store) {
-        this._store = store
-        this.shapeGraph = new ShapeGraphRepository(store, this.languages)
-        this.lists = this.shapeGraph.lists
-        this.groups = this.shapeGraph.groupIds
-    }
+  skipShapeValidation = false;
+  ignoreOwlImports = false;
+  proxy?: string;
+  showNodeIds = false;
+
+  classInstanceProvider?: ClassInstanceProvider;
+
+  get editMode(): boolean {
+    return !this.viewMode;
+  }
+
+  updateFromElement(element: HTMLElement): void {
+    this.shapes = this.value(element, "data-shapes");
+    this.shapesUrl = this.value(element, "data-shapes-url");
+    this.values = this.value(element, "data-values");
+    this.valuesUrl = this.value(element, "data-values-url");
+    this.shapeSubject = this.value(element, "data-shape-subject");
+    this.valuesSubject = this.value(element, "data-values-subject");
+    this.valuesNamespace = this.value(element, "data-values-namespace");
+    this.proxy = this.value(element, "data-proxy");
+
+    const submit = element.getAttribute("data-submit-button");
+    this.submitButton =
+      submit === null ? undefined : (submit || "Submit");
+
+    const collapse = element.getAttribute("data-collapse");
+    this.collapse =
+      collapse === null
+        ? false
+        : collapse === "open"
+          ? "open"
+          : "closed";
+
+    this.viewMode = element.hasAttribute("data-view");
+    this.skipShapeValidation =
+      element.hasAttribute("data-skip-shape-validation");
+    this.ignoreOwlImports =
+      element.hasAttribute("data-ignore-owl-imports");
+    this.showNodeIds =
+      element.hasAttribute("data-show-node-ids");
+    this.loading =
+      this.value(element, "data-loading") ?? "Loading...";
+
+    const languages = this.value(element, "data-languages");
+    this.languages = languages
+      ? languages.split(",").map(x => x.trim()).filter(Boolean)
+      : (typeof navigator !== "undefined" ? [...navigator.languages] : []);
+  }
+
+  private value(element: HTMLElement, name: string): string | undefined {
+    const value = element.getAttribute(name);
+    return value === null || value === "" ? undefined : value;
+  }
 }

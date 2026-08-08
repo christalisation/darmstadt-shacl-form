@@ -1,6 +1,5 @@
-// rdf/RdfGraphReader.ts
-
-import { Literal, NamedNode, Store, Term } from "n3";
+import type { Literal, NamedNode, Term } from "@rdfjs/types";
+import { Store } from "n3";
 
 /**
  * Provides small, generic read operations over an RDF graph.
@@ -15,7 +14,11 @@ export class RdfGraphReader {
    * Returns all objects matching the given subject-predicate pair.
    */
   getObjects(subject: Term, predicate: NamedNode): Term[] {
-    return this.store.getObjects(subject, predicate, null);
+    return this.store.getObjects(
+      subject as any,
+      predicate as any,
+      null
+    ) as Term[];
   }
 
   /**

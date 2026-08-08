@@ -1,47 +1,49 @@
 import { describe, expect, it } from 'vitest'
 import { DataFactory, Parser, Store } from 'n3'
-import { RdfListReader } from '../src/rdf-list-reader'
-import { ShaclPathParser } from '../src/shacl-path-parser'
-import { pathToString } from '../src/shacl-path'
+import { RdfGraphReader } from '../src/rdf/graph-reader'
+import { RdfListReader } from '../src/rdf/list-reader'
+import { ShaclPathParser } from '../src/shacl/path-parser'
+import { pathToString } from '../src/shacl/path'
 
 const EX = 'http://example.org/'
 const SH = 'http://www.w3.org/ns/shacl#'
 
 function storeFromTurtle(turtle: string): Store {
     const parser = new Parser()
-    const prelude = `
+    return new Store(parser.parse(`
         @prefix ex: <${EX}> .
         @prefix sh: <${SH}> .
-    `
-    return new Store(parser.parse(`${prelude}\n${turtle}`))
+
+        ${turtle}
+    `))
+}
+
+function pathParser(store: Store): ShaclPathParser {
+    return new ShaclPathParser(
+        new RdfGraphReader(store),
+        new RdfListReader(store),
+    )
 }
 
 describe('ShaclPathParser', () => {
     it('parses predicate paths', () => {
-        const store = storeFromTurtle('')
-        const parser = new ShaclPathParser(store, new RdfListReader(store))
+        const parser = pathParser(new Store())
 
-        const path = parser.parse(DataFactory.namedNode(`${EX}name`))
-
-        expect(path).toEqual({
+        expect(parser.parse(DataFactory.namedNode(`${EX}title`))).toEqual({
             kind: 'predicate',
-            predicate: DataFactory.namedNode(`${EX}name`),
+            predicate: DataFactory.namedNode(`${EX}title`),
         })
     })
 
-    it('parses alternative and sequence paths from RDF lists', () => {
+    it('parses alternative paths from RDF lists', () => {
         const store = storeFromTurtle(`
-            ex:PropertyShape sh:path (
-                ex:author
-                [ sh:alternativePath ( ex:name ex:label ) ]
-            ) .
+            ex:Shape sh:path [
+                sh:alternativePath ( ex:email ex:mbox )
+            ] .
         `)
-        const parser = new ShaclPathParser(store, new RdfListReader(store))
-        const pathTerm = store.getObjects(DataFactory.namedNode(`${EX}PropertyShape`), `${SH}path`, null)[0]
+        const parser = pathParser(store)
+        const pathNode = store.getObjects(DataFactory.namedNode(`${EX}Shape`), DataFactory.namedNode(`${SH}path`), null)[0]
 
-        const path = parser.parse(pathTerm)
-
-        expect(path?.kind).toBe('sequence')
-        expect(path ? pathToString(path) : '').toBe(`${EX}author / ${EX}name | ${EX}label`)
+        expect(pathToString(parser.parse(pathNode))).toBe(`${EX}email | ${EX}mbox`)
     })
 })

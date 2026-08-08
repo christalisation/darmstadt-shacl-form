@@ -1,12 +1,8 @@
-import { ShaclForm as FormBase } from "./form"
-import { DefaultTheme } from "./themes/default"
+import { ShaclForm } from "./form";
+import "./styles.css";
 
-export * from './exports'
+export * from "./exports";
 
-export class ShaclForm extends FormBase {
-    constructor() {
-        super(new DefaultTheme())
-    }
+if (!customElements.get("shacl-form")) {
+  customElements.define("shacl-form", ShaclForm);
 }
-
-window.customElements.define('shacl-form', ShaclForm)

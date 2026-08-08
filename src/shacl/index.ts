@@ -1,12 +1,28 @@
-// shacl/index.ts
+export type { ShaclConstraint } from "./constraint";
+export type { ShaclTarget } from "./target";
+export type { ShaclShapeMetadata } from "./shape-metadata";
 
-export * from "./node-shape";
-export * from "./property-shape";
-export * from "./constraint";
-export * from "./path";
+export type {
+  ShaclPath,
+  ShaclPathPredicate,
+  ShaclPathSequence,
+  ShaclPathAlternative,
+  ShaclPathInverse,
+  ShaclPathZeroOrMore,
+  ShaclPathOneOrMore,
+  ShaclPathZeroOrOne
+} from "./path";
 
-export * from "./graph-parser";
-export * from "./path-parser";
+export {
+  isPredicatePath,
+  getPredicatePath,
+  getAlternativePredicatePaths,
+  pathToString
+} from "./path";
 
-export * from "./semantic-analyser";
-export * from "./analysis-result";
+export { ShaclNodeShape } from "./node-shape";
+export { ShaclPropertyShape } from "./property-shape";
+export { ShaclPathParser } from "./path-parser";
+export { ShaclGraphParser } from "./graph-parser";
+export { ShaclSemanticAnalyzer } from "./semantic-analyser";
+export type { ShaclAnalysisResult, ShaclAnalysisViolation } from "./analysis-result";

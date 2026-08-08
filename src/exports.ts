@@ -1,10 +1,27 @@
-export type { InputListEntry, Editor } from './theme'
-export { Theme } from './theme'
-export { Loader } from './loader'
-export { Config } from './config'
-export { Plugin, registerPlugin } from './plugin'
-export { ShaclPropertyTemplate } from './property-template'
-export { ShapeGraphParser } from './shape-graph-parser'
-export { ShapeGraphRepository } from './shape-graph-repository'
-export { NodeShapeDefinition, PropertyShapeDefinition } from './shape-definition'
-export { findLabel } from './util'
+export * from "./rdf";
+export * from "./shacl";
+export * from "./form-template";
+export * from "./form-instance";
+export * from "./rdf-binding";
+export * from "./form-element";
+
+export { FormConfig } from "./config";
+export type {
+  FormCollapseMode,
+  ClassInstanceProvider
+} from "./config";
+
+export { FormLoader, guessRdfSyntax } from "./loader";
+export type {
+  LoadedFormGraphs,
+  DetectedRdfSyntax
+} from "./loader";
+
+export {
+  FormPlugin,
+  registerPlugin,
+  listPlugins
+} from "./plugin";
+export type { FormPluginOptions } from "./plugin";
+
+export { ShaclForm } from "./form";

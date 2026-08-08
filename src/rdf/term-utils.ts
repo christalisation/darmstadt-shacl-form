@@ -1,11 +1,9 @@
-// rdf/RdfTermUtils.ts
-
 import {
-  BlankNode,
-  Literal,
-  NamedNode,
-  Term
-} from "n3";
+  type BlankNode,
+  type Literal,
+  type NamedNode,
+  type Term
+} from "@rdfjs/types";
 
 /**
  * Utility functions for narrowing RDF/JS Term types.

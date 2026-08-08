@@ -1,60 +1,84 @@
-import { ShaclPropertyTemplate } from './property-template'
-import { Term } from '@rdfjs/types'
+import type { Term } from "@rdfjs/types";
 
-// store plugins in module scope so that they apply to all shacl-form elements
-const plugins: Record<string, Plugin> = {}
+import type { FormTemplateProperty } from "./form-template/form-template-property";
+import { getPredicatePath } from "./shacl/path";
+import type {
+  FormWidgetBinding,
+  FormWidgetFactory
+} from "./form-element/form-widget-registry";
 
-export function registerPlugin(plugin: Plugin) {
-    if (plugin.predicate === undefined && plugin.datatype === undefined) {
-        console.warn('not registering plugin because it does neither define "predicate" nor "datatype"', plugin)
-    } else {
-        plugins[`${plugin.predicate}^${plugin.datatype}`] = plugin
-    }
+const plugins: FormPlugin[] = [];
+
+export interface FormPluginOptions {
+  predicate?: string;
+  datatype?: string;
 }
 
-export function listPlugins(): Plugin[] {
-    return Object.entries(plugins).map((value: [_: string, plugin: Plugin]) => { return value[1] })
-}
+/**
+ * Extension point corresponding to the original Plugin concept, now depending
+ * on FormTemplateProperty instead of the old mixed ShaclPropertyTemplate.
+ */
+export abstract class FormPlugin implements FormWidgetFactory {
+  readonly predicate?: string;
+  readonly datatype?: string;
+  readonly stylesheet?: CSSStyleSheet;
 
-export function findPlugin(predicate: string | undefined, datatype: string | undefined): Plugin | undefined {
-    // first try to find plugin with matching predicate and datatype
-    let plugin = plugins[`${predicate}^${datatype}`]
-    if (plugin) {
-        return plugin
+  constructor(options: FormPluginOptions, css?: string) {
+    this.predicate = options.predicate;
+    this.datatype = options.datatype;
+
+    if (css) {
+      const stylesheet = new CSSStyleSheet();
+      stylesheet.replaceSync(css);
+      this.stylesheet = stylesheet;
     }
-    // now prefer predicate over datatype
-    plugin = plugins[`${predicate}^${undefined}`]
-    if (plugin) {
-        return plugin
-    }
-    // last, try to find plugin with matching datatype
-    return plugins[`${undefined}^${datatype}`]
-}
+  }
 
-export type PluginOptions = {
-    predicate?: string
-    datatype?: string
-}
+  supports(template: FormTemplateProperty): boolean {
+    const predicate = getPredicatePath(template.path)?.value;
 
-export abstract class Plugin {
-    predicate: string | undefined
-    datatype: string | undefined
-    stylesheet: CSSStyleSheet | undefined
+    const datatype =
+      template.valueType.kind === "literal"
+        ? template.valueType.datatype?.value
+        : undefined;
 
-    constructor(options: PluginOptions, css?: string) {
-        this.predicate = options.predicate
-        this.datatype = options.datatype
-        if (css) {
-            this.stylesheet = new CSSStyleSheet()
-            this.stylesheet.replaceSync(css)
-        }
+    if (this.predicate && this.datatype) {
+      return (
+        predicate === this.predicate &&
+        datatype === this.datatype
+      );
     }
 
-    abstract createEditor(template: ShaclPropertyTemplate, value?: Term): HTMLElement
-
-    createViewer(template: ShaclPropertyTemplate, value: Term): HTMLElement {
-        return template.config.theme.createViewer(template.label, value, template)
+    if (this.predicate) {
+      return predicate === this.predicate;
     }
+
+    if (this.datatype) {
+      return datatype === this.datatype;
+    }
+
+    return false;
+  }
+
+  abstract createEditor(
+    template: FormTemplateProperty,
+    value: Term | undefined,
+    onChange: (value: Term | undefined) => void
+  ): FormWidgetBinding;
 }
 
-export type ClassInstanceProvider = (clazz: string) => Promise<string>
+export function registerPlugin(plugin: FormPlugin): void {
+  if (!plugin.predicate && !plugin.datatype) {
+    console.warn(
+      "Plugin ignored: it defines neither predicate nor datatype.",
+      plugin
+    );
+    return;
+  }
+
+  plugins.push(plugin);
+}
+
+export function listPlugins(): readonly FormPlugin[] {
+  return plugins;
+}
