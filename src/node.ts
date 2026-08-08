@@ -91,21 +91,20 @@ export class ShaclNode extends HTMLElement {
                             this.addPropertyInstance(quad.object, valueSubject)
                         }
                         break;
-                    case `${PREFIX_SHACL}and`:
-                        // inheritance via sh:and
+                    case `${PREFIX_SHACL}and`: {
                         const list = this.config.lists[quad.object.value]
                         if (list?.length) {
                             for (const shape of list) {
-                                this.prepend(new ShaclNode(shape as NamedNode, this.nodeCollection, valueSubject, this))
+                                this.addInheritedShape(shape, valueSubject)
                             }
                         }
                         else {
                             console.error('list not found:', quad.object.value, 'existing lists:', this.config.lists)
                         }
                         break;
+                    }
                     case SHACL_PREDICATE_NODE.id:
-                        // inheritance via sh:node
-                        this.prepend(new ShaclNode(quad.object as NamedNode, this.nodeCollection, valueSubject, this))
+                        this.addInheritedShape(quad.object, valueSubject)
                         break;
                     case `${PREFIX_SHACL}targetClass`:
                         this.targetClass = quad.object as NamedNode
@@ -211,7 +210,7 @@ export class ShaclNode extends HTMLElement {
                 }
             }
             if (!resolved) {
-                if (this.hasRenderableConstraintOptions(list)) {
+                if (this.config.shapeGraph.canRenderPropertyChoice(list)) {
                     this.appendChild(createShaclOrConstraint(list, this, this.config))
                 }
             }
@@ -221,24 +220,12 @@ export class ShaclNode extends HTMLElement {
         }
     }
 
-    private hasRenderableConstraintOptions(options: Term[]): boolean {
-        if (!options.length) {
-            return false
+    private addInheritedShape(shape: Term, valueSubject: NamedNode | BlankNode | undefined): void {
+        if (this.config.shapeGraph.hasPathDeclaration(shape)) {
+            this.addPropertyInstance(shape, valueSubject)
+        } else if (this.config.shapeGraph.hasRenderableNodeShapeContent(shape)) {
+            this.prepend(new ShaclNode(shape as NamedNode, this.nodeCollection, valueSubject, this))
         }
-
-        const optionsReferenceProperties = options.every(option => this.config.store.countQuads(option, SHACL_PREDICATE_PROPERTY, null, null) > 0)
-        if (optionsReferenceProperties) {
-            return options.every(option => {
-                const propertySubjects = this.config.store.getObjects(option, SHACL_PREDICATE_PROPERTY, null)
-                return propertySubjects.length > 0 && propertySubjects.every(propertySubject => this.hasRenderablePropertyShape(propertySubject))
-            })
-        }
-
-        return options.every(option => this.hasRenderablePropertyShape(option))
-    }
-
-    private hasRenderablePropertyShape(subject: Term): boolean {
-        return this.config.store.countQuads(subject, `${PREFIX_SHACL}path`, null, null) > 0
     }
 }
 

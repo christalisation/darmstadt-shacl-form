@@ -78,16 +78,20 @@ const valueNodeConstraintPredicates = new Set<string>([
     `${PREFIX_SHACL}hasValue`,
 ])
 
+export type PathChoice = {
+    predicate: string,
+    label: string,
+}
+
 export class ShaclPropertyTemplate {
     id: Term | undefined
     parent: ShaclNode
     label = ''
     name: Literal | undefined
     description: Literal | undefined
-    path: string | undefined
-    pathExpression: ShaclPath | undefined
-    pathAlternatives: string[] | undefined
-    pathAlternativeLabels: Record<string, string> = {}
+    path: ShaclPath | undefined
+    selectedPredicatePath: string | undefined
+    pathChoices: PathChoice[] = []
     node: NamedNode | undefined
     class: NamedNode | undefined
     minCount: number | undefined
@@ -135,10 +139,10 @@ export class ShaclPropertyTemplate {
         // provide best fitting label for UI
         this.label = this.name?.value || findLabel(quads, this.config.languages)
         if (!this.label && !this.shaclAnd) {
-            if (this.pathAlternatives?.length) {
-                this.label = this.pathAlternatives.map(path => removePrefixes(path, this.config.prefixes)).join(' / ')
+            if (this.pathChoices.length) {
+                this.label = this.pathChoices.map(choice => removePrefixes(choice.predicate, this.config.prefixes)).join(' / ')
             } else {
-                this.label = this.path ? removePrefixes(this.path, this.config.prefixes) : 'unknown'
+                this.label = this.predicatePath ? removePrefixes(this.predicatePath, this.config.prefixes) : 'unknown'
             }
         }
         // register structural node shapes, or absorb value-shape constraints
@@ -176,34 +180,46 @@ export class ShaclPropertyTemplate {
 
     setPath(term: Term) {
         const path = this.id ? this.config.shapeGraph.getPath(this.id) : undefined
-        this.pathExpression = path
+        this.path = path
 
         if (!path) {
-            this.path = term.termType === 'NamedNode' ? term.value : undefined
+            this.selectedPredicatePath = term.termType === 'NamedNode' ? term.value : undefined
             return
         }
 
         const predicate = getPredicatePath(path)
         if (predicate) {
-            this.path = predicate.value
+            this.selectedPredicatePath = predicate.value
             return
         }
 
-        const alternatives = getAlternativePredicatePaths(path)
-        if (alternatives) {
-            this.pathAlternatives = alternatives.map(alternative => alternative.value)
-            this.pathAlternativeLabels = Object.fromEntries(
-                this.pathAlternatives.map(path => [path, this.findAlternativePathLabel(path)])
-            )
-            this.path = this.pathAlternatives[0]
+        const pathChoices = this.createPathChoices(path)
+        if (pathChoices.length) {
+            this.pathChoices = pathChoices
             return
         }
 
         console.warn(`unsupported SHACL property path ignored: ${pathToString(path)}`)
     }
 
-    getPathLabel(path: string): string {
-        return this.pathAlternativeLabels[path] || removePrefixes(path, this.config.prefixes)
+    get predicatePath(): string | undefined {
+        if (this.selectedPredicatePath) {
+            return this.selectedPredicatePath
+        }
+
+        const predicate = this.path ? getPredicatePath(this.path) : undefined
+        return predicate?.value
+    }
+
+    get dataPaths(): string[] {
+        if (this.pathChoices.length) {
+            return this.pathChoices.map(choice => choice.predicate)
+        }
+        return this.predicatePath ? [this.predicatePath] : []
+    }
+
+    get hasPathChoice(): boolean {
+        return this.pathChoices.length > 0
     }
 
     createTemplateForAlternativePath(path: string): ShaclPropertyTemplate {
@@ -216,10 +232,17 @@ export class ShaclPropertyTemplate {
         }
 
         const template = this.clone()
-        template.path = path
-        template.pathAlternatives = undefined
-        template.pathAlternativeLabels = {}
+        template.selectedPredicatePath = path
+        template.pathChoices = []
         return template
+    }
+
+    private createPathChoices(path: ShaclPath): PathChoice[] {
+        const alternatives = getAlternativePredicatePaths(path) || []
+        return alternatives.map(alternative => ({
+            predicate: alternative.value,
+            label: this.findAlternativePathLabel(alternative.value),
+        }))
     }
 
     private findAlternativePathLabel(path: string): string {
@@ -257,10 +280,7 @@ export class ShaclPropertyTemplate {
         if (this.languageIn) {
             copy.languageIn = [ ...this.languageIn ]
         }
-        if (this.pathAlternatives) {
-            copy.pathAlternatives = [ ...this.pathAlternatives ]
-        }
-        copy.pathAlternativeLabels = { ...this.pathAlternativeLabels }
+        copy.pathChoices = this.pathChoices.map(choice => ({ ...choice }))
         if (this.shaclOr) {
             copy.shaclOr = [ ...this.shaclOr ]
         }

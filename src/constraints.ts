@@ -9,7 +9,9 @@ import { findLabel, removePrefixes } from './util'
 export function createAlternativePathConstraint(property: ShaclProperty, value?: Term, linked = false): HTMLElement {
     const wrapper = document.createElement('div')
     wrapper.classList.add('alternative-path-constraint')
-    wrapper.dataset.path = property.template.path
+    if (property.template.dataPaths.length) {
+        wrapper.dataset.path = property.template.dataPaths[0]
+    }
 
     const label = document.createElement('label')
     label.innerText = property.template.label
@@ -30,11 +32,12 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
     placeholder.innerText = 'Select path'
     select.appendChild(placeholder)
 
-    for (let i = 0; i < (property.template.pathAlternatives?.length || 0); i++) {
-        const path = property.template.pathAlternatives![i]
+    const pathChoices = property.template.pathChoices
+    for (let i = 0; i < pathChoices.length; i++) {
+        const choice = pathChoices[i]
         const option = document.createElement('option')
         option.value = i.toString()
-        option.innerText = property.template.getPathLabel(path)
+        option.innerText = choice.label
         select.appendChild(option)
     }
 
@@ -44,7 +47,7 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
             return
         }
 
-        const selectedPath = property.template.pathAlternatives![parseInt(select.value)]
+        const selectedPath = pathChoices[parseInt(select.value)].predicate
         const effectiveTemplate = property.template.createTemplateForAlternativePath(selectedPath)
         const instance = createPropertyInstance(effectiveTemplate, value, true, linked)
         wrapper.replaceWith(instance)
@@ -56,18 +59,11 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
 }
 
 export function createShaclOrConstraint(options: Term[], context: ShaclNode | ShaclProperty, config: Config): HTMLElement {
-    // 1. LE CONTENEUR GLOBAL
-    // Wrapper vertical simple qui prend toute la largeur
     const wrapper = document.createElement('div')
-    wrapper.classList.add('shacl-or-constraint', 'w-100', 'd-flex', 'flex-column') 
-    wrapper.style.gap = '0.5rem'; 
-    wrapper.style.marginBottom = '1rem';
+    wrapper.classList.add('shacl-or-constraint')
 
-    // 2. PRÉPARATION DES DONNÉES
     const nodeOptions: ShaclProperty[][] = []
     const propertyOptions: Quad[][] = []
-    
-    // Structure simple pour alimenter notre select natif
     const selectOptions: { label: string, value: string }[] = []
 
     if (context instanceof ShaclNode) {
@@ -104,32 +100,25 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
         }
     }
 
-    // 3. CONSTRUCTION MANUELLE DU SÉLECTEUR (Plus de RokitSelect, plus de label inutile)
-    const selectContainer = document.createElement('div');
-    selectContainer.classList.add('w-100'); 
+    const selectContainer = document.createElement('div')
     
-    const select = document.createElement('select');
-    select.classList.add('form-select', 'w-100', 'editor'); 
+    const select = document.createElement('select')
+    select.classList.add('editor')
     
-    // Remplissage des options
     for (const opt of selectOptions) {
-        const optionElement = document.createElement('option');
-        optionElement.value = opt.value;
-        optionElement.innerText = opt.label;
-        select.appendChild(optionElement);
+        const optionElement = document.createElement('option')
+        optionElement.value = opt.value
+        optionElement.innerText = opt.label
+        select.appendChild(optionElement)
     }
 
-    selectContainer.appendChild(select);
-    wrapper.appendChild(selectContainer);
+    selectContainer.appendChild(select)
+    wrapper.appendChild(selectContainer)
 
-    // 4. CRÉATION DU CONTENEUR DE CONTENU
     const contentContainer = document.createElement('div')
-    // Flex vertical pour le contenu aussi, afin d'éviter les superpositions
-    contentContainer.classList.add('shacl-or-content', 'w-100', 'd-flex', 'flex-column')
-    contentContainer.style.gap = '10px';
+    contentContainer.classList.add('shacl-or-content')
     wrapper.appendChild(contentContainer)
 
-    // 5. FONCTION DE MISE À JOUR
     const updateContent = () => {
         contentContainer.replaceChildren()
         
@@ -140,9 +129,6 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
             const selectedProps = nodeOptions[index]
             if (selectedProps) {
                 for (const prop of selectedProps) {
-                    // On force l'affichage bloc et la pleine largeur
-                    prop.style.display = 'block';
-                    prop.classList.add('w-100');
                     contentContainer.appendChild(prop)
                 }
             }
@@ -151,21 +137,16 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
             if (selectedQuads) {
                 const newTemplate = context.template.clone().merge(selectedQuads)
                 const instance = createPropertyInstance(newTemplate, undefined, true)
-                // Idem pour les propriétés simples
-                instance.style.display = 'block';
-                instance.classList.add('w-100');
                 contentContainer.appendChild(instance)
             }
         }
     }
 
-    // 6. ÉVÉNEMENT CHANGE
     select.addEventListener('change', (ev) => {
         ev.stopPropagation()
         updateContent()
     })
 
-    // 7. INITIALISATION (Sélection par défaut immédiate)
     if (selectOptions.length > 0) {
         select.value = selectOptions[0].value
         updateContent()

@@ -178,6 +178,7 @@ describe('ShapeGraphModel', () => {
 
         expect(path.kind).toBe('sequence')
         expect(pathToString(path)).toBe(`${EX}author / ^${EX}createdBy / ${EX}parent*`)
+        expect(model.getRenderablePropertyShapes(DataFactory.namedNode(`${EX}Shape`))).toEqual([])
     })
 
     it('keeps alternative path branches available as templates but not visible duplicates', () => {
@@ -221,9 +222,11 @@ describe('ShapeGraphModel', () => {
     })
 
     it('detects renderable node-shape content through sh:and inheritance', () => {
-        const model = shapeGraph(`
+        const store = storeFromTurtle(`
             ex:StructuralShape a sh:NodeShape ;
-                sh:and ( ex:InheritedShape ) .
+                sh:and ( ex:InheritedShape [
+                    sh:path ex:inheritedValue ;
+                ] ) .
 
             ex:InheritedShape a sh:NodeShape ;
                 sh:property [
@@ -233,8 +236,21 @@ describe('ShapeGraphModel', () => {
             ex:ValueShape a sh:NodeShape ;
                 sh:nodeKind sh:IRI .
         `)
+        const model = new ShapeGraphModel(store, ['en'])
+        const inlinePropertyShape = model.getList(store.getObjects(DataFactory.namedNode(`${EX}StructuralShape`), `${SH}and`, null)[0])[1]
 
         expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}StructuralShape`))).toBe(true)
+        expect(model.hasPathDeclaration(inlinePropertyShape)).toBe(true)
         expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}ValueShape`))).toBe(false)
+    })
+
+    it('detects sh:or/sh:xone choices that can be rendered as properties', () => {
+        const model = shapeGraph(`
+            ex:RenderableOption sh:path ex:value .
+            ex:NonRenderableOption sh:nodeKind sh:IRI .
+        `)
+
+        expect(model.canRenderPropertyChoice([DataFactory.namedNode(`${EX}RenderableOption`)])).toBe(true)
+        expect(model.canRenderPropertyChoice([DataFactory.namedNode(`${EX}NonRenderableOption`)])).toBe(false)
     })
 })

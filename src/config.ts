@@ -3,7 +3,7 @@ import { Term } from '@rdfjs/types'
 import { ClassInstanceProvider } from './plugin'
 import { Loader } from './loader'
 import { Theme } from './theme'
-import { ShapeGraphModel } from './shape-graph-model'
+import { ShapeGraphRepository } from './shape-graph-repository'
 
 export class ElementAttributes {
     shapes: string | null = null
@@ -37,7 +37,7 @@ export class Config {
     prefixes: Prefixes = {}
     editMode = true
     languages: string[]
-    shapeGraph: ShapeGraphModel
+    shapeGraph: ShapeGraphRepository
 
     lists: Record<string, Term[]> = {}
     groups: Array<string> = []
@@ -57,7 +57,7 @@ export class Config {
             } 
             return lang
         })), ''] // <-- append empty string to accept RDF literals with no language
-        this.shapeGraph = new ShapeGraphModel(this._store, this.languages)
+        this.shapeGraph = new ShapeGraphRepository(this._store, this.languages)
     }
  
     updateAttributes(elem: HTMLElement) {
@@ -103,7 +103,7 @@ export class Config {
 
     set store(store: Store) {
         this._store = store
-        this.shapeGraph = new ShapeGraphModel(store, this.languages)
+        this.shapeGraph = new ShapeGraphRepository(store, this.languages)
         this.lists = this.shapeGraph.lists
         this.groups = this.shapeGraph.groupIds
     }

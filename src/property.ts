@@ -9,7 +9,7 @@ import { Editor, fieldFactory, InputListEntry } from './theme'
 import { toRDF } from './serialize'
 import { findPlugin } from './plugin'
 import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_TARGET_CLASS } from './constants'
-import { RokitButton, RokitCollapsible, RokitSelect } from '@ro-kit/ui-widgets'
+import { RokitButton, RokitSelect } from '@ro-kit/ui-widgets'
 
 export class ShaclProperty extends HTMLElement {
     template: ShaclPropertyTemplate
@@ -20,21 +20,25 @@ export class ShaclProperty extends HTMLElement {
         super()
         this.template = new ShaclPropertyTemplate(config.store.getQuads(shaclSubject, null, null, null), parent, config)
         this.container = this
+
+        if (!this.template.predicatePath && !this.template.pathChoices.length) {
+            return
+        }
+
+        let collapsible: HTMLDetailsElement | undefined
         if (this.template.extendedShapes.length && this.template.config.attributes.collapse !== null && (!this.template.maxCount || this.template.maxCount > 1)) {
-            // Use standard HTML <details> instead of RokitCollapsible
-            const collapsible = document.createElement('details')
-            collapsible.classList.add('collapsible', 'mb-3', 'card', 'p-3') // Bootstrap card styling
+            collapsible = document.createElement('details')
+            collapsible.classList.add('collapsible', 'mb-3', 'card', 'p-3')
 
             const summary = document.createElement('summary')
             summary.innerText = this.template.label
-            summary.classList.add('h5', 'mb-0', 'cursor-pointer') // Style of the title
+            summary.classList.add('h5', 'mb-0', 'cursor-pointer')
 
             collapsible.appendChild(summary)
 
             if (this.template.config.attributes.collapse === 'open') {
                 (collapsible as HTMLDetailsElement).open = true
             }
-            this.appendChild(collapsible)
             this.container = collapsible
         }
 
@@ -50,8 +54,8 @@ export class ShaclProperty extends HTMLElement {
         }
 
         // bind existing values
-        if (this.template.path) {
-            const paths = this.template.pathAlternatives || [this.template.path]
+        if (this.template.dataPaths.length) {
+            const paths = this.template.dataPaths
             let values: Quad[] = []
             if (valueSubject) {
                 for (const path of paths) {
@@ -86,11 +90,8 @@ export class ShaclProperty extends HTMLElement {
             this.updateControls()
         }
 
-        if (this.container instanceof RokitCollapsible) {
-            // in view mode, show collapsible only when we have something to show
-            if ((config.editMode && !parent.linked) || this.container.childElementCount > 0) {
-                this.appendChild(this.container)
-            }
+        if (collapsible && ((config.editMode && !parent.linked) || collapsible.childElementCount > 1)) {
+            this.appendChild(collapsible)
         }
     }
 
@@ -120,7 +121,7 @@ export class ShaclProperty extends HTMLElement {
                     linked = true
                 }
             }
-            if (this.template.pathAlternatives?.length && !selectedPath) {
+            if (this.template.hasPathChoice && !selectedPath) {
                 instance = createAlternativePathConstraint(this, value, linked || this.template.parent.linked)
             } else {
                 const effectiveTemplate = selectedPath ? this.template.createTemplateForAlternativePath(selectedPath) : this.template
@@ -155,7 +156,11 @@ export class ShaclProperty extends HTMLElement {
 
     toRDF(graph: Store, subject: NamedNode | BlankNode, serializedNodes = new Set<string>()) {
         for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .collapsible > .property-instance')) {
-            const pathNode = DataFactory.namedNode((instance as HTMLElement).dataset.path!)
+            const path = (instance as HTMLElement).dataset.path
+            if (!path) {
+                continue
+            }
+            const pathNode = DataFactory.namedNode(path)
             const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node')
 
             if (nestedNodes.length) {
@@ -405,36 +410,32 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
             if (template.config.editMode) {
                 appendRemoveButton(instance, template.label, forceRemovable)
             }
-            instance.dataset.path = template.path
+            if (template.predicatePath) {
+                instance.dataset.path = template.predicatePath
+            }
             return instance
         }
 
-        // This is a nested node property:
-        // creates a container, a label, and then the ShaclNode without its own H1 title.
+        instance = document.createElement('div')
+        instance.classList.add('property-instance')
 
-        // Create the main container for the property instance
-        instance = document.createElement('div');
-        instance.classList.add('property-instance');
-
-        // Create the label for the property
-        const labelElem = document.createElement('label');
-        labelElem.innerText = template.label;
+        const labelElem = document.createElement('label')
+        labelElem.innerText = template.label
         if (template.description) {
-            labelElem.setAttribute('title', template.description.value);
+            labelElem.setAttribute('title', template.description.value)
         }
         if (template.minCount && template.minCount > 0) {
-            labelElem.classList.add('required');
+            labelElem.classList.add('required')
         }
-        instance.appendChild(labelElem);
+        instance.appendChild(labelElem)
 
         for (const node of template.extendedShapes) {
-            // pass the property label to the nested node.
-            const shaclNodeElement = new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked);
-            shaclNodeElement.classList.add('editor'); // Treat the node as the editor
-            instance.appendChild(shaclNodeElement);
+            const shaclNodeElement = new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked)
+            shaclNodeElement.classList.add('editor')
+            instance.appendChild(shaclNodeElement)
         }
     } else {
-        const plugin = findPlugin(template.path, template.datatype?.value)
+        const plugin = findPlugin(template.predicatePath, template.datatype?.value)
         if (plugin) {
             if (template.config.editMode && !linked) {
                 instance = plugin.createEditor(template, value)
@@ -452,7 +453,9 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
     if (template.config.editMode) {
         appendRemoveButton(instance, template.label, forceRemovable)
     }
-    instance.dataset.path = template.path
+    if (template.predicatePath) {
+        instance.dataset.path = template.predicatePath
+    }
     return instance
 }
 

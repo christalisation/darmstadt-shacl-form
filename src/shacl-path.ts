@@ -10,10 +10,10 @@ export type QuantifiedPath = {
 }
 
 /**
- * Intermediate representation of a SHACL Core property path.
+ * Semantic representation of a SHACL Core property path.
  *
- * The RDF syntax for SHACL paths uses a mix of IRIs, blank nodes and RDF lists.
- * This ADT makes those cases explicit before rendering or serializing form data.
+ * SHACL paths are represented in RDF using IRIs, blank nodes and RDF lists.
+ * This ADT normalizes those RDF structures into explicit path variants.
  */
 export type ShaclPath =
     | PredicatePath

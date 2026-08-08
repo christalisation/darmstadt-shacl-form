@@ -19,6 +19,7 @@ export class ShaclForm extends HTMLElement {
     form: HTMLFormElement
     initDebounceTimeout: ReturnType<typeof setTimeout> | undefined
 
+    // TODO: comments forall the following private properties
     private viewContainer: HTMLElement | undefined
     private breadcrumbContainer: HTMLElement | undefined
     private rootSelectorContainer: HTMLElement | undefined
@@ -72,7 +73,7 @@ export class ShaclForm extends HTMLElement {
                 // reset rendered node references
                 this.config.renderedNodes.clear()
                 this.activeRootNode = undefined
-                // find root shacl shape
+                // find all nodeshapes shacl shape
                 this.nodeCollection.build()
                 
                 if (this.nodeCollection.rootNodes.length) {

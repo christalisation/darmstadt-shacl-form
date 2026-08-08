@@ -1,0 +1,366 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT" pages="3">
+  <diagram id="64849d51e126" name="Detailed class architecture">
+    <mxGraphModel dx="780" dy="641" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="L1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=35;verticalAlign=top;align=left;fontStyle=1;fontSize=16;spacingTop=8;spacingLeft=10;" value="1. RDF infrastructure" vertex="1">
+          <mxGeometry height="210" width="1140" x="30" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="L2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;opacity=35;verticalAlign=top;align=left;fontStyle=1;fontSize=16;spacingTop=8;spacingLeft=10;" value="2. SHACL semantic model" vertex="1">
+          <mxGeometry height="260" width="1140" x="30" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="L3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;opacity=35;verticalAlign=top;align=left;fontStyle=1;fontSize=16;spacingTop=8;spacingLeft=10;" value="3. Form compilation / IR" vertex="1">
+          <mxGeometry height="250" width="1140" x="30" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="L4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;opacity=35;verticalAlign=top;align=left;fontStyle=1;fontSize=16;spacingTop=8;spacingLeft=10;" value="4. Runtime form model" vertex="1">
+          <mxGeometry height="250" width="1140" x="30" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="L5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;opacity=35;verticalAlign=top;align=left;fontStyle=1;fontSize=16;spacingTop=8;spacingLeft=10;" value="5. UI, binding and output" vertex="1">
+          <mxGeometry height="300" width="1140" x="30" y="1130" as="geometry" />
+        </mxCell>
+        <mxCell id="Store" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;Store&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;N3 external type&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;quads: Quad[]&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;match(...): Quad[]&lt;br/&gt;addQuad(q): void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="140" width="200" x="60" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="RdfListReader" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;RdfList&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;service&amp;gt;&amp;gt;&lt;/font&gt;&lt;br&gt;&lt;hr&gt;&lt;br&gt;store: Store&lt;br&gt;&lt;hr&gt;&lt;br&gt;read(head: Term): Term[]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="140" width="220" x="300" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ShapeGraphRepository" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;ShapeGraphRepository&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;repository&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;store: Store&lt;br/&gt;listReader: RdfListReader&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;findRootNodeShapes(): Term[]&lt;br/&gt;findPropertyShapes(node): Term[]&lt;br/&gt;getLabels(shape): LocalizedText&lt;br/&gt;getTargets(node): Term[]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="170" width="270" x="560" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="DataGraphAdapter" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;DataGraphAdapter&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;adapter&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;store: Store&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;objects(subject, path): Term[]&lt;br/&gt;replace(subject, path, values): void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="140" width="250" x="870" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ShaclPath" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fffdf0;strokeColor=#b08b00;fontSize=11;align=left;verticalAlign=top;spacing=6;dashed=1;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;ShaclPath&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;ADT&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;kind: PathKind&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;accept(visitor): T&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="200" x="60" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="ShaclPathParser" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;ShaclPathParser&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;parser&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;repo: ShapeGraphRepository&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;parse(term: Term): ShaclPath&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="220" x="295" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="PropertyShapeDefinition" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;PropertyShapeDefinition&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;domain model&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;id: Term&lt;br/&gt;path: ShaclPath&lt;br/&gt;constraints: PropertyConstraints&lt;br/&gt;label?: LocalizedText&lt;br/&gt;group?: Term&lt;br/&gt;order?: number&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;isRequired(): boolean&lt;br/&gt;isRepeatable(): boolean&lt;/div&gt;" vertex="1">
+          <mxGeometry height="200" width="275" x="550" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="NodeShapeDefinition" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;NodeShapeDefinition&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;domain model&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;id: Term&lt;br/&gt;targetClasses: Term[]&lt;br/&gt;properties: PropertyShapeDefinition[]&lt;br/&gt;closed: boolean&lt;br/&gt;label?: LocalizedText&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;propertyById(id): PropertyShapeDefinition?&lt;/div&gt;" vertex="1">
+          <mxGeometry height="200" width="270" x="860" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="FormSchemaCompiler" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;FormSchemaCompiler&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;compiler&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;widgetRegistry: WidgetRegistry&lt;br/&gt;constraintCompiler: ConstraintCompiler&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;compileNode(shape): FormNodeTemplate&lt;br/&gt;compileProperty(shape): FormPropertyTemplate&lt;/div&gt;" vertex="1">
+          <mxGeometry height="170" width="270" x="60" y="635" as="geometry" />
+        </mxCell>
+        <mxCell id="ConstraintCompiler" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;ConstraintCompiler&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;compiler service&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;&lt;i&gt;no persistent state&lt;/i&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;compile(c): CompiledConstraint[]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="140" width="220" x="365" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="FormPropertyTemplate" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;FormPropertyTemplate&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;immutable IR&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;shapeId: Term&lt;br/&gt;path: ShaclPath&lt;br/&gt;cardinality: Cardinality&lt;br/&gt;valueType: FormValueType&lt;br/&gt;widget: WidgetDescriptor&lt;br/&gt;constraints: CompiledConstraint[]&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;required: boolean&lt;br/&gt;repeatable: boolean&lt;/div&gt;" vertex="1">
+          <mxGeometry height="190" width="270" x="620" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="FormNodeTemplate" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;FormNodeTemplate&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;immutable IR&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;shapeId: Term&lt;br/&gt;properties: FormPropertyTemplate[]&lt;br/&gt;groups: FormGroupTemplate[]&lt;br/&gt;label: string&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;propertyById(id): FormPropertyTemplate?&lt;/div&gt;" vertex="1">
+          <mxGeometry height="170" width="210" x="925" y="635" as="geometry" />
+        </mxCell>
+        <mxCell id="FormSession" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;FormSession&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;aggregate root&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;root: FormNodeInstance&lt;br/&gt;nodes: Map&lt;string, FormNodeInstance&gt;&lt;br/&gt;dataGraph: DataGraphAdapter&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;register(node): void&lt;br/&gt;validate(): ValidationReport&lt;br/&gt;serialize(): Quad[]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="280" x="60" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="FormNodeInstance" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;FormNodeInstance&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;runtime entity&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;id: string&lt;br/&gt;subject: Term&lt;br/&gt;template: FormNodeTemplate&lt;br/&gt;properties: FormPropertyInstance[]&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;isValid: boolean&lt;br/&gt;getProperty(id): FormPropertyInstance?&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="260" x="380" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="FormPropertyInstance" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;FormPropertyInstance&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;runtime entity&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;owner: FormNodeInstance&lt;br/&gt;template: FormPropertyTemplate&lt;br/&gt;values: FormValueInstance[]&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;addValue(): FormValueInstance&lt;br/&gt;removeValue(v): void&lt;br/&gt;canAdd: boolean&lt;br/&gt;isValid: boolean&lt;/div&gt;" vertex="1">
+          <mxGeometry height="200" width="270" x="680" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="FormValueInstance" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;FormValueInstance&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;runtime value&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;property: FormPropertyInstance&lt;br/&gt;value: FormValue&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;setValue(v): void&lt;br/&gt;isValid: boolean&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="150" x="990" y="915" as="geometry" />
+        </mxCell>
+        <mxCell id="ShaclNodeElement" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;ShaclNodeElement&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;Web Component&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;model: FormNodeInstance&lt;br/&gt;context: RenderContext&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;render(): void&lt;br/&gt;bind(model): void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="160" width="230" x="55" y="1185" as="geometry" />
+        </mxCell>
+        <mxCell id="ShaclPropertyElement" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;ShaclPropertyElement&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;Web Component&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;model: FormPropertyInstance&lt;br/&gt;editorFactory: WidgetFactory&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;render(): void&lt;br/&gt;handleAdd(): void&lt;br/&gt;handleRemove(v): void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="245" x="320" y="1175" as="geometry" />
+        </mxCell>
+        <mxCell id="WidgetRegistry" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;WidgetRegistry&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;registry&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;factories: WidgetFactory[]&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;resolve(template): WidgetFactory&lt;/div&gt;" vertex="1">
+          <mxGeometry height="160" width="210" x="600" y="1185" as="geometry" />
+        </mxCell>
+        <mxCell id="DataGraphReader" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;DataGraphReader&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;binding service&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;pathEvaluator: PathEvaluator&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;populate(node, subject): void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="170" width="220" x="845" y="1175" as="geometry" />
+        </mxCell>
+        <mxCell id="DataGraphWriter" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;DataGraphWriter&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;serializer&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;pathWriter: PathWriter&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;write(session): Quad[]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="220" x="845" y="1360" as="geometry" />
+        </mxCell>
+        <mxCell id="ShaclValidationService" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;ShaclValidationService&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#666666&quot;&gt;&amp;lt;&amp;lt;validation service&amp;gt;&amp;gt;&lt;/font&gt;&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;validator: SHACL engine&lt;br/&gt;&lt;hr/&gt;&lt;br/&gt;validate(data, shapes): ValidationReport&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="210" x="600" y="1360" as="geometry" />
+        </mxCell>
+        <mxCell id="Legend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;verticalAlign=top;spacing=8;" value="&lt;div style=&quot;text-align:left&quot;&gt;&lt;b&gt;Legend&lt;/b&gt;&lt;br/&gt;White rectangle: concrete class&lt;br/&gt;Dashed yellow rectangle: interface / ADT&lt;br/&gt;Solid diamond: composition / ownership&lt;br/&gt;Solid arrow: main transformation or data flow&lt;br/&gt;Open arrow: dependency / association&lt;br/&gt;Dashed open arrow: weak dependency&lt;br/&gt;IR = intermediate representation&lt;br/&gt;Runtime entities contain mutable user state&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="470" x="70" y="1360" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="ShapeGraphRepository" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;entryX=1;entryY=0.068;entryDx=0;entryDy=0;entryPerimeter=0;" target="Store" value="queries">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="RdfListReader" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="Store" value="reads lists from">
+          <mxGeometry relative="1" y="-60" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="ShapeGraphRepository" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="RdfListReader" value="uses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="DataGraphAdapter" style="endArrow=open;endFill=0;html=1;rounded=1;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;curved=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" target="Store" value="wraps">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="ShaclPathParser" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="ShapeGraphRepository" value="reads path RDF">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="ShaclPathParser" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;labelBackgroundColor=#ffffff;fontSize=10;" target="ShaclPath" value="builds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="PropertyShapeDefinition" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="ShaclPath" value="contains">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="NodeShapeDefinition" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="PropertyShapeDefinition" value="1..* properties">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="ShapeGraphRepository" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;labelBackgroundColor=#ffffff;fontSize=10;" target="NodeShapeDefinition" value="provides data for">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="ShapeGraphRepository" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;labelBackgroundColor=#ffffff;fontSize=10;" target="PropertyShapeDefinition" value="provides data for">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="FormSchemaCompiler" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="NodeShapeDefinition" value="compiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="FormSchemaCompiler" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="PropertyShapeDefinition" value="compiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="FormSchemaCompiler" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="ConstraintCompiler" value="delegates">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="FormSchemaCompiler" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;labelBackgroundColor=#ffffff;fontSize=10;" target="FormNodeTemplate" value="produces">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="FormSchemaCompiler" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;labelBackgroundColor=#ffffff;fontSize=10;" target="FormPropertyTemplate" value="produces">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="FormNodeTemplate" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormPropertyTemplate" value="1..* fields">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="FormPropertyTemplate" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="ShaclPath" value="retains normalized path">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" edge="1" parent="1" source="FormSession" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormNodeInstance" value="owns root and registry">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" edge="1" parent="1" source="FormNodeInstance" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormNodeTemplate" value="instantiates">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" edge="1" parent="1" source="FormNodeInstance" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormPropertyInstance" value="1..* runtime properties">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" edge="1" parent="1" source="FormPropertyInstance" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormPropertyTemplate" value="instantiates">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" edge="1" parent="1" source="FormPropertyInstance" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormValueInstance" value="0..* values">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" edge="1" parent="1" source="FormSession" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="DataGraphAdapter" value="uses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" edge="1" parent="1" source="ShaclNodeElement" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormNodeInstance" value="renders">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e25" edge="1" parent="1" source="ShaclPropertyElement" style="endArrow=open;endFill=0;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormPropertyInstance" value="renders">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e26" edge="1" parent="1" source="ShaclNodeElement" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="ShaclPropertyElement" value="creates children">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e27" edge="1" parent="1" source="ShaclPropertyElement" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="WidgetRegistry" value="resolves editor">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e28" edge="1" parent="1" source="DataGraphReader" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;labelBackgroundColor=#ffffff;fontSize=10;" target="FormNodeInstance" value="populates">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e29" edge="1" parent="1" source="DataGraphReader" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="DataGraphAdapter" value="reads">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e30" edge="1" parent="1" source="DataGraphWriter" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;labelBackgroundColor=#ffffff;fontSize=10;" target="FormSession" value="serializes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" edge="1" parent="1" source="DataGraphWriter" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="DataGraphAdapter" value="writes/replaces">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" edge="1" parent="1" source="ShaclValidationService" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;strokeWidth=1.3;labelBackgroundColor=#ffffff;fontSize=10;" target="FormSession" value="validates serialized graph">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="d1d2a2d3acc9" name="Reader overview">
+    <mxGraphModel dx="663" dy="545" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1250" pageHeight="600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;align=left;" value="Reader-oriented overview" vertex="1">
+          <mxGeometry height="40" width="900" x="40" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;align=center;verticalAlign=middle;" value="&lt;b&gt;SHACL shape graph&lt;/b&gt;&lt;hr/&gt;N3 Store + RDF lists" vertex="1">
+          <mxGeometry height="140" width="190" x="70" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;align=center;verticalAlign=middle;" value="&lt;b&gt;Semantic SHACL model&lt;/b&gt;&lt;hr/&gt;NodeShapeDefinition&lt;br/&gt;PropertyShapeDefinition&lt;br/&gt;ShaclPath" vertex="1">
+          <mxGeometry height="140" width="190" x="300" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;align=center;verticalAlign=middle;" value="&lt;b&gt;Form intermediate representation&lt;/b&gt;&lt;hr/&gt;FormNodeTemplate&lt;br/&gt;FormPropertyTemplate" vertex="1">
+          <mxGeometry height="140" width="190" x="530" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;align=center;verticalAlign=middle;" value="&lt;b&gt;Runtime form state&lt;/b&gt;&lt;hr/&gt;FormSession&lt;br/&gt;FormNodeInstance&lt;br/&gt;FormPropertyInstance" vertex="1">
+          <mxGeometry height="140" width="190" x="760" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;align=center;verticalAlign=middle;" value="&lt;b&gt;UI and RDF output&lt;/b&gt;&lt;hr/&gt;Web Components&lt;br/&gt;DataGraphReader / Writer" vertex="1">
+          <mxGeometry height="140" width="190" x="990" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="a1" edge="1" parent="1" source="s1" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;" target="s2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" edge="1" parent="1" source="s2" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;" target="s3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" edge="1" parent="1" source="s3" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;" target="s4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" edge="1" parent="1" source="s4" style="endArrow=block;endFill=1;html=1;rounded=1;strokeWidth=2;strokeColor=#1f4e79;" target="s5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="caption" parent="1" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;verticalAlign=top;spacing=6;" value="&lt;b&gt;Recommended use in the thesis&lt;/b&gt;&lt;br/&gt;Introduce this simplified view first, then refer to the detailed class diagram for responsibilities, fields, methods and multiplicities." vertex="1">
+          <mxGeometry height="110" width="720" x="250" y="360" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="sHRCPo4YlTNvBsiwZ4lZ" name="OOP structure">
+    <mxGraphModel dx="648" dy="560" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="leYMDqdkwByOywmNup7D-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;" value="" vertex="1">
+          <mxGeometry height="380" width="431" x="110" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="N3.Store&lt;div&gt;eternal lib&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="271" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="4jN8QqWxFlxD3rGeeUXD-1" edge="1" parent="1" source="MgZSGChWDftQwxuq1ubh-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="MgZSGChWDftQwxuq1ubh-2" value="queries">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-3" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="RdfGraphReader" vertex="1">
+          <mxGeometry height="120" width="140" x="171" y="175" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-4" parent="MgZSGChWDftQwxuq1ubh-3" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="getObjects()" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-5" parent="MgZSGChWDftQwxuq1ubh-3" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="getSingleObject()" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-6" parent="MgZSGChWDftQwxuq1ubh-3" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="getLiteral()" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="4jN8QqWxFlxD3rGeeUXD-4" edge="1" parent="1" source="MgZSGChWDftQwxuq1ubh-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="MgZSGChWDftQwxuq1ubh-3" value="uses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-7" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="RdfListReader" vertex="1">
+          <mxGeometry height="60" width="140" x="171" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-8" parent="MgZSGChWDftQwxuq1ubh-7" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="read()" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4jN8QqWxFlxD3rGeeUXD-2" edge="1" parent="1" source="MgZSGChWDftQwxuq1ubh-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="MgZSGChWDftQwxuq1ubh-2" value="queries">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-11" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="RdfTermUtils" vertex="1">
+          <mxGeometry height="150" width="140" x="351" y="175" as="geometry">
+            <mxRectangle height="30" width="120" x="470" y="200" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-12" parent="MgZSGChWDftQwxuq1ubh-11" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="isLitteral()" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-13" parent="MgZSGChWDftQwxuq1ubh-11" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="isNamedNode()" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-14" parent="MgZSGChWDftQwxuq1ubh-11" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="isBlankNode()" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="MgZSGChWDftQwxuq1ubh-26" parent="MgZSGChWDftQwxuq1ubh-11" style="text;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;whiteSpace=wrap;html=1;" value="isRessource()" vertex="1">
+          <mxGeometry height="30" width="140" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="leYMDqdkwByOywmNup7D-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;fontSize=14;" value="RDF Infrastructure&amp;nbsp;" vertex="1">
+          <mxGeometry height="30" width="140" x="132" y="46" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-1" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="ShaclNodeShape" vertex="1">
+          <mxGeometry height="120" width="140" x="150" y="465" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-2" parent="fBXdFR-ifrW1lCxxzImC-1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 1" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-3" parent="fBXdFR-ifrW1lCxxzImC-1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 2" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-4" parent="fBXdFR-ifrW1lCxxzImC-1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 3" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-5" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="ShaclPropretyShape" vertex="1">
+          <mxGeometry height="120" width="140" x="330" y="465" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-6" parent="fBXdFR-ifrW1lCxxzImC-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 1" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-7" parent="fBXdFR-ifrW1lCxxzImC-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 2" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-8" parent="fBXdFR-ifrW1lCxxzImC-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 3" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-9" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="ShaclPath" vertex="1">
+          <mxGeometry height="120" width="140" x="150" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-10" parent="fBXdFR-ifrW1lCxxzImC-9" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 1" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-11" parent="fBXdFR-ifrW1lCxxzImC-9" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 2" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-12" parent="fBXdFR-ifrW1lCxxzImC-9" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 3" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-13" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="ShaclConstraint" vertex="1">
+          <mxGeometry height="120" width="140" x="330" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-14" parent="fBXdFR-ifrW1lCxxzImC-13" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 1" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-15" parent="fBXdFR-ifrW1lCxxzImC-13" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 2" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-16" parent="fBXdFR-ifrW1lCxxzImC-13" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 3" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-17" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="ShaclPathParser" vertex="1">
+          <mxGeometry height="120" width="140" x="160" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-18" parent="fBXdFR-ifrW1lCxxzImC-17" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 1" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-19" parent="fBXdFR-ifrW1lCxxzImC-17" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 2" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-20" parent="fBXdFR-ifrW1lCxxzImC-17" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 3" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-21" parent="1" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="ShaclGraphParser" vertex="1">
+          <mxGeometry height="120" width="140" x="340" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-22" parent="fBXdFR-ifrW1lCxxzImC-21" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 1" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-23" parent="fBXdFR-ifrW1lCxxzImC-21" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 2" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fBXdFR-ifrW1lCxxzImC-24" parent="fBXdFR-ifrW1lCxxzImC-21" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Item 3" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
