@@ -1,8 +1,8 @@
 import type { NamedNode, Term } from "@rdfjs/types";
 import { DataFactory, Store } from "n3";
 
-import type { FormTemplateProperty } from "../form-template/form-template-property";
-import type { FormTemplateRegistry } from "../form-template/form-template-registry";
+import type { FormShapeProperty } from "../form-shape/form-shape-property";
+import type { FormShapeRegistry } from "../form-shape/form-shape-registry";
 import type { FormReferenceOption } from "./form-reference-option";
 
 const RDF_TYPE = DataFactory.namedNode(
@@ -41,10 +41,10 @@ export class FormReferenceResolver {
     private readonly data: Store,
     private readonly reference: Store,
     private readonly languages: string[] = [],
-    private readonly templates?: FormTemplateRegistry
+    private readonly formShapes?: FormShapeRegistry
   ) {}
 
-  findOptions(property: FormTemplateProperty): FormReferenceOption[] {
+  findOptions(property: FormShapeProperty): FormReferenceOption[] {
     if (property.valueType.kind === "choice") {
       return property.valueType.values.map(value => ({
         value,
@@ -56,7 +56,7 @@ export class FormReferenceResolver {
       property.valueType.kind === "nestedNode"
     ) {
       const nestedTemplate =
-        this.templates?.get(
+        this.formShapes?.get(
           property.valueType.shape
         );
 

@@ -1,4 +1,3 @@
-export { RdfGraphReader } from "./graph-reader";
-export { RdfListReader } from "./list-reader";
-export { RdfTermUtils } from "./term-utils";
-export type { RdfPrefixes } from "./rdf-prefixes";
+export { RdfReader } from "./rdf-reader";
+
+export type RdfPrefixes = Record<string, string>;

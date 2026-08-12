@@ -61,7 +61,10 @@ export class FormElementValue extends HTMLElement {
     if (value.kind === "node") {
       this.renderNodeValue(value, context, renderStack);
     } else if (
-      property.template.valueType.kind === "nestedNode" &&
+      (
+        property.template.valueType.kind === "nestedNode" ||
+        property.template.valueType.kind === "nestedNodeChoice"
+      ) &&
       (value.term.termType === "NamedNode" ||
         value.term.termType === "BlankNode")
     ) {
@@ -88,6 +91,9 @@ export class FormElementValue extends HTMLElement {
               cancelable: true
             })
           );
+        },
+        {
+          labelForTerm: context.labelForTerm
         }
       );
 
@@ -288,7 +294,7 @@ export class FormElementValue extends HTMLElement {
     for (const error of errors) {
       const element = document.createElement("span");
       element.classList.add("validation-error");
-      element.title = error.message;
+      element.innerText = error.message;
       this.appendChild(element);
     }
   }

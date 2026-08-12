@@ -7,7 +7,7 @@ shacl-node .add-button { color: #555; background-color: transparent; margin: 4px
 shacl-node .add-button:hover { color:#222; }
 shacl-node .add-button:focus { box-shadow: none; }
 shacl-node h1 { font-size: 16px; border-bottom: 1px solid #AAA; margin-top: 4px; color: #555; }
-shacl-property:not(:has(>.collapsible)), shacl-property>.collapsible::part(content) { display: flex; flex-direction: column; align-items: end; position: relative; }
+shacl-property:not(:has(>.collapsible)), shacl-property>.collapsible::part(content) { display: flex; flex-direction: column; align-items: stretch; position: relative; }
 shacl-property:not(.may-add) > .add-button { display: none; }
 shacl-property:not(.may-remove) > .property-instance > .remove-button:not(.persistent) { visibility: hidden; }
 shacl-property:not(.may-remove) > .shacl-or-constraint > .remove-button:not(.persistent) { visibility: hidden; }
@@ -18,6 +18,9 @@ shacl-property:not(.may-remove) > .shacl-or-constraint > .remove-button:not(.per
 .shacl-or-content { flex-direction: column; }
 .alternative-path-constraint label { display: inline-flex; word-break: break-word; line-height: 1em; padding-top: 0.15em; padding-right: 1em; flex-shrink: 0; position: relative; width: var(--label-width); }
 /* .shacl-or-constraint label { display: inline-block; word-break: break-word; width: var(--label-width); line-height: 1em; padding-top: 0.15em; padding-right: 1em; flex-shrink: 0; position: relative; } */
+.property-heading { width: 100%; padding: 0.35rem 0 0.15rem; text-align: left; }
+.property-heading > label { display: block; font-weight: 500; }
+.property-description { color: #666; font-size: 0.82rem; line-height: 1.35; margin-top: 0.15rem; max-width: 52rem; }
 .property-instance label[title] { cursor: help; text-decoration: underline dashed #AAA; }
 .property-instance.linked label:after, label.linked:after { content: '\1F517'; font-size: 0.6em; padding-left: 6px; }
 .mode-edit .property-instance label.required::before { color: red; content: '\2736'; font-size: 0.6rem; position: absolute; left: -1.4em; top: 0.15rem; }
@@ -29,9 +32,8 @@ shacl-property:not(.may-remove) > .shacl-or-constraint > .remove-button:not(.per
 .editor:not([type='checkbox']) { flex-grow: 1; }
 textarea.editor { resize: vertical; }
 .lang-chooser { border: 0; background-color: #e9e9ed; padding: 2px 4px; align-self: flex-start; }
-.validation-error { position: absolute; left: calc(var(--label-width) - 1em); color: red; cursor: help; }
-.validation-error::before { content: '\26a0' }
-.validation-error.node { left: -1em; }
+.validation-error { display: block; width: 100%; color: #9f1d20; cursor: default; font-size: 0.82rem; line-height: 1.35; margin: 0.2rem 0 0.35rem; }
+.validation-error.node { margin-left: 0; }
 .invalid > .editor { border-color: red !important; }
 .ml-0  { margin-left: 0 !important; }
 .pr-0  { padding-right: 0 !important; }

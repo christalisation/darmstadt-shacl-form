@@ -1,7 +1,7 @@
 import type { Literal, Term } from "@rdfjs/types";
 
-import type { FormTemplateConstraint } from "../form-template/form-template-constraint";
-import type { FormTemplateProperty } from "../form-template/form-template-property";
+import type { FormShapeConstraint } from "../form-shape/form-shape-constraint";
+import type { FormShapeProperty } from "../form-shape/form-shape-property";
 import type { FormInstanceValue } from "./form-instance-value";
 import type {
   FormValidationError,
@@ -15,7 +15,7 @@ export class FormInstanceProperty {
   private readonly _values: FormInstanceValue[] = [];
 
   constructor(
-    public readonly template: FormTemplateProperty
+    public readonly template: FormShapeProperty
   ) {}
 
   get values(): readonly FormInstanceValue[] {
@@ -103,7 +103,7 @@ export class FormInstanceProperty {
 
   private validateTerm(
     term: Term,
-    constraint: FormTemplateConstraint
+    constraint: FormShapeConstraint
   ): FormValidationError | undefined {
     switch (constraint.kind) {
       case "datatype":
@@ -202,7 +202,7 @@ export class FormInstanceProperty {
   private validateNumericRange(
     term: Term,
     constraint: Extract<
-      FormTemplateConstraint,
+      FormShapeConstraint,
       { kind: "numericRange" }
     >
   ): FormValidationError | undefined {
@@ -254,10 +254,6 @@ export class FormInstanceProperty {
   }
 
   private matchesNodeKind(term: Term, nodeKindIri: string): boolean {
-    if (nodeKindIri.endsWith("IRI")) return term.termType === "NamedNode";
-    if (nodeKindIri.endsWith("BlankNode")) return term.termType === "BlankNode";
-    if (nodeKindIri.endsWith("Literal")) return term.termType === "Literal";
-
     if (nodeKindIri.endsWith("BlankNodeOrIRI")) {
       return term.termType === "BlankNode" || term.termType === "NamedNode";
     }
@@ -269,6 +265,10 @@ export class FormInstanceProperty {
     if (nodeKindIri.endsWith("IRIOrLiteral")) {
       return term.termType === "NamedNode" || term.termType === "Literal";
     }
+
+    if (nodeKindIri.endsWith("IRI")) return term.termType === "NamedNode";
+    if (nodeKindIri.endsWith("BlankNode")) return term.termType === "BlankNode";
+    if (nodeKindIri.endsWith("Literal")) return term.termType === "Literal";
 
     return true;
   }

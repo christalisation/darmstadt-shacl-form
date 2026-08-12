@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DataFactory, Parser, Store } from 'n3'
-import { RdfGraphReader } from '../src/rdf/graph-reader'
-import { RdfListReader } from '../src/rdf/list-reader'
+import { RdfReader } from '../src/rdf/rdf-reader'
 import { ShaclPathParser } from '../src/shacl/path-parser'
 import { pathToString } from '../src/shacl/path'
 
@@ -20,8 +19,7 @@ function storeFromTurtle(turtle: string): Store {
 
 function pathParser(store: Store): ShaclPathParser {
     return new ShaclPathParser(
-        new RdfGraphReader(store),
-        new RdfListReader(store),
+        new RdfReader(store),
     )
 }
 

@@ -1,25 +1,29 @@
 import type { Literal, NamedNode, Term } from "@rdfjs/types";
 
-import { RdfGraphReader } from "../rdf/graph-reader";
-import { RdfListReader } from "../rdf/list-reader";
-import { RdfTermUtils } from "../rdf/term-utils";
+import { DataFactory } from "n3";
+import { RdfReader } from "../rdf/rdf-reader";
 import type { ShaclConstraint } from "./constraint";
-import { ShaclNodeShape } from "./node-shape";
+import {
+  type ShaclNodeShape,
+  type ShaclPropertyShape,
+  type ShaclShapeMetadata,
+  type ShaclTarget
+} from "./model";
 import { ShaclPathParser } from "./path-parser";
-import { ShaclPropertyShape } from "./property-shape";
-import type { ShaclTarget } from "./target";
-import type { ShaclShapeMetadata } from "./shape-metadata";
-import { SH } from "./vocabulary";
+import { RDFS_LABEL, SH } from "./vocabulary";
+
+const RDF_TYPE = DataFactory.namedNode(
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+);
 
 /**
  * Converts RDF SHACL structures into the semantic SHACL model.
  *
- * It assumes the shape graph has already been checked by ShaclSemanticAnalyzer.
+ * It assumes the shape graph has already been checked by ShaclShapeValidator.
  */
-export class ShaclGraphParser {
+export class ShaclParser {
   constructor(
-    private readonly rdf: RdfGraphReader,
-    private readonly lists: RdfListReader,
+    private readonly rdf: RdfReader,
     private readonly paths: ShaclPathParser
   ) {}
 
@@ -32,7 +36,15 @@ export class ShaclGraphParser {
 
     const constraints = this.parseConstraints(id);
 
-    return new ShaclNodeShape(id, targets, properties, constraints, this.parseMetadata(id));
+    const metadata = this.parseMetadata(id);
+
+    return {
+      id,
+      targets,
+      properties,
+      constraints,
+      metadata
+    };
   }
 
   parsePropertyShape(id: Term): ShaclPropertyShape {
@@ -42,12 +54,12 @@ export class ShaclGraphParser {
       throw new Error(`Property shape ${id.value} has no sh:path.`);
     }
 
-    return new ShaclPropertyShape(
+    return {
       id,
-      this.paths.parse(pathTerm),
-      this.parseConstraints(id),
-      this.parseMetadata(id)
-    );
+      path: this.paths.parse(pathTerm),
+      constraints: this.parseConstraints(id),
+      metadata: this.parseMetadata(id)
+    };
   }
 
 
@@ -55,6 +67,12 @@ export class ShaclGraphParser {
     const names = this.rdf
       .getObjects(id, SH.name)
       .map(term => this.requireLiteral(term, "sh:name"));
+
+    names.push(
+      ...this.rdf
+        .getObjects(id, RDFS_LABEL)
+        .map(term => this.requireLiteral(term, "rdfs:label"))
+    );
 
     const descriptions = this.rdf
       .getObjects(id, SH.description)
@@ -109,10 +127,21 @@ export class ShaclGraphParser {
 
   private parseConstraints(id: Term): ShaclConstraint[] {
     const constraints: ShaclConstraint[] = [];
+    
+    const datatype = this.rdf.getSingleObject(id, SH.datatype);
+    if (datatype) {
+      constraints.push({kind: "datatype", datatype: this.requireNamedNode( datatype, "sh:datatype")});
+    }
 
-    this.pushNamedNodeConstraint(constraints, id, SH.datatype, "datatype", "datatype");
-    this.pushNamedNodeConstraint(constraints, id, SH.nodeKind, "nodeKind", "nodeKind");
-    this.pushNamedNodeConstraint(constraints, id, SH.class, "class", "class");
+    const nodeKind = this.rdf.getSingleObject(id, SH.nodeKind);
+    if (nodeKind) {
+      constraints.push({kind: "nodeKind", nodeKind: this.requireNamedNode( nodeKind, "sh:nodeKind")});
+    }
+    
+    const classConstraint = this.rdf.getSingleObject(id, SH.class);
+    if (classConstraint) {
+      constraints.push({kind: "class", class: this.requireNamedNode( classConstraint, "sh:class")});
+    }
 
     const node = this.rdf.getSingleObject(id, SH.node);
     if (node) constraints.push({ kind: "node", shape: node });
@@ -147,7 +176,7 @@ export class ShaclGraphParser {
     if (languageIn) {
       constraints.push({
         kind: "languageIn",
-        languages: this.lists.read(languageIn).map(term =>
+        languages: this.rdf.readList(languageIn).map(term =>
           this.requireLiteral(term, "sh:languageIn member").value
         )
       });
@@ -165,7 +194,7 @@ export class ShaclGraphParser {
     if (shIn) {
       constraints.push({
         kind: "in",
-        values: this.lists.read(shIn)
+        values: this.rdf.readList(shIn)
       });
     }
 
@@ -208,8 +237,8 @@ export class ShaclGraphParser {
     if (closed) {
       const ignoredHead = this.rdf.getSingleObject(id, SH.ignoredProperties);
       const ignoredProperties = ignoredHead
-        ? this.lists
-            .read(ignoredHead)
+        ? this.rdf
+            .readList(ignoredHead)
             .map(term => this.requireNamedNode(term, "sh:ignoredProperties member"))
         : [];
 
@@ -221,33 +250,6 @@ export class ShaclGraphParser {
     }
 
     return constraints;
-  }
-
-  private pushNamedNodeConstraint(
-    constraints: ShaclConstraint[],
-    id: Term,
-    predicate: NamedNode,
-    kind: "datatype" | "nodeKind" | "class",
-    _property: "datatype" | "nodeKind" | "class"
-  ): void {
-    const term = this.rdf.getSingleObject(id, predicate);
-    if (!term) return;
-
-    const namedNode = this.requireNamedNode(term, `sh:${kind}`);
-
-    switch (kind) {
-      case "datatype":
-        constraints.push({ kind, datatype: namedNode });
-        return;
-
-      case "nodeKind":
-        constraints.push({ kind, nodeKind: namedNode });
-        return;
-
-      case "class":
-        constraints.push({ kind, class: namedNode });
-        return;
-    }
   }
 
   private pushIntegerConstraint(
@@ -304,10 +306,43 @@ export class ShaclGraphParser {
     const head = this.rdf.getSingleObject(id, predicate);
     if (!head) return;
 
+    const shapes = this.rdf.readList(head);
+
     constraints.push({
       kind,
-      shapes: this.lists.read(head)
+      shapes,
+      ...(
+        kind === "or" || kind === "xone"
+          ? { nodeChoices: this.parseNodeChoices(shapes) }
+          : {}
+      )
     } as ShaclConstraint);
+  }
+
+  private parseNodeChoices(
+    branches: Term[]
+  ): { shape: Term; label?: Literal }[] {
+    return branches.flatMap(branch => {
+      const node = this.rdf.getSingleObject(branch, SH.node);
+
+      if (node) {
+        return [{
+          shape: node,
+          label: this.rdf.getSingleLiteral(branch, RDFS_LABEL)
+        }];
+      }
+
+      const isNodeShape = this.rdf
+        .getObjects(branch, RDF_TYPE)
+        .some(type => type.equals(SH.NodeShape));
+
+      return isNodeShape
+        ? [{
+            shape: branch,
+            label: this.rdf.getSingleLiteral(branch, RDFS_LABEL)
+          }]
+        : [];
+    });
   }
 
   private readOptionalInteger(
@@ -345,7 +380,7 @@ export class ShaclGraphParser {
   }
 
   private requireNamedNode(term: Term, label: string): NamedNode {
-    if (!RdfTermUtils.isNamedNode(term)) {
+    if (term.termType !== "NamedNode") {
       throw new Error(`${label} must be an IRI.`);
     }
 
@@ -353,7 +388,7 @@ export class ShaclGraphParser {
   }
 
   private requireLiteral(term: Term, label: string): Literal {
-    if (!RdfTermUtils.isLiteral(term)) {
+    if (term.termType !== "Literal") {
       throw new Error(`${label} must be a literal.`);
     }
 

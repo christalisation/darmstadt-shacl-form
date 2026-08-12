@@ -17,6 +17,38 @@ export interface ShaclDataValidationResult {
   violations: ShaclDataValidationViolation[];
 }
 
+interface ShaclEngineTermPointer {
+  term?: Term;
+  ptrs?: Array<{
+    _term?: Term;
+  }>;
+}
+
+interface ShaclEngineShapePointer {
+  ptr?: ShaclEngineTermPointer;
+}
+
+interface ShaclEngineMessage {
+  value?: string;
+}
+
+interface ShaclEngineResultLike {
+  message?: ShaclEngineMessage[];
+  results?: ShaclEngineResultLike[];
+  focusNode?: ShaclEngineTermPointer;
+  value?: ShaclEngineTermPointer;
+  shape?: ShaclEngineShapePointer;
+  sourceShape?: Term;
+  constraintComponent?: Term;
+  sourceConstraintComponent?: Term;
+  path?: unknown;
+}
+
+interface ShaclEngineReportLike {
+  conforms?: boolean;
+  results?: ShaclEngineResultLike[];
+}
+
 /**
  * Authoritative validation of generated RDF against the original SHACL graph.
  */
@@ -31,7 +63,7 @@ export class ShaclDataValidator {
 
     const report = await validator.validate({
       dataset: dataGraph
-    });
+    }) as ShaclEngineReportLike;
 
     const rawResults = this.flatten(report.results ?? []);
 
@@ -41,7 +73,9 @@ export class ShaclDataValidator {
     };
   }
 
-  private flatten(results: any[]): any[] {
+  private flatten(
+    results: ShaclEngineResultLike[]
+  ): ShaclEngineResultLike[] {
     return results.flatMap(result =>
       result.results?.length
         ? this.flatten(result.results)
@@ -49,7 +83,9 @@ export class ShaclDataValidator {
     );
   }
 
-  private mapViolation(result: any): ShaclDataValidationViolation {
+  private mapViolation(
+    result: ShaclEngineResultLike
+  ): ShaclDataValidationViolation {
     return {
       message:
         this.messages(result).join("\n") ||
@@ -74,7 +110,7 @@ export class ShaclDataValidator {
     };
   }
 
-  private messages(result: any): string[] {
+  private messages(result: ShaclEngineResultLike): string[] {
     const messages: string[] = [];
 
     for (const message of result.message ?? []) {
@@ -90,10 +126,10 @@ export class ShaclDataValidator {
     return [...new Set(messages)];
   }
 
-  private extractPathPredicates(path: any): NamedNode[] {
+  private extractPathPredicates(path: unknown): NamedNode[] {
     const predicates = new Map<string, NamedNode>();
 
-    const visit = (value: any): void => {
+    const visit = (value: unknown): void => {
       if (!value) return;
 
       if (Array.isArray(value)) {
@@ -101,20 +137,33 @@ export class ShaclDataValidator {
         return;
       }
 
-      if (value.termType === "NamedNode") {
-        predicates.set(value.value, value);
+      const record =
+        typeof value === "object" && value !== null
+          ? value as Record<string, unknown>
+          : undefined;
+
+      if (!record) return;
+
+      if (
+        record.termType === "NamedNode" &&
+        typeof record.value === "string"
+      ) {
+        predicates.set(
+          record.value,
+          record as unknown as NamedNode
+        );
       }
 
       if (
-        typeof value.id === "string" &&
-        /^https?:/.test(value.id)
+        typeof record.id === "string" &&
+        /^https?:/.test(record.id)
       ) {
-        const node = DataFactory.namedNode(value.id);
+        const node = DataFactory.namedNode(record.id);
         predicates.set(node.value, node);
       }
 
-      if (value.predicates) visit(value.predicates);
-      if (value.path) visit(value.path);
+      visit(record.predicates);
+      visit(record.path);
     };
 
     visit(path);

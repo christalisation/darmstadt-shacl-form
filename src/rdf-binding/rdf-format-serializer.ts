@@ -1,7 +1,7 @@
 import type { Quad, Term } from "@rdfjs/types";
 import { Writer } from "n3";
 
-import type { RdfPrefixes } from "../rdf/rdf-prefixes";
+import type { RdfPrefixes } from "../rdf";
 
 /**
  * Converts generated RDF quads to a concrete output syntax.

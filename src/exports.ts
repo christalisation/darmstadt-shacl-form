@@ -1,6 +1,6 @@
 export * from "./rdf";
 export * from "./shacl";
-export * from "./form-template";
+export * from "./form-shape";
 export * from "./form-instance";
 export * from "./rdf-binding";
 export * from "./form-element";
@@ -16,6 +16,9 @@ export type {
   LoadedFormGraphs,
   DetectedRdfSyntax
 } from "./loader";
+
+export { FormPipeline } from "./form-pipeline";
+export type { FormPipelineResult } from "./form-pipeline";
 
 export {
   FormPlugin,

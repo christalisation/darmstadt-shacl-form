@@ -4,8 +4,8 @@ import { RdfXmlParser } from "rdfxml-streaming-parser";
 import { toRDF as jsonLdToRdf } from "jsonld";
 
 import { FormConfig } from "./config";
-import type { RdfPrefixes } from "./rdf/rdf-prefixes";
-export type { RdfPrefixes } from "./rdf/rdf-prefixes";
+import type { RdfPrefixes } from "./rdf";
+export type { RdfPrefixes } from "./rdf";
 
 const OWL_IMPORTS = DataFactory.namedNode(
   "http://www.w3.org/2002/07/owl#imports"

@@ -45,6 +45,11 @@ export class FormElementProperty extends HTMLElement {
     const template = property.template;
 
     this.replaceChildren();
+    this.classList.toggle("may-add", property.canAdd);
+    this.classList.toggle(
+      "may-remove",
+      property.values.length > template.cardinality.min
+    );
 
     this.style.order =
       template.order !== undefined
@@ -64,7 +69,18 @@ export class FormElementProperty extends HTMLElement {
       label.classList.add("required");
     }
 
-    content.appendChild(label);
+    const heading = document.createElement("div");
+    heading.classList.add("property-heading");
+    heading.appendChild(label);
+
+    if (template.description) {
+      const description = document.createElement("div");
+      description.classList.add("property-description");
+      description.innerText = template.description;
+      heading.appendChild(description);
+    }
+
+    content.appendChild(heading);
 
     property.values.forEach((_, index) => {
       const valueElement = new FormElementValue();
@@ -81,7 +97,10 @@ export class FormElementProperty extends HTMLElement {
 
     if (
       property.values.length === 0 &&
-      template.valueType.kind !== "nestedNode" &&
+      (
+        !this.isNestedFormValue() ||
+        this.shouldRenderNestedAsResource()
+      ) &&
       this.binding.context.editable !== false
     ) {
       this.appendDraftEditor(content);
@@ -204,6 +223,12 @@ export class FormElementProperty extends HTMLElement {
       );
     };
 
+    if (this.shouldRenderNestedAsResource()) {
+      this.appendResourceReferenceEditor(wrapper, commit);
+      container.appendChild(wrapper);
+      return;
+    }
+
     /*
      * Preserve the old sh:class/reference-data behavior. Known resources are
      * offered as choices, while the regular widget remains available for a
@@ -245,7 +270,10 @@ export class FormElementProperty extends HTMLElement {
     const editor = context.widgets.createEditor(
       property.template,
       undefined,
-      commit
+      commit,
+      {
+        labelForTerm: context.labelForTerm
+      }
     );
 
     wrapper.appendChild(editor.element);
@@ -259,8 +287,10 @@ export class FormElementProperty extends HTMLElement {
 
     const { property, context } = this.binding;
 
-    if (property.template.valueType.kind === "nestedNode") {
-      return this.createNestedAddControl();
+    if (this.isNestedFormValue()) {
+      if (!this.shouldRenderNestedAsResource()) {
+        return this.createNestedAddControl();
+      }
     }
 
     const button = document.createElement("button");
@@ -281,6 +311,60 @@ export class FormElementProperty extends HTMLElement {
     return button;
   }
 
+  private shouldRenderNestedAsResource(): boolean {
+    if (!this.binding) return false;
+
+    const { property, context } = this.binding;
+    const valueType = property.template.valueType;
+
+    if (
+      valueType.kind !== "nestedNode" &&
+      valueType.kind !== "nestedNodeChoice"
+    ) {
+      return false;
+    }
+
+    const nestedTemplates =
+      this.getNestedShapeChoices()
+        .map(choice => context.resolveNodeTemplate(choice.shape))
+        .filter(template => template !== undefined);
+
+    return Boolean(
+      nestedTemplates.length > 0 &&
+      nestedTemplates.every(template => template.properties.length === 0)
+    );
+  }
+
+  private appendResourceReferenceEditor(
+    wrapper: HTMLElement,
+    commit: (term: Term | undefined) => void
+  ): void {
+    if (!this.binding) return;
+
+    const input = document.createElement("input");
+    // input.type = "url";
+    input.type = "text"; // to allow non-URL IRIs
+    input.classList.add("editor");
+    input.required = this.binding.property.template.required;
+    input.placeholder = "https://example.org/resource";
+
+    input.addEventListener("change", () => {
+      if (!input.value) {
+        commit(undefined);
+        return;
+      }
+
+      if (!input.checkValidity()) {
+        input.reportValidity();
+        return;
+      }
+
+      commit(DataFactory.namedNode(input.value));
+    });
+
+    wrapper.appendChild(input);
+  }
+
   private createNestedAddControl(): HTMLElement {
     if (!this.binding) {
       return document.createElement("span");
@@ -294,12 +378,19 @@ export class FormElementProperty extends HTMLElement {
 
     const valueType = property.template.valueType;
 
-    if (valueType.kind !== "nestedNode") {
+    if (
+      valueType.kind !== "nestedNode" &&
+      valueType.kind !== "nestedNodeChoice"
+    ) {
       return document.createElement("span");
     }
 
+    const choices = this.getNestedShapeChoices();
+    const firstChoice = choices[0];
     const nestedTemplate =
-      context.resolveNodeTemplate(valueType.shape);
+      valueType.kind === "nestedNode" && firstChoice
+        ? context.resolveNodeTemplate(firstChoice.shape)
+        : undefined;
 
     const select = document.createElement("select");
     select.classList.add("add-button");
@@ -309,11 +400,21 @@ export class FormElementProperty extends HTMLElement {
     placeholder.innerText = `+ ${property.template.label}`;
     select.appendChild(placeholder);
 
-    const createNew = document.createElement("option");
-    createNew.value = "new";
-    createNew.innerText =
-      `Create new ${property.template.label}`;
-    select.appendChild(createNew);
+    if (valueType.kind === "nestedNode") {
+      const createNew = document.createElement("option");
+      createNew.value = "new";
+      createNew.innerText =
+        `Create new ${property.template.label}`;
+      select.appendChild(createNew);
+    } else {
+      choices.forEach((choice, index) => {
+        const option = document.createElement("option");
+        option.value = `new:${index}`;
+        option.innerText =
+          `Create ${choice.label ?? property.template.label}`;
+        select.appendChild(option);
+      });
+    }
 
     if (nestedTemplate) {
       for (
@@ -351,11 +452,23 @@ export class FormElementProperty extends HTMLElement {
     select.addEventListener("change", () => {
       if (!select.value) return;
 
-      if (select.value === "new") {
-        if (!nestedTemplate) {
+      if (
+        select.value === "new" ||
+        select.value.startsWith("new:")
+      ) {
+        const choice =
+          select.value === "new"
+            ? firstChoice
+            : choices[Number(select.value.slice("new:".length))];
+
+        const selectedTemplate = choice
+          ? context.resolveNodeTemplate(choice.shape)
+          : nestedTemplate;
+
+        if (!selectedTemplate) {
           console.warn(
-            "Nested template not found for",
-            valueType.shape
+            "Nested form shape not found for",
+            choice?.shape
           );
           select.value = "";
           return;
@@ -364,13 +477,13 @@ export class FormElementProperty extends HTMLElement {
         const subject =
           context.createNodeSubject(
             property.template,
-            nestedTemplate
+            selectedTemplate
           );
 
         const node =
           context.graph.createNode(
             subject,
-            nestedTemplate
+            selectedTemplate
           );
 
         property.addValue({
@@ -419,6 +532,34 @@ export class FormElementProperty extends HTMLElement {
     });
 
     return select;
+  }
+
+  private isNestedFormValue(): boolean {
+    const valueType = this.binding?.property.template.valueType;
+
+    return (
+      valueType?.kind === "nestedNode" ||
+      valueType?.kind === "nestedNodeChoice"
+    );
+  }
+
+  private getNestedShapeChoices(): {
+    shape: Term;
+    label?: string;
+  }[] {
+    const valueType = this.binding?.property.template.valueType;
+
+    if (!valueType) return [];
+
+    if (valueType.kind === "nestedNode") {
+      return [{ shape: valueType.shape }];
+    }
+
+    if (valueType.kind === "nestedNodeChoice") {
+      return valueType.choices;
+    }
+
+    return [];
   }
 
   private appendReferenceOptions(
@@ -485,7 +626,7 @@ export class FormElementProperty extends HTMLElement {
     ) {
       const element = document.createElement("span");
       element.classList.add("validation-error");
-      element.title = error.message;
+      element.innerText = error.message;
       container.appendChild(element);
     }
   }

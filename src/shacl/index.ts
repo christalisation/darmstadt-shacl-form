@@ -1,17 +1,17 @@
-export type { ShaclConstraint } from "./constraint";
-export type { ShaclTarget } from "./target";
-export type { ShaclShapeMetadata } from "./shape-metadata";
+export type {
+  ShaclNodeShape,
+  ShaclPropertyShape,
+  ShaclShapeMetadata,
+  ShaclTarget
+} from "./model";
 
 export type {
-  ShaclPath,
-  ShaclPathPredicate,
-  ShaclPathSequence,
-  ShaclPathAlternative,
-  ShaclPathInverse,
-  ShaclPathZeroOrMore,
-  ShaclPathOneOrMore,
-  ShaclPathZeroOrOne
-} from "./path";
+  ShaclConstraint
+} from "./constraint";
+
+export {
+  ShaclPathParser,
+} from "./path-parser";
 
 export {
   isPredicatePath,
@@ -20,9 +20,23 @@ export {
   pathToString
 } from "./path";
 
-export { ShaclNodeShape } from "./node-shape";
-export { ShaclPropertyShape } from "./property-shape";
-export { ShaclPathParser } from "./path-parser";
-export { ShaclGraphParser } from "./graph-parser";
-export { ShaclSemanticAnalyzer } from "./semantic-analyser";
-export type { ShaclAnalysisResult, ShaclAnalysisViolation } from "./analysis-result";
+export type {
+  ShaclPath
+} from "./path";
+
+export {
+  ShaclParser
+} from "./parser";
+
+export {
+  ShaclShapeResolver
+} from "./resolver";
+
+export {
+  ShaclShapeValidator
+} from "./validator";
+
+export type {
+  ShaclShapeValidationResult,
+  ShaclShapeValidationViolation
+} from "./validator";

@@ -1,29 +1,19 @@
-import type { Term } from "@rdfjs/types";
 import { DataFactory, Store } from "n3";
 
 import {
   FormConfig,
   type ClassInstanceProvider
 } from "./config";
-import { FormLoader } from "./loader";
 
 import {
-  RdfGraphReader,
-  RdfListReader,
   type RdfPrefixes
 } from "./rdf";
-import {
-  ShaclGraphParser,
-  ShaclPathParser,
-  ShaclSemanticAnalyzer
-} from "./shacl";
 
 import {
-  FormTemplateCompiler,
-  FormTemplateRegistry,
-  type FormTemplateNode,
-  type FormTemplateProperty
-} from "./form-template";
+  FormShapeRegistry,
+  type FormShapeNode,
+  type FormShapeProperty
+} from "./form-shape";
 
 import { FormInstanceGraph } from "./form-instance";
 
@@ -36,14 +26,14 @@ import {
 
 import {
   FormReferenceResolver,
-  FormRdfLoader,
   FormRdfSerializer,
   RdfFormatSerializer,
-  RdfPathEvaluator,
   RdfPathWriter,
   ShaclDataValidator,
   type ShaclDataValidationResult
 } from "./rdf-binding";
+
+import { FormPipeline } from "./form-pipeline";
 
 import {
   listPlugins,
@@ -53,15 +43,11 @@ import {
 
 import { SH } from "./shacl/vocabulary";
 
-const RDF_TYPE = DataFactory.namedNode(
-  "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-);
-
 /**
  * Public <shacl-form> façade.
  *
- * It coordinates the six internal layers without taking over their work:
- * load -> analyze -> parse -> compile -> instantiate/load -> render.
+ * Loading, parsing, validation and model construction live in FormPipeline.
+ * This element owns DOM lifecycle, public events and compatibility APIs.
  */
 export class ShaclForm extends HTMLElement {
   static get observedAttributes(): string[] {
@@ -74,7 +60,7 @@ export class ShaclForm extends HTMLElement {
   private readonly graphElement = new FormElementGraph();
 
   private widgets = new FormWidgetRegistry();
-  private templates = new FormTemplateRegistry();
+  private formShapes = new FormShapeRegistry();
 
   private runtime?: FormInstanceGraph;
   private shapes?: Store;
@@ -137,77 +123,16 @@ export class ShaclForm extends HTMLElement {
     );
 
     try {
-      const loaded = await new FormLoader(this.config).load();
+      const built = await new FormPipeline(this.config).build();
 
       if (runId !== this.initializationId) return;
 
-      this.shapes = loaded.shapes;
-      this.data = loaded.data;
-      this.reference = loaded.reference;
-      this.prefixes = loaded.prefixes;
-
-      if (!this.config.skipShapeValidation) {
-        const analysis =
-          await new ShaclSemanticAnalyzer().analyze(loaded.shapes);
-
-        if (!analysis.conforms) {
-          throw new Error(
-            "Invalid SHACL shapes graph:\n" +
-            analysis.violations
-              .map(violation => `- ${violation.message}`)
-              .join("\n")
-          );
-        }
-      }
-
-      const rdf = new RdfGraphReader(loaded.shapes);
-      const lists = new RdfListReader(loaded.shapes);
-      const paths = new ShaclPathParser(rdf, lists);
-      const parser = new ShaclGraphParser(rdf, lists, paths);
-
-      const compiler = new FormTemplateCompiler({
-        languages: this.config.languages
-      });
-
-      this.templates = new FormTemplateRegistry();
-
-      const rootShapes = this.findRootShapeIds(loaded.shapes);
-
-      if (!rootShapes.length) {
-        throw new Error("No root SHACL node shape found.");
-      }
-
-      const rootTemplates = rootShapes.map(shape =>
-        this.compileShapeTree(shape, parser, compiler)
-      );
-
-      const runtime = new FormInstanceGraph();
-
-      const dataLoader = new FormRdfLoader(
-        new RdfPathEvaluator(loaded.data),
-        this.templates
-      );
-
-      rootTemplates.forEach((template, index) => {
-        const subject = this.rootSubject(index);
-
-        if (this.config.valuesSubject || loaded.data.size > 0) {
-          dataLoader.populate(
-            runtime,
-            template,
-            subject,
-            true
-          );
-        } else {
-          runtime.createNode(
-            subject,
-            template,
-            true
-          );
-        }
-      });
-
-      this.runtime = runtime;
+      this.shapes = built.shapes;
+      this.data = built.data;
+      this.reference = built.reference;
+      this.prefixes = built.prefixes;
+      this.formShapes = built.formShapes;
+      this.runtime = built.runtime;
 
       this.widgets = new FormWidgetRegistry();
       for (const plugin of listPlugins()) {
@@ -217,7 +142,7 @@ export class ShaclForm extends HTMLElement {
       this.formElement.replaceChildren();
 
       this.graphElement.bind(
-        runtime,
+        built.runtime,
         this.createElementContext()
       );
 
@@ -353,122 +278,13 @@ export class ShaclForm extends HTMLElement {
     );
   }
 
-  private compileShapeTree(
-    shape: Term,
-    parser: ShaclGraphParser,
-    compiler: FormTemplateCompiler
-  ): FormTemplateNode {
-    const existing = this.templates.get(shape);
-    if (existing) return existing;
-
-    const semantic = parser.parseNodeShape(shape);
-    const template = compiler.compileNode(semantic);
-
-    // Register before recursion to support cyclic shape references.
-    this.templates.register(template);
-
-    for (const property of semantic.properties) {
-      for (const constraint of property.constraints) {
-        if (constraint.kind === "node") {
-          this.compileShapeTree(
-            constraint.shape,
-            parser,
-            compiler
-          );
-        }
-
-        if (
-          constraint.kind === "and" ||
-          constraint.kind === "or" ||
-          constraint.kind === "xone"
-        ) {
-          for (const branch of constraint.shapes) {
-            this.compileShapeTree(
-              branch,
-              parser,
-              compiler
-            );
-          }
-        }
-
-        if (constraint.kind === "not") {
-          this.compileShapeTree(
-            constraint.shape,
-            parser,
-            compiler
-          );
-        }
-      }
-    }
-
-    return template;
-  }
-
-  private findRootShapeIds(shapes: Store): Term[] {
-    if (this.config.shapeSubject) {
-      return [
-        DataFactory.namedNode(this.config.shapeSubject)
-      ];
-    }
-
-    /*
-     * SHACL shapes can be implicit. Target declarations are therefore stronger
-     * root evidence than requiring rdf:type sh:NodeShape.
-     */
-    const targeted = new Map<string, Term>();
-
-    for (const predicate of [
-      SH.targetClass,
-      SH.targetNode,
-      SH.targetSubjectsOf,
-      SH.targetObjectsOf
-    ]) {
-      for (const subject of shapes.getSubjects(
-        predicate,
-        null,
-        null
-      )) {
-        targeted.set(this.termKey(subject), subject);
-      }
-    }
-
-    if (targeted.size) {
-      return [...targeted.values()];
-    }
-
-    return shapes.getSubjects(
-      RDF_TYPE,
-      SH.NodeShape,
-      null
-    );
-  }
-
-  private rootSubject(index: number): Term {
-    if (this.config.valuesSubject) {
-      return DataFactory.namedNode(
-        this.config.valuesSubject
-      );
-    }
-
-    if (this.config.valuesNamespace) {
-      return DataFactory.namedNode(
-        this.config.valuesNamespace +
-        this.randomId(index)
-      );
-    }
-
-    return DataFactory.blankNode(
-      this.randomId(index)
-    );
-  }
-
   private createElementContext(): FormElementContext {
     const references = new FormReferenceResolver(
       this.shapes!,
       this.data!,
       this.reference!,
       this.config.languages,
-      this.templates
+      this.formShapes
     );
 
     return {
@@ -480,11 +296,11 @@ export class ShaclForm extends HTMLElement {
       showNodeIds: this.config.showNodeIds,
 
       resolveNodeTemplate: shape =>
-        this.templates.get(shape),
+        this.formShapes.get(shape),
 
       createNodeSubject: (
-        _property: FormTemplateProperty,
-        _template: FormTemplateNode
+        _property: FormShapeProperty,
+        _formShape: FormShapeNode
       ) => {
         if (this.config.valuesNamespace) {
           return DataFactory.namedNode(
@@ -571,9 +387,5 @@ export class ShaclForm extends HTMLElement {
     return suffix === undefined
       ? id
       : `${id}-${suffix}`;
-  }
-
-  private termKey(term: Term): string {
-    return `${term.termType}:${term.value}`;
   }
 }

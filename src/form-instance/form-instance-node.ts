@@ -1,6 +1,6 @@
 import type { Term } from "@rdfjs/types";
 
-import type { FormTemplateNode } from "../form-template/form-template-node";
+import type { FormShapeNode } from "../form-shape/form-shape-node";
 import { FormInstanceProperty } from "./form-instance-property";
 import type { FormValidationResult } from "./form-validation-result";
 
@@ -12,7 +12,7 @@ export class FormInstanceNode {
 
   constructor(
     public readonly subject: Term,
-    public readonly template: FormTemplateNode
+    public readonly template: FormShapeNode
   ) {
     this.properties = template.properties.map(
       property => new FormInstanceProperty(property)

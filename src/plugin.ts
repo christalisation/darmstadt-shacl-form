@@ -1,6 +1,6 @@
 import type { Term } from "@rdfjs/types";
 
-import type { FormTemplateProperty } from "./form-template/form-template-property";
+import type { FormShapeProperty } from "./form-shape/form-shape-property";
 import { getPredicatePath } from "./shacl/path";
 import type {
   FormWidgetBinding,
@@ -16,7 +16,7 @@ export interface FormPluginOptions {
 
 /**
  * Extension point corresponding to the original Plugin concept, now depending
- * on FormTemplateProperty instead of the old mixed ShaclPropertyTemplate.
+ * on FormShapeProperty instead of the old mixed ShaclPropertyTemplate.
  */
 export abstract class FormPlugin implements FormWidgetFactory {
   readonly predicate?: string;
@@ -34,12 +34,12 @@ export abstract class FormPlugin implements FormWidgetFactory {
     }
   }
 
-  supports(template: FormTemplateProperty): boolean {
-    const predicate = getPredicatePath(template.path)?.value;
+  supports(shape: FormShapeProperty): boolean {
+    const predicate = getPredicatePath(shape.path)?.value;
 
     const datatype =
-      template.valueType.kind === "literal"
-        ? template.valueType.datatype?.value
+      shape.valueType.kind === "literal"
+        ? shape.valueType.datatype?.value
         : undefined;
 
     if (this.predicate && this.datatype) {
@@ -61,7 +61,7 @@ export abstract class FormPlugin implements FormWidgetFactory {
   }
 
   abstract createEditor(
-    template: FormTemplateProperty,
+    shape: FormShapeProperty,
     value: Term | undefined,
     onChange: (value: Term | undefined) => void
   ): FormWidgetBinding;

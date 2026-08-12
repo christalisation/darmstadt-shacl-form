@@ -2,33 +2,43 @@ import type { NamedNode, Term } from "@rdfjs/types";
 
 import type { ShaclConstraint } from "../shacl/constraint";
 import type { ShaclPath } from "../shacl/path";
-import type { FormTemplateConstraint } from "./form-template-constraint";
+import type { FormShapeConstraint } from "./form-shape-constraint";
 
-export interface FormTemplateCardinality {
+export interface FormShapeCardinality {
   min: number;
   max?: number;
 }
 
-export type FormTemplateValueType =
+export type FormShapeValueType =
   | { kind: "literal"; datatype?: NamedNode }
   | { kind: "resource"; class?: NamedNode }
   | { kind: "nestedNode"; shape: Term }
+  | {
+      kind: "nestedNodeChoice";
+      choices: FormShapeNodeChoice[];
+      exclusive: boolean;
+    }
   | { kind: "choice"; values: Term[] }
   | { kind: "unknown" };
+
+export interface FormShapeNodeChoice {
+  shape: Term;
+  label?: string;
+}
 
 /**
  * Compiled description of one form property.
  *
- * The template is immutable. It contains presentation metadata, but no DOM
+ * The form shape is immutable. It contains presentation metadata, but no DOM
  * and no mutable values.
  */
-export class FormTemplateProperty {
+export class FormShapeProperty {
   constructor(
     public readonly sourceShape: Term,
     public readonly path: ShaclPath,
-    public readonly cardinality: FormTemplateCardinality,
-    public readonly valueType: FormTemplateValueType,
-    public readonly constraints: FormTemplateConstraint[] = [],
+    public readonly cardinality: FormShapeCardinality,
+    public readonly valueType: FormShapeValueType,
+    public readonly constraints: FormShapeConstraint[] = [],
     public readonly sourceConstraints: ShaclConstraint[] = [],
     public readonly label: string = sourceShape.value,
     public readonly description?: string,

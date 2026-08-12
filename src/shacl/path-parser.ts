@@ -1,7 +1,6 @@
 import type { NamedNode, Term } from "@rdfjs/types";
 
-import { RdfGraphReader } from "../rdf/graph-reader";
-import { RdfListReader } from "../rdf/list-reader";
+import { RdfReader } from "../rdf/rdf-reader";
 import type { ShaclPath } from "./path";
 import { RDF_FIRST, SH } from "./vocabulary";
 
@@ -10,8 +9,7 @@ import { RDF_FIRST, SH } from "./vocabulary";
  */
 export class ShaclPathParser {
   constructor(
-    private readonly rdf: RdfGraphReader,
-    private readonly lists: RdfListReader
+    private readonly rdf: RdfReader
   ) {}
 
   parse(term: Term): ShaclPath {
@@ -26,7 +24,7 @@ export class ShaclPathParser {
     if (alternative) {
       return {
         kind: "alternative",
-        paths: this.lists.read(alternative).map(item => this.parse(item))
+        paths: this.rdf.readList(alternative).map(item => this.parse(item))
       };
     }
 
@@ -66,7 +64,7 @@ export class ShaclPathParser {
     if (this.rdf.getObjects(term, RDF_FIRST).length > 0) {
       return {
         kind: "sequence",
-        paths: this.lists.read(term).map(item => this.parse(item))
+        paths: this.rdf.readList(term).map(item => this.parse(item))
       };
     }
 

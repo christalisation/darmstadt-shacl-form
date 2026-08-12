@@ -1,20 +1,25 @@
 import type { Term } from "@rdfjs/types";
 import { DataFactory } from "n3";
 
-import type { FormTemplateProperty } from "../form-template/form-template-property";
+import type { FormShapeProperty } from "../form-shape/form-shape-property";
 
 export interface FormWidgetBinding {
   element: HTMLElement;
   focusElement?: HTMLElement;
 }
 
+export interface FormWidgetContext {
+  labelForTerm?(term: Term): string | undefined;
+}
+
 export interface FormWidgetFactory {
-  supports(template: FormTemplateProperty): boolean;
+  supports(template: FormShapeProperty): boolean;
 
   createEditor(
-    template: FormTemplateProperty,
+    template: FormShapeProperty,
     value: Term | undefined,
-    onChange: (value: Term | undefined) => void
+    onChange: (value: Term | undefined) => void,
+    context?: FormWidgetContext
   ): FormWidgetBinding;
 }
 
@@ -32,22 +37,23 @@ export class FormWidgetRegistry {
   }
 
   createEditor(
-    template: FormTemplateProperty,
+    template: FormShapeProperty,
     value: Term | undefined,
-    onChange: (value: Term | undefined) => void
+    onChange: (value: Term | undefined) => void,
+    context?: FormWidgetContext
   ): FormWidgetBinding {
     const factory =
       this.factories.find(candidate => candidate.supports(template)) ??
       nativeFactory;
 
-    return factory.createEditor(template, value, onChange);
+    return factory.createEditor(template, value, onChange, context);
   }
 }
 
 const nativeFactory: FormWidgetFactory = {
   supports: () => true,
 
-  createEditor(template, value, onChange) {
+  createEditor(template, value, onChange, context) {
     if (template.valueType.kind === "choice") {
       const select = document.createElement("select");
       select.classList.add("editor");
@@ -60,7 +66,9 @@ const nativeFactory: FormWidgetFactory = {
       template.valueType.values.forEach((term, index) => {
         const option = document.createElement("option");
         option.value = index.toString();
-        option.innerText = term.value;
+        option.innerText =
+          context?.labelForTerm?.(term) ??
+          term.value;
         select.appendChild(option);
 
         if (value?.equals(term)) {
@@ -95,8 +103,14 @@ const nativeFactory: FormWidgetFactory = {
       input.classList.add("editor");
       input.required = template.required;
       input.value = value?.value ?? "";
+      input.placeholder = "https://example.org/resource";
 
       input.addEventListener("change", () => {
+        if (input.value && !input.checkValidity()) {
+          input.reportValidity();
+          return;
+        }
+
         onChange(
           input.value
             ? DataFactory.namedNode(input.value)

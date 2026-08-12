@@ -1,6 +1,6 @@
 import type { Term } from "@rdfjs/types";
 
-import type { FormTemplateNode } from "../form-template/form-template-node";
+import type { FormShapeNode } from "../form-shape/form-shape-node";
 import { FormInstanceNode } from "./form-instance-node";
 import type { FormValidationResult } from "./form-validation-result";
 
@@ -34,7 +34,7 @@ export class FormInstanceGraph {
 
   createNode(
     subject: Term,
-    template: FormTemplateNode,
+    template: FormShapeNode,
     root = false
   ): FormInstanceNode {
     const existing = this.getNode(subject);
@@ -72,7 +72,7 @@ export class FormInstanceGraph {
    * to avoid creating an accidental immediate cycle in the UI.
    */
   getReusableNodes(
-    template: FormTemplateNode,
+    template: FormShapeNode,
     excludeSubjects: Term[] = []
   ): FormInstanceNode[] {
     const excluded = new Set(excludeSubjects.map(nodeKey));

@@ -56,7 +56,7 @@ export class FormValidationPresenter {
           "validation-error",
           "authoritative"
         );
-        error.title = violation.message || "Validation failed";
+        error.innerText = violation.message || "Validation failed";
         target.appendChild(error);
       }
     }

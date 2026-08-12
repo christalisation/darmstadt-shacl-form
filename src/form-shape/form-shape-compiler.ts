@@ -1,19 +1,22 @@
 import type { Literal } from "@rdfjs/types";
 
 import type { ShaclConstraint } from "../shacl/constraint";
-import type { ShaclNodeShape } from "../shacl/node-shape";
+import type {
+  ShaclNodeShape,
+  ShaclPropertyShape,
+  ShaclShapeMetadata
+} from "../shacl/model";
 import { pathToString } from "../shacl/path";
-import type { ShaclPropertyShape } from "../shacl/property-shape";
-import type { ShaclShapeMetadata } from "../shacl/shape-metadata";
-import type { FormTemplateConstraint } from "./form-template-constraint";
-import { FormTemplateNode } from "./form-template-node";
+import type { FormShapeConstraint } from "./form-shape-constraint";
+import { FormShapeNode } from "./form-shape-node";
 import {
-  FormTemplateProperty,
-  type FormTemplateCardinality,
-  type FormTemplateValueType
-} from "./form-template-property";
+  FormShapeProperty,
+  type FormShapeCardinality,
+  type FormShapeNodeChoice,
+  type FormShapeValueType
+} from "./form-shape-property";
 
-export interface FormTemplateCompilerOptions {
+export interface FormShapeCompilerOptions {
   /**
    * Preferred languages in priority order, e.g. ["fr", "en"].
    */
@@ -21,17 +24,28 @@ export interface FormTemplateCompilerOptions {
 }
 
 /**
- * Lowers the SHACL semantic model into a form-oriented template model.
+ * Projects the SHACL Shape Model into the Form Shape Model.
  */
-export class FormTemplateCompiler {
+export class FormShapeCompiler {
   constructor(
-    private readonly options: FormTemplateCompilerOptions = {}
+    private readonly options: FormShapeCompilerOptions = {}
   ) {}
 
-  compileNode(shape: ShaclNodeShape): FormTemplateNode {
-    return new FormTemplateNode(
+  compileNode(shape: ShaclNodeShape): FormShapeNode {
+    return this.compileNodeWithProperties(
+      shape,
+      shape.properties
+    );
+  }
+
+  compileNodeWithProperties(
+    shape: ShaclNodeShape,
+    properties: ShaclPropertyShape[]
+  ): FormShapeNode {
+    return new FormShapeNode(
       shape.id,
-      shape.properties.map(property => this.compileProperty(property)),
+      this.deduplicateProperties(properties)
+        .map(property => this.compileProperty(property)),
       shape.constraints,
       this.labelFromMetadata(shape.metadata) ?? shape.id.value,
       this.descriptionFromMetadata(shape.metadata),
@@ -45,8 +59,8 @@ export class FormTemplateCompiler {
     );
   }
 
-  compileProperty(shape: ShaclPropertyShape): FormTemplateProperty {
-    return new FormTemplateProperty(
+  compileProperty(shape: ShaclPropertyShape): FormShapeProperty {
+    return new FormShapeProperty(
       shape.id,
       shape.path,
       this.compileCardinality(shape.constraints),
@@ -62,7 +76,7 @@ export class FormTemplateCompiler {
 
   private compileCardinality(
     constraints: ShaclConstraint[]
-  ): FormTemplateCardinality {
+  ): FormShapeCardinality {
     const min =
       constraints.find(c => c.kind === "minCount")?.value ?? 0;
 
@@ -74,10 +88,15 @@ export class FormTemplateCompiler {
 
   private compileValueType(
     constraints: ShaclConstraint[]
-  ): FormTemplateValueType {
+  ): FormShapeValueType {
     const node = constraints.find(c => c.kind === "node");
     if (node?.kind === "node") {
       return { kind: "nestedNode", shape: node.shape };
+    }
+
+    const nestedChoice = this.compileNestedNodeChoice(constraints);
+    if (nestedChoice) {
+      return nestedChoice;
     }
 
     const shIn = constraints.find(c => c.kind === "in");
@@ -108,10 +127,43 @@ export class FormTemplateCompiler {
     return { kind: "unknown" };
   }
 
+  private compileNestedNodeChoice(
+    constraints: ShaclConstraint[]
+  ): FormShapeValueType | undefined {
+    const logical = constraints.find(
+      constraint =>
+        constraint.kind === "or" ||
+        constraint.kind === "xone"
+    );
+
+    if (
+      logical?.kind !== "or" &&
+      logical?.kind !== "xone"
+    ) {
+      return undefined;
+    }
+
+    const choices = (logical.nodeChoices ?? [])
+      .map(choice => ({
+        shape: choice.shape,
+        label: choice.label?.value
+      } satisfies FormShapeNodeChoice));
+
+    if (!choices.length) {
+      return undefined;
+    }
+
+    return {
+      kind: "nestedNodeChoice",
+      choices,
+      exclusive: logical.kind === "xone"
+    };
+  }
+
   private compileConstraints(
     constraints: ShaclConstraint[]
-  ): FormTemplateConstraint[] {
-    const result: FormTemplateConstraint[] = [];
+  ): FormShapeConstraint[] {
+    const result: FormShapeConstraint[] = [];
 
     for (const constraint of constraints) {
       switch (constraint.kind) {
@@ -198,7 +250,7 @@ export class FormTemplateCompiler {
   }
 
   private mergeNumericRange(
-    result: FormTemplateConstraint[],
+    result: FormShapeConstraint[],
     constraint: Extract<
       ShaclConstraint,
       {
@@ -212,7 +264,7 @@ export class FormTemplateCompiler {
   ): void {
     let range = result.find(
       c => c.kind === "numericRange"
-    ) as Extract<FormTemplateConstraint, { kind: "numericRange" }> | undefined;
+    ) as Extract<FormShapeConstraint, { kind: "numericRange" }> | undefined;
 
     if (!range) {
       range = { kind: "numericRange" };
@@ -223,7 +275,7 @@ export class FormTemplateCompiler {
   }
 
   private mergeLength(
-    result: FormTemplateConstraint[],
+    result: FormShapeConstraint[],
     constraint: Extract<
       ShaclConstraint,
       { kind: "minLength" | "maxLength" }
@@ -231,7 +283,7 @@ export class FormTemplateCompiler {
   ): void {
     let length = result.find(
       c => c.kind === "length"
-    ) as Extract<FormTemplateConstraint, { kind: "length" }> | undefined;
+    ) as Extract<FormShapeConstraint, { kind: "length" }> | undefined;
 
     if (!length) {
       length = { kind: "length" };
@@ -268,5 +320,19 @@ export class FormTemplateCompiler {
     }
 
     return values.find(value => !value.language) ?? values[0];
+  }
+
+  private deduplicateProperties(
+    properties: ShaclPropertyShape[]
+  ): ShaclPropertyShape[] {
+    const seen = new Set<string>();
+
+    return properties.filter(property => {
+      const key = `${property.id.termType}:${property.id.value}`;
+      if (seen.has(key)) return false;
+
+      seen.add(key);
+      return true;
+    });
   }
 }

@@ -8,7 +8,8 @@ export { FormValidationPresenter } from "./form-validation-presenter";
 export { FormWidgetRegistry } from "./form-widget-registry";
 export type {
   FormWidgetFactory,
-  FormWidgetBinding
+  FormWidgetBinding,
+  FormWidgetContext
 } from "./form-widget-registry";
 
 export type {

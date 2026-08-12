@@ -14,7 +14,7 @@
         "./*.ts": "./src/*.ts",
         "./rdf/*.ts": "./src/rdf/*.ts",
         "./shacl/*.ts": "./src/shacl/*.ts",
-        "./form-template/*.ts": "./src/form-template/*.ts",
+        "./form-shape/*.ts": "./src/form-shape/*.ts",
         "./form-instance/*.ts": "./src/form-instance/*.ts",
         "./rdf-binding/*.ts": "./src/rdf-binding/*.ts",
         "./form-element/*.ts": "./src/form-element/*.ts"
