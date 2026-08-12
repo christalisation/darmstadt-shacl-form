@@ -114,6 +114,9 @@ try {
         const nestedControl = [...root?.querySelectorAll('shacl-property') || []]
             .find(property => property.textContent.includes('Child') && property.querySelector('.add-button'))
         const alternative = root?.querySelector('.alternative-path-constraint select')
+        nestedControl?.addPropertyInstance()
+        await new Promise(resolve => setTimeout(resolve, 250))
+        const nestedNodeAfterClick = nestedControl?.querySelector('shacl-node')
 
         const multi = await createForm()
         const selector = multi.shadowRoot.querySelector('.root-selector-container select')
@@ -131,6 +134,7 @@ try {
             hasRoot: Boolean(root),
             titleLabel,
             hasNestedControl: Boolean(nestedControl),
+            hasNestedNodeAfterClick: Boolean(nestedNodeAfterClick),
             hasAlternative: Boolean(alternative),
             rootOptions,
             invalidConforms: invalidReport.conforms,
@@ -142,6 +146,7 @@ try {
     assert(result.hasRoot, 'simple NodeShape did not render')
     assert(result.titleLabel === 'Title', 'simple property label did not render')
     assert(result.hasNestedControl, 'nested sh:node create/link control did not render')
+    assert(result.hasNestedNodeAfterClick, 'nested sh:node form did not render after using create control')
     assert(result.hasAlternative, 'alternative path selector did not render')
     assert(result.rootOptions.includes('Simple') && result.rootOptions.includes('Second'), 'multiple-root selector did not render expected options')
     assert(result.invalidConforms === false, 'SHACL validation did not catch missing required value')

@@ -57,7 +57,7 @@ export class Config {
             } 
             return lang
         })), ''] // <-- append empty string to accept RDF literals with no language
-        this.shapeGraph = new ShapeGraphModel(this._store, this.languages)
+        this.shapeGraph = new ShapeGraphModel(this._store, this.languages, this.prefixes)
     }
  
     updateAttributes(elem: HTMLElement) {
@@ -103,7 +103,7 @@ export class Config {
 
     set store(store: Store) {
         this._store = store
-        this.shapeGraph = new ShapeGraphModel(store, this.languages)
+        this.shapeGraph = new ShapeGraphModel(store, this.languages, this.prefixes)
         this.lists = this.shapeGraph.lists
         this.groups = this.shapeGraph.groupIds
     }

@@ -91,6 +91,11 @@ export function fieldFactory(template: ShaclPropertyTemplate, value: Term | null
         }
 
         // check if it is a list
+        if (template.shaclInValues?.length) {
+            const listEntries = createInputListEntries(template.shaclInValues, template.config.store, template.config.languages)
+            return template.config.theme.createListEditor(template.label, value, required, listEntries, template)
+        }
+
         if (template.shaclIn) {
             const list = template.config.lists[template.shaclIn]
             if (list?.length) {

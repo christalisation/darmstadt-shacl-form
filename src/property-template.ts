@@ -5,6 +5,7 @@ import { Config } from './config'
 import { findLabel, prioritizeByLanguage, removePrefixes } from './util'
 import { ShaclNode } from './node'
 import { getAlternativePredicatePaths, getPredicatePath, pathToString, ShaclPath } from './shacl-path'
+import { FormPropertyShape } from './form-shape'
 
 const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => void> = {
     [`${PREFIX_SHACL}name`]:         (template, term) => { const literal = term as Literal; template.name = prioritizeByLanguage(template.config.languages, template.name, literal) },
@@ -107,6 +108,7 @@ export class ShaclPropertyTemplate {
     nodeKind: NamedNode | undefined
     shaclAnd: string | undefined
     shaclIn: string | undefined
+    shaclInValues: Term[] | undefined
     shaclOr: Term[] | undefined
     shaclXone: Term[] | undefined
     languageIn: Term[] | undefined
@@ -118,13 +120,75 @@ export class ShaclPropertyTemplate {
     config: Config
     extendedShapes: NamedNode[]  = []
 
-    constructor(quads: Quad[], parent: ShaclNode, config: Config) {
-        this.id = quads[0]?.subject
+    constructor(quads: Quad[], parent: ShaclNode, config: Config, formShape?: FormPropertyShape) {
+        this.id = formShape?.id || quads[0]?.subject
         this.parent = parent
         this.config = config
-        this.merge(quads)
-        if (this.qualifiedValueShape) {
-            this.merge(config.store.getQuads(this.qualifiedValueShape, null, null, null))
+        const compiledShape = formShape || (this.id ? config.shapeGraph.getFormPropertyShape(this.id) : undefined)
+        if (compiledShape) {
+            this.applyFormPropertyShape(compiledShape)
+            this.mergeLegacyCompatibilityExtensions(quads)
+        } else {
+            this.merge(quads)
+            if (this.qualifiedValueShape) {
+                this.merge(config.store.getQuads(this.qualifiedValueShape, null, null, null))
+            }
+        }
+    }
+
+    /**
+     * Temporary compatibility adapter: the rendering layer still consumes
+     * ShaclPropertyTemplate, but form semantics now come from FormPropertyShape.
+     */
+    private applyFormPropertyShape(shape: FormPropertyShape): void {
+        this.id = shape.id
+        this.label = shape.label
+        this.description = shape.description as Literal | undefined
+        this.pathExpression = shape.path
+        this.path = shape.writablePath?.value || shape.pathAlternatives?.[0]?.value
+        this.pathAlternatives = shape.pathAlternatives?.map(path => path.value)
+        this.pathAlternativeLabels = { ...shape.pathAlternativeLabels }
+        this.node = shape.nodeShape as NamedNode | undefined
+        this.datatype = shape.datatype as NamedNode | undefined
+        this.nodeKind = shape.nodeKind as NamedNode | undefined
+        this.class = shape.class as NamedNode | undefined
+        this.minCount = shape.minCount
+        this.maxCount = shape.maxCount
+        this.minLength = shape.minLength
+        this.maxLength = shape.maxLength
+        this.minInclusive = shape.minInclusive
+        this.maxInclusive = shape.maxInclusive
+        this.minExclusive = shape.minExclusive
+        this.maxExclusive = shape.maxExclusive
+        this.pattern = shape.pattern
+        this.order = shape.order
+        this.defaultValue = shape.defaultValue
+        this.hasValue = shape.hasValue
+        this.qualifiedValueShape = shape.qualifiedValueShape
+        this.shaclInValues = shape.shaclIn ? [...shape.shaclIn] : undefined
+        this.languageIn = shape.languageIn ? [...shape.languageIn] : undefined
+        this.extendedShapes = shape.nestedNodeShapes
+            .filter((node): node is NamedNode => node.termType === 'NamedNode')
+        this.shaclOr = shape.logicalAlternatives.find(alternative => alternative.kind === 'or')?.shapes
+        this.shaclXone = shape.logicalAlternatives.find(alternative => alternative.kind === 'xone')?.shapes
+
+        if (!this.label && this.pathAlternatives?.length) {
+            this.label = this.pathAlternatives.map(path => removePrefixes(path, this.config.prefixes)).join(' / ')
+        } else if (!this.label) {
+            this.label = this.path ? removePrefixes(this.path, this.config.prefixes) : 'unknown'
+        }
+    }
+
+    private mergeLegacyCompatibilityExtensions(quads: Quad[]): void {
+        for (const quad of quads) {
+            switch (quad.predicate.id) {
+                case `${PREFIX_DASH}singleLine`:
+                case `${PREFIX_DASH}readonly`:
+                case `${PREFIX_OA}styleClass`:
+                case OWL_PREDICATE_IMPORTS.id:
+                    mappers[quad.predicate.id]?.call(this, this, quad.object)
+                    break
+            }
         }
     }
 
@@ -209,7 +273,8 @@ export class ShaclPropertyTemplate {
     createTemplateForAlternativePath(path: string): ShaclPropertyTemplate {
         const propertyShape = this.findSiblingPropertyShapeByPath(path)
         if (propertyShape) {
-            const template = new ShaclPropertyTemplate(this.config.store.getQuads(propertyShape, null, null, null), this.parent, this.config)
+            const formPropertyShape = this.config.shapeGraph.getFormPropertyShape(propertyShape)
+            const template = new ShaclPropertyTemplate(this.config.store.getQuads(propertyShape, null, null, null), this.parent, this.config, formPropertyShape)
             template.minCount = this.minCount
             template.maxCount = this.maxCount
             return template

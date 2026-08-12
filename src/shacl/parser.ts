@@ -3,7 +3,7 @@ import { RdfReader } from '../rdf'
 import { ShaclConstraint } from './constraint'
 import { ShaclNodeShape, ShaclPropertyShape, ShaclShapeMetadata, ShaclTarget } from './model'
 import { ShaclPathParser } from './path-parser'
-import { RDFS_VOCAB, SH } from './vocabulary'
+import { FOAF_VOCAB, RDFS_VOCAB, SH, SKOS_VOCAB } from './vocabulary'
 
 export class ShaclParser {
     constructor(
@@ -34,13 +34,21 @@ export class ShaclParser {
     private parseMetadata(id: Term): ShaclShapeMetadata {
         const names = [
             ...this.rdf.getObjects(id, SH.name).map(term => this.requireLiteral(term, 'sh:name')),
-            ...this.rdf.getObjects(id, RDFS_VOCAB.label).map(term => this.requireLiteral(term, 'rdfs:label')),
         ]
-        const descriptions = this.rdf.getObjects(id, SH.description).map(term => this.requireLiteral(term, 'sh:description'))
+        const labels = [
+            ...this.rdf.getObjects(id, SKOS_VOCAB.prefLabel).map(term => this.requireLiteral(term, 'skos:prefLabel')),
+            ...this.rdf.getObjects(id, RDFS_VOCAB.label).map(term => this.requireLiteral(term, 'rdfs:label')),
+            ...this.rdf.getObjects(id, FOAF_VOCAB.name).map(term => this.requireLiteral(term, 'foaf:name')),
+        ]
+        const descriptions = [
+            ...this.rdf.getObjects(id, SH.description).map(term => this.requireLiteral(term, 'sh:description')),
+            ...this.rdf.getObjects(id, RDFS_VOCAB.comment).map(term => this.requireLiteral(term, 'rdfs:comment')),
+        ]
         const order = this.readOptionalInteger(id, SH.order)
 
         return {
             names,
+            labels,
             descriptions,
             order,
             group: this.rdf.getSingleObject(id, SH.group),

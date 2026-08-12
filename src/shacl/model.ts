@@ -19,6 +19,7 @@ export interface ShaclPropertyShape {
 
 export interface ShaclShapeMetadata {
     names: Literal[]
+    labels: Literal[]
     descriptions: Literal[]
     order?: number
     group?: Term

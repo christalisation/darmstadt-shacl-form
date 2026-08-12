@@ -17,6 +17,7 @@ export const RDF_VOCAB = {
 
 export const RDFS_VOCAB = {
     label: namedNode(`${RDFS}label`),
+    comment: namedNode(`${RDFS}comment`),
     subClassOf: namedNode(`${RDFS}subClassOf`),
 } as const
 
