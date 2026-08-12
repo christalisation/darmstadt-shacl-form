@@ -7,6 +7,7 @@ import {
     ShaclConstraint,
     ShaclNodeShape,
     ShaclPropertyShape,
+    ShaclShapeResolver,
 } from '../shacl'
 import { PREFIX_RDF } from '../constants'
 import { FormLogicalAlternative, FormNodeShape, FormPropertyShape } from './model'
@@ -17,14 +18,22 @@ export interface FormShapeCompilerOptions {
     resolveNodeShape: (id: Term) => ShaclNodeShape | undefined
     findNodeShapeByTargetClass?: (targetClass: NamedNode) => Term | undefined
     labelForTerm?: (term: Term) => string | undefined
+    shapeResolver?: ShaclShapeResolver
+    findCompatibleNodeShapes?: (baseShape: Term) => Term[]
 }
 
 export class FormShapeCompiler {
     constructor(private readonly options: FormShapeCompilerOptions) {}
 
     compileNodeShape(shape: ShaclNodeShape): FormNodeShape {
+        const effectiveShape = this.options.shapeResolver?.resolveEffectiveNodeShape(shape)
+        const effectiveProperties = effectiveShape?.properties || shape.propertyShapes.map(property => ({
+            property,
+            sourceShapes: [shape.id],
+        }))
+        const semanticSiblings = effectiveProperties.map(entry => entry.property)
         const properties = this.getRenderableProperties(
-            shape.propertyShapes.map(property => this.compilePropertyShape(property, shape.propertyShapes))
+            effectiveProperties.map(entry => this.compilePropertyShape(entry.property, semanticSiblings, entry.sourceShapes))
         )
         return {
             id: shape.id,
@@ -32,12 +41,12 @@ export class FormShapeCompiler {
             description: this.resolveDescription(shape)?.value,
             targetClasses: shape.targets.flatMap(target => target.kind === 'class' ? [target.class] : []),
             properties,
-            composedNodeShapes: this.composedNodeShapes(shape.constraints),
+            composedNodeShapes: effectiveShape?.composedNodeShapes || this.composedNodeShapes(shape.constraints),
             logicalAlternatives: this.logicalAlternatives(shape.constraints),
         }
     }
 
-    compilePropertyShape(shape: ShaclPropertyShape, siblings: ShaclPropertyShape[] = []): FormPropertyShape {
+    compilePropertyShape(shape: ShaclPropertyShape, siblings: ShaclPropertyShape[] = [], sourceShapes: Term[] = []): FormPropertyShape {
         const property: FormPropertyShape = {
             id: shape.id,
             label: this.resolveLabel(shape) || this.fallbackPropertyLabel(shape),
@@ -50,7 +59,9 @@ export class FormShapeCompiler {
             order: shape.metadata.order,
             defaultValue: shape.metadata.defaultValue,
             nestedNodeShapes: [],
+            compatibleNodeShapes: [],
             logicalAlternatives: [],
+            sourceShapes: sourceShapes.length ? [...sourceShapes] : [shape.id],
         }
 
         for (const constraint of shape.constraints) {
@@ -62,6 +73,7 @@ export class FormShapeCompiler {
         }
 
         if (property.nodeShape) {
+            property.compatibleNodeShapes = this.options.findCompatibleNodeShapes?.(property.nodeShape) || []
             if (this.hasRenderableNodeShapeContent(property.nodeShape)) {
                 property.nestedNodeShapes.push(property.nodeShape)
             } else {

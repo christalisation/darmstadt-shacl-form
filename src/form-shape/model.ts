@@ -35,12 +35,14 @@ export interface FormPropertyShape {
     class?: NamedNode
     nodeShape?: Term
     nestedNodeShapes: Term[]
+    compatibleNodeShapes: Term[]
     shaclIn?: Term[]
     languageIn?: Term[]
     defaultValue?: Term
     hasValue?: Term
     qualifiedValueShape?: Term
     logicalAlternatives: FormLogicalAlternative[]
+    sourceShapes: Term[]
 }
 
 export interface FormLogicalAlternative {

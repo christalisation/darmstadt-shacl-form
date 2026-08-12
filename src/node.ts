@@ -1,6 +1,6 @@
 import { BlankNode, DataFactory, NamedNode, Store } from 'n3'
 import { Term } from '@rdfjs/types'
-import { PREFIX_SHACL, RDF_PREDICATE_TYPE, OWL_PREDICATE_IMPORTS, SHACL_PREDICATE_PROPERTY, SHACL_PREDICATE_NODE } from './constants'
+import { PREFIX_SHACL, RDF_PREDICATE_TYPE, OWL_PREDICATE_IMPORTS, SHACL_PREDICATE_PROPERTY } from './constants'
 import { ShaclProperty } from './property'
 import { createShaclGroup } from './group'
 import { v4 as uuidv4 } from 'uuid'
@@ -82,40 +82,36 @@ export class ShaclNode extends HTMLElement {
             for (const owlImport of this.config.store.getQuads(shaclSubject, OWL_PREDICATE_IMPORTS, null, null)) {
                 this.owlImports.push(owlImport.object as NamedNode)
             }
-            const renderablePropertyShapes = new Set(this.config.shapeGraph.getRenderablePropertyShapes(shaclSubject).map(shape => shape.id))
-            // now parse other node quads
-            for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
-                switch (quad.predicate.id) {
-                    case SHACL_PREDICATE_PROPERTY.id:
-                        if (renderablePropertyShapes.has(quad.object.id)) {
-                            this.addPropertyInstance(quad.object, valueSubject)
-                        }
-                        break;
-                    case `${PREFIX_SHACL}and`:
-                        // inheritance via sh:and
-                        const list = this.config.lists[quad.object.value]
-                        if (list?.length) {
-                            for (const shape of list) {
-                                this.prepend(new ShaclNode(shape as NamedNode, this.nodeCollection, valueSubject, this))
+            const formShape = this.config.shapeGraph.getFormNodeShape(shaclSubject)
+            this.targetClass = formShape?.targetClasses[0] as NamedNode | undefined
+
+            if (formShape) {
+                for (const propertyShape of formShape.properties) {
+                    this.addPropertyInstance(propertyShape.id, valueSubject)
+                }
+                for (const alternative of formShape.logicalAlternatives) {
+                    this.tryResolveOptions(alternative.shapes, valueSubject)
+                }
+            } else {
+                const renderablePropertyShapes = new Set(this.config.shapeGraph.getRenderablePropertyShapes(shaclSubject).map(shape => shape.id))
+                // now parse other node quads
+                for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
+                    switch (quad.predicate.id) {
+                        case SHACL_PREDICATE_PROPERTY.id:
+                            if (renderablePropertyShapes.has(quad.object.id)) {
+                                this.addPropertyInstance(quad.object, valueSubject)
                             }
-                        }
-                        else {
-                            console.error('list not found:', quad.object.value, 'existing lists:', this.config.lists)
-                        }
-                        break;
-                    case SHACL_PREDICATE_NODE.id:
-                        // inheritance via sh:node
-                        this.prepend(new ShaclNode(quad.object as NamedNode, this.nodeCollection, valueSubject, this))
-                        break;
-                    case `${PREFIX_SHACL}targetClass`:
-                        this.targetClass = quad.object as NamedNode
-                        break;
-                    case `${PREFIX_SHACL}or`:
-                        this.tryResolve(quad.object, valueSubject)
-                        break;
-                    case `${PREFIX_SHACL}xone`:
-                        this.tryResolve(quad.object, valueSubject)
-                        break;
+                            break;
+                        case `${PREFIX_SHACL}targetClass`:
+                            this.targetClass = quad.object as NamedNode
+                            break;
+                        case `${PREFIX_SHACL}or`:
+                            this.tryResolve(quad.object, valueSubject)
+                            break;
+                        case `${PREFIX_SHACL}xone`:
+                            this.tryResolve(quad.object, valueSubject)
+                            break;
+                    }
                 }
             }
 
@@ -200,24 +196,26 @@ export class ShaclNode extends HTMLElement {
     tryResolve(subject: Term, valueSubject: NamedNode | BlankNode | undefined) {
         const list = this.config.lists[subject.value]
         if (list?.length) {
-            let resolved = false
-            if (valueSubject) {
-                const resolvedPropertySubjects = resolveShaclOrConstraintOnNode(list, valueSubject, this.config)
-                if (resolvedPropertySubjects.length) {
-                    for (const propertySubject of resolvedPropertySubjects) {
-                        this.addPropertyInstance(propertySubject, valueSubject)
-                    }
-                    resolved = true
-                }
-            }
-            if (!resolved) {
-                if (this.hasRenderableConstraintOptions(list)) {
-                    this.appendChild(createShaclOrConstraint(list, this, this.config))
-                }
-            }
+            this.tryResolveOptions(list, valueSubject)
         }
         else {
             console.error('list for sh:or/sh:xone not found:', subject, 'existing lists:', this.config.lists)
+        }
+    }
+
+    tryResolveOptions(options: Term[], valueSubject: NamedNode | BlankNode | undefined) {
+        let resolved = false
+        if (valueSubject) {
+            const resolvedPropertySubjects = resolveShaclOrConstraintOnNode(options, valueSubject, this.config)
+            if (resolvedPropertySubjects.length) {
+                for (const propertySubject of resolvedPropertySubjects) {
+                    this.addPropertyInstance(propertySubject, valueSubject)
+                }
+                resolved = true
+            }
+        }
+        if (!resolved && this.hasRenderableConstraintOptions(options)) {
+            this.appendChild(createShaclOrConstraint(options, this, this.config))
         }
     }
 

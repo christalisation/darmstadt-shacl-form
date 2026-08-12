@@ -4,7 +4,7 @@ import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, PREFIX_SHACL, RDF_PREDICATE_
 import { findLabel } from './util'
 import { getAlternativePredicatePaths, getPredicatePath, ShaclPath } from './shacl-path'
 import { RdfReader } from './rdf'
-import { ShaclNodeShape, ShaclParser, ShaclPathParser } from './shacl'
+import { RDFS_VOCAB, ShaclNodeShape, ShaclParser, ShaclPathParser, ShaclPropertyShape, ShaclShapeResolver } from './shacl'
 import { FormNodeShape, FormPropertyShape, FormShapeCompiler, FormShapeRegistry } from './form-shape'
 
 export type RootShapeOptions = {
@@ -23,6 +23,7 @@ export class ShapeGraphModel {
     private readonly pathParser: ShaclPathParser
     private readonly shaclParser: ShaclParser
     private readonly semanticShapes = new Map<string, ShaclNodeShape>()
+    private readonly semanticProperties = new Map<string, ShaclPropertyShape>()
     private readonly formShapeRegistry: FormShapeRegistry
 
     constructor(
@@ -33,12 +34,18 @@ export class ShapeGraphModel {
         this.rdf = new RdfReader(store)
         this.pathParser = new ShaclPathParser(this.rdf)
         this.shaclParser = new ShaclParser(this.rdf, this.pathParser)
+        const resolver = new ShaclShapeResolver({
+            resolveNodeShape: id => this.parseNodeShapeIfPresent(id),
+            resolvePropertyShape: id => this.parsePropertyShapeIfPresent(id),
+        })
         const compiler = new FormShapeCompiler({
             languages,
             prefixes: this.prefixes,
             resolveNodeShape: id => this.parseNodeShapeIfPresent(id),
             findNodeShapeByTargetClass: targetClass => this.findNodeShapeByTargetClass(targetClass),
+            findCompatibleNodeShapes: baseShape => this.getCompatibleFormNodeShapeTerms(baseShape),
             labelForTerm: term => this.getLabel(term),
+            shapeResolver: resolver,
         })
         this.formShapeRegistry = new FormShapeRegistry(compiler, id => this.parseNodeShapeIfPresent(id))
     }
@@ -137,9 +144,7 @@ export class ShapeGraphModel {
     getRenderablePropertyShapes(nodeShape: RdfTerm): N3Term[] {
         const formShape = this.getFormNodeShape(nodeShape)
         if (formShape) {
-            return formShape.properties
-                .map(property => property.id)
-                .filter((term): term is N3Term => term.termType === 'NamedNode' || term.termType === 'BlankNode' || term.termType === 'Literal')
+            return formShape.properties.map(property => property.id as N3Term)
         }
 
         const propertyShapes = this.getPropertyShapes(nodeShape)
@@ -263,12 +268,46 @@ export class ShapeGraphModel {
                 prefixes: this.prefixes,
                 resolveNodeShape: id => this.parseNodeShapeIfPresent(id),
                 findNodeShapeByTargetClass: targetClass => this.findNodeShapeByTargetClass(targetClass),
+                findCompatibleNodeShapes: baseShape => this.getCompatibleFormNodeShapeTerms(baseShape),
                 labelForTerm: term => this.getLabel(term),
             }).compilePropertyShape(semanticProperty)
         } catch (error) {
             console.warn(error)
             return undefined
         }
+    }
+
+    getCompatibleFormNodeShapes(baseShape: RdfTerm): FormNodeShape[] {
+        return this.getCompatibleFormNodeShapeTerms(baseShape)
+            .flatMap(shape => {
+                const formShape = this.getFormNodeShape(shape)
+                return formShape ? [formShape] : []
+            })
+    }
+
+    getCompatibleFormNodeShapeTerms(baseShape: RdfTerm): RdfTerm[] {
+        const base = this.getFormNodeShape(baseShape)
+        if (!base || base.targetClasses.length === 0) {
+            return []
+        }
+
+        const candidates: RdfTerm[] = []
+        for (const candidateSubject of this.getNodeShapeSubjects()) {
+            if (this.termKey(candidateSubject) === this.termKey(baseShape)) {
+                continue
+            }
+            const candidate = this.parseNodeShapeIfPresent(candidateSubject)
+            if (!candidate) {
+                continue
+            }
+            const candidateClasses = candidate.targets.flatMap(target => target.kind === 'class' ? [target.class] : [])
+            if (candidateClasses.some(candidateClass =>
+                base.targetClasses.some(baseClass => this.isSubclassOf(candidateClass, baseClass))
+            )) {
+                candidates.push(candidateSubject)
+            }
+        }
+        return candidates
     }
 
     private isNodeShape(term: RdfTerm): term is NamedNode {
@@ -301,10 +340,48 @@ export class ShapeGraphModel {
             .find(subject => this.isNodeShape(subject))
     }
 
+    private parsePropertyShapeIfPresent(propertyShape: RdfTerm): ShaclPropertyShape | undefined {
+        const key = this.termKey(propertyShape)
+        const cached = this.semanticProperties.get(key)
+        if (cached) {
+            return cached
+        }
+
+        try {
+            const parsed = this.shaclParser.parsePropertyShapeIfPresent(propertyShape)
+            if (parsed) {
+                this.semanticProperties.set(key, parsed)
+            }
+            return parsed
+        } catch (error) {
+            console.warn(error)
+            return undefined
+        }
+    }
+
     private getNodeShapeSubjects(): NamedNode[] {
         return this.store.getQuads(null, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null)
             .map(quad => quad.subject)
             .filter((subject): subject is NamedNode => subject.termType === 'NamedNode')
+    }
+
+    private isSubclassOf(candidateClass: RdfNamedNode, baseClass: RdfNamedNode, visited = new Set<string>()): boolean {
+        if (candidateClass.equals(baseClass)) {
+            return true
+        }
+
+        const key = this.termKey(candidateClass)
+        if (visited.has(key)) {
+            return false
+        }
+        visited.add(key)
+
+        for (const parent of this.store.getObjects(candidateClass, RDFS_VOCAB.subClassOf, null)) {
+            if (parent.termType === 'NamedNode' && this.isSubclassOf(parent, baseClass, visited)) {
+                return true
+            }
+        }
+        return false
     }
 
     private termKey(term: RdfTerm): string {

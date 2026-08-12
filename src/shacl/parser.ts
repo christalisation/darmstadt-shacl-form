@@ -31,6 +31,12 @@ export class ShaclParser {
         }
     }
 
+    parsePropertyShapeIfPresent(id: Term): ShaclPropertyShape | undefined {
+        return this.rdf.getSingleObject(id, SH.path)
+            ? this.parsePropertyShape(id)
+            : undefined
+    }
+
     private parseMetadata(id: Term): ShaclShapeMetadata {
         const names = [
             ...this.rdf.getObjects(id, SH.name).map(term => this.requireLiteral(term, 'sh:name')),

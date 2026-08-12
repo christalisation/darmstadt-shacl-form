@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { DataFactory, Parser, Store } from 'n3'
+import { readFileSync } from 'node:fs'
 import { RdfReader } from '../src/rdf'
-import { ShaclNodeShape, ShaclParser } from '../src/shacl'
+import { ShaclNodeShape, ShaclParser, ShaclShapeResolver } from '../src/shacl'
 import { FormShapeCompiler } from '../src/form-shape'
 
 const EX = 'http://example.org/'
@@ -38,7 +39,25 @@ function compilerFor(store: Store): {
         languages: ['en', ''],
         prefixes: { ex: EX },
         resolveNodeShape,
+        shapeResolver: new ShaclShapeResolver({
+            resolveNodeShape,
+            resolvePropertyShape: id => parser.parsePropertyShapeIfPresent(id),
+        }),
         findNodeShapeByTargetClass: targetClass => store.getSubjects(DataFactory.namedNode('http://www.w3.org/ns/shacl#targetClass'), targetClass, null)[0],
+        findCompatibleNodeShapes: baseShape => {
+            const base = resolveNodeShape(baseShape)
+            if (!base) return []
+            const baseClasses = base.targets.flatMap(target => target.kind === 'class' ? [target.class] : [])
+            return store.getSubjects(DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), DataFactory.namedNode('http://www.w3.org/ns/shacl#NodeShape'), null)
+                .filter(candidate => candidate.value !== baseShape.value)
+                .filter(candidate => {
+                    const candidateShape = resolveNodeShape(candidate)
+                    const candidateClasses = candidateShape?.targets.flatMap(target => target.kind === 'class' ? [target.class] : []) || []
+                    return candidateClasses.some(candidateClass =>
+                        baseClasses.some(baseClass => isSubclassOf(store, candidateClass, baseClass))
+                    )
+                })
+        },
         labelForTerm: term => {
             const label = store.getObjects(term, DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'), null)[0]
             return label?.value
@@ -48,6 +67,19 @@ function compilerFor(store: Store): {
     return {
         compile: iri => compiler.compileNodeShape(resolveNodeShape(DataFactory.namedNode(iri))!),
     }
+}
+
+function isSubclassOf(store: Store, candidateClass: any, baseClass: any, visited = new Set<string>()): boolean {
+    if (candidateClass.equals(baseClass)) {
+        return true
+    }
+    if (visited.has(candidateClass.value)) {
+        return false
+    }
+    visited.add(candidateClass.value)
+
+    return store.getObjects(candidateClass, DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#subClassOf'), null)
+        .some(parent => parent.termType === 'NamedNode' && isSubclassOf(store, parent, baseClass, visited))
 }
 
 describe('FormShapeCompiler', () => {
@@ -149,7 +181,7 @@ describe('FormShapeCompiler', () => {
         })
     })
 
-    it('represents sh:and composition without flattening alternatives into direct properties', () => {
+    it('includes effective properties from sh:and composition', () => {
         const store = storeFromTurtle(`
             ex:Shape a sh:NodeShape ;
                 sh:and ( ex:ComposedShape ) ;
@@ -161,8 +193,133 @@ describe('FormShapeCompiler', () => {
 
         const shape = compilerFor(store).compile(`${EX}Shape`)
 
-        expect(shape.properties.map(property => property.label)).toEqual(['Own'])
+        expect(shape.properties.map(property => property.label)).toEqual(['Own', 'Composed'])
         expect(shape.composedNodeShapes.map(term => term.value)).toEqual([`${EX}ComposedShape`])
+    })
+
+    it('includes anonymous sh:and property-shape members', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:and (
+                    ex:BaseShape
+                    [
+                        sh:path ex:extra ;
+                        sh:name "Extra"
+                    ]
+                ) .
+
+            ex:BaseShape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:base ;
+                    sh:name "Base"
+                ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}Shape`)
+
+        expect(shape.properties.map(property => property.label)).toEqual(['Base', 'Extra'])
+        const extraSources = shape.properties.find(property => property.label === 'Extra')?.sourceShapes || []
+        expect(extraSources).toHaveLength(2)
+        expect(extraSources[1].termType).toBe('BlankNode')
+    })
+
+    it('does not treat logical alternatives as unconditional effective properties', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:or (
+                    [
+                        sh:property [
+                            sh:path ex:email ;
+                            sh:name "Email"
+                        ]
+                    ]
+                    [
+                        sh:property [
+                            sh:path ex:phone ;
+                            sh:name "Phone"
+                        ]
+                    ]
+                ) ;
+                sh:xone ( ex:A ex:B ) .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}Shape`)
+
+        expect(shape.properties).toEqual([])
+        expect(shape.logicalAlternatives.map(alternative => alternative.kind)).toEqual(['or', 'xone'])
+    })
+
+    it('handles cyclic sh:and composition without recursing indefinitely', () => {
+        const store = storeFromTurtle(`
+            ex:A a sh:NodeShape ;
+                sh:property [ sh:path ex:a ; sh:name "A property" ] ;
+                sh:and ( ex:B ) .
+
+            ex:B a sh:NodeShape ;
+                sh:property [ sh:path ex:b ; sh:name "B property" ] ;
+                sh:and ( ex:A ) .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}A`)
+
+        expect(shape.properties.map(property => property.label)).toEqual(['A property', 'B property'])
+    })
+
+    it('finds compatible concrete node-shape choices through rdfs:subClassOf', () => {
+        const store = storeFromTurtle(`
+            ex:ConcreteClass rdfs:subClassOf ex:BaseClass .
+
+            ex:ContainerShape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:value ;
+                    sh:name "Value" ;
+                    sh:node ex:BaseShape
+                ] .
+
+            ex:BaseShape a sh:NodeShape ;
+                sh:targetClass ex:BaseClass ;
+                sh:property [ sh:path ex:base ; sh:name "Base" ] .
+
+            ex:ConcreteShape a sh:NodeShape ;
+                sh:targetClass ex:ConcreteClass ;
+                sh:property [ sh:path ex:source ; sh:name "Source" ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}ContainerShape`)
+
+        expect(shape.properties[0].compatibleNodeShapes.map(term => term.value)).toEqual([`${EX}ConcreteShape`])
+    })
+
+    it('compiles RML PredicateObjectMap effective properties from all sh:and branches', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLPredicateObjectMapShape')
+        const labels = shape.properties.map(property => property.label)
+
+        expect(labels).toContain('graph/graphMap')
+        expect(labels).toContain('logicalTarget')
+        expect(labels).toContain('predicate/predicateMap')
+        expect(labels).toContain('object/objectMap/quotedTriplesMap')
+    })
+
+    it('compiles RML ChildMap effective properties even without direct sh:property', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLChildMapShape')
+        const labels = shape.properties.map(property => property.label)
+
+        expect(labels).toContain('template/constant/reference/functionExecution')
+        expect(shape.properties.length).toBeGreaterThan(0)
+    })
+
+    it('does not invent RML logical-source compatibility without class hierarchy data', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLTriplesMapPropertiesShape')
+        const logicalSource = shape.properties.find(property => property.label === 'logicalSource')
+
+        expect(logicalSource?.nodeShape?.value).toBe('http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape')
+        expect(logicalSource?.compatibleNodeShapes).toEqual([])
     })
 
     it('keeps logical alternatives explicit', () => {

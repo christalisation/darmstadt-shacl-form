@@ -28,6 +28,10 @@ export class FormShapeRegistry {
         return formShape
     }
 
+    getNodeShapes(): FormNodeShape[] {
+        return [...this.cache.values()]
+    }
+
     clear(): void {
         this.cache.clear()
     }

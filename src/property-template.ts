@@ -148,7 +148,10 @@ export class ShaclPropertyTemplate {
         this.path = shape.writablePath?.value || shape.pathAlternatives?.[0]?.value
         this.pathAlternatives = shape.pathAlternatives?.map(path => path.value)
         this.pathAlternativeLabels = { ...shape.pathAlternativeLabels }
-        this.node = shape.nodeShape as NamedNode | undefined
+        const nodeShape = shape.compatibleNodeShapes.length === 1
+            ? shape.compatibleNodeShapes[0]
+            : shape.nodeShape
+        this.node = nodeShape as NamedNode | undefined
         this.datatype = shape.datatype as NamedNode | undefined
         this.nodeKind = shape.nodeKind as NamedNode | undefined
         this.class = shape.class as NamedNode | undefined
@@ -167,7 +170,10 @@ export class ShaclPropertyTemplate {
         this.qualifiedValueShape = shape.qualifiedValueShape
         this.shaclInValues = shape.shaclIn ? [...shape.shaclIn] : undefined
         this.languageIn = shape.languageIn ? [...shape.languageIn] : undefined
-        this.extendedShapes = shape.nestedNodeShapes
+        const nestedNodeShapes = shape.compatibleNodeShapes.length === 1
+            ? shape.compatibleNodeShapes
+            : shape.nestedNodeShapes
+        this.extendedShapes = nestedNodeShapes
             .filter((node): node is NamedNode => node.termType === 'NamedNode')
         this.shaclOr = shape.logicalAlternatives.find(alternative => alternative.kind === 'or')?.shapes
         this.shaclXone = shape.logicalAlternatives.find(alternative => alternative.kind === 'xone')?.shapes
