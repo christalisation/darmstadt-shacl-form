@@ -10,7 +10,8 @@ import {
     ShaclShapeResolver,
 } from '../shacl'
 import { PREFIX_RDF } from '../constants'
-import { FormLogicalAlternative, FormNodeShape, FormPropertyShape } from './model'
+import { FormShapeClassifier } from './classifier'
+import { FormLogicalAlternative, FormNodeShape, FormPropertyShape, FormValueConstraints } from './model'
 
 export interface FormShapeCompilerOptions {
     languages: string[]
@@ -23,6 +24,8 @@ export interface FormShapeCompilerOptions {
 }
 
 export class FormShapeCompiler {
+    private readonly classifier = new FormShapeClassifier()
+
     constructor(private readonly options: FormShapeCompilerOptions) {}
 
     compileNodeShape(shape: ShaclNodeShape): FormNodeShape {
@@ -35,15 +38,20 @@ export class FormShapeCompiler {
         const properties = this.getRenderableProperties(
             effectiveProperties.map(entry => this.compilePropertyShape(entry.property, semanticSiblings, entry.sourceShapes))
         )
-        return {
+        const formShape: FormNodeShape = {
             id: shape.id,
+            role: 'NON_RENDERABLE',
             label: this.resolveLabel(shape) || this.fallbackLabel(shape.id),
             description: this.resolveDescription(shape)?.value,
+            messages: shape.metadata.messages,
             targetClasses: shape.targets.flatMap(target => target.kind === 'class' ? [target.class] : []),
+            valueConstraints: this.compileValueConstraints(shape.constraints),
             properties,
             composedNodeShapes: effectiveShape?.composedNodeShapes || this.composedNodeShapes(shape.constraints),
             logicalAlternatives: this.logicalAlternatives(shape.constraints),
         }
+        formShape.role = this.classifier.classify(formShape).role
+        return formShape
     }
 
     compilePropertyShape(shape: ShaclPropertyShape, siblings: ShaclPropertyShape[] = [], sourceShapes: Term[] = []): FormPropertyShape {
@@ -51,6 +59,7 @@ export class FormShapeCompiler {
             id: shape.id,
             label: this.resolveLabel(shape) || this.fallbackPropertyLabel(shape),
             description: this.resolveDescription(shape),
+            messages: shape.metadata.messages,
             path: shape.path,
             writablePath: shape.path ? getPredicatePath(shape.path) : undefined,
             pathAlternatives: shape.path ? getAlternativePredicatePaths(shape.path) : undefined,
@@ -152,6 +161,59 @@ export class FormShapeCompiler {
                 if (constraint.maxCount !== undefined) property.maxCount = constraint.maxCount
                 break
         }
+    }
+
+    private applyValueConstraint(value: FormValueConstraints, constraint: ShaclConstraint): void {
+        switch (constraint.kind) {
+            case 'datatype':
+                value.datatype = constraint.datatype
+                break
+            case 'nodeKind':
+                value.nodeKind = constraint.nodeKind
+                break
+            case 'class':
+                value.class = constraint.class
+                break
+            case 'minLength':
+                value.minLength = constraint.value
+                break
+            case 'maxLength':
+                value.maxLength = constraint.value
+                break
+            case 'minInclusive':
+                value.minInclusive = Number(constraint.value.value)
+                break
+            case 'maxInclusive':
+                value.maxInclusive = Number(constraint.value.value)
+                break
+            case 'minExclusive':
+                value.minExclusive = Number(constraint.value.value)
+                break
+            case 'maxExclusive':
+                value.maxExclusive = Number(constraint.value.value)
+                break
+            case 'pattern':
+                value.pattern = constraint.pattern
+                break
+            case 'languageIn':
+                value.languageIn = constraint.languages.map(language => DataFactory.literal(language))
+                value.datatype = DataFactory.namedNode(PREFIX_RDF + 'langString')
+                break
+            case 'in':
+                value.shaclIn = constraint.values
+                break
+            case 'hasValue':
+                value.hasValue = constraint.value
+                break
+        }
+    }
+
+    private compileValueConstraints(constraints: ShaclConstraint[]): FormValueConstraints {
+        const value: FormValueConstraints = {}
+        for (const constraint of constraints) {
+            this.applyValueConstraint(value, constraint)
+        }
+        return value
     }
 
     private mergeValueNodeShapeConstraints(property: FormPropertyShape, nodeShapeId: Term): void {

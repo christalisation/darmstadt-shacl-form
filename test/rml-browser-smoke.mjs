@@ -83,10 +83,18 @@ try {
         await new Promise(resolve => setTimeout(resolve, 250))
         const logicalSourceText = logicalSourceProperty?.textContent || ''
 
+        const genericRoots = document.createElement('shacl-form')
+        genericRoots.dataset.shapes = shapes
+        document.body.appendChild(genericRoots)
+        await waitForLoad(genericRoots)
+        const rootSelector = genericRoots.shadowRoot.querySelector('.root-selector-container select')
+        const rootOptions = rootSelector ? [...rootSelector.options].map(option => option.textContent.trim()) : []
+
         return {
             predicateObjectMapText,
             childMapText,
             logicalSourceText,
+            rootOptions,
         }
     }, shapesWithOntology)
 
@@ -95,6 +103,8 @@ try {
     assert(result.predicateObjectMapText.includes('object/objectMap/quotedTriplesMap'), 'PredicateObjectMap is missing object/objectMap/quotedTriplesMap')
     assert(result.childMapText.includes('template/constant/reference/functionExecution'), 'ChildMap did not render inherited ExpressionMap structure')
     assert(result.logicalSourceText.includes('rml:source'), 'LogicalSource concrete authoring shape did not expose rml:source')
+    assert(!result.rootOptions.includes('child'), 'RML value-only child shape appeared as an empty root option')
+    assert(result.rootOptions.includes('TriplesMap'), 'Explicit top-level RML TriplesMap candidate disappeared from root options')
 
     console.log('rml browser smoke passed')
 } finally {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DataFactory, Parser, Store } from 'n3'
 import { readFileSync } from 'node:fs'
+import { Validator } from 'shacl-engine'
 import { RdfReader } from '../src/rdf'
 import { ShaclNodeShape, ShaclParser, ShaclShapeResolver } from '../src/shacl'
 import { FormShapeCompiler } from '../src/form-shape'
@@ -110,6 +111,7 @@ describe('FormShapeCompiler', () => {
         expect(property.minLength).toBe(3)
         expect(property.pattern).toBe('.+')
         expect(property.shaclIn?.map(term => term.value)).toEqual(['A', 'B'])
+        expect(shape.role).toBe('STRUCTURAL')
     })
 
     it('resolves labels and descriptions at the form compilation boundary', () => {
@@ -128,6 +130,27 @@ describe('FormShapeCompiler', () => {
         expect(shape.label).toBe('Fallback label')
         expect(shape.description).toBe('Readable description')
         expect(shape.properties[0].label).toBe('Value label')
+    })
+
+    it('preserves sh:message as validation-message metadata, not description text', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:name "Shape label" ;
+                sh:description "Shape help" ;
+                sh:message "Shape validation message" ;
+                sh:property [
+                    sh:path ex:value ;
+                    rdfs:comment "Property help" ;
+                    sh:message "Property validation message"
+                ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}Shape`)
+
+        expect(shape.description).toBe('Shape help')
+        expect(shape.messages.map(message => message.value)).toEqual(['Shape validation message'])
+        expect(shape.properties[0].description?.value).toBe('Property help')
+        expect(shape.properties[0].messages.map(message => message.value)).toEqual(['Property validation message'])
     })
 
     it('keeps nested sh:node definitions as form-shape references', () => {
@@ -195,6 +218,7 @@ describe('FormShapeCompiler', () => {
 
         expect(shape.properties.map(property => property.label)).toEqual(['Own', 'Composed'])
         expect(shape.composedNodeShapes.map(term => term.value)).toEqual([`${EX}ComposedShape`])
+        expect(shape.role).toBe('STRUCTURAL')
     })
 
     it('includes anonymous sh:and property-shape members', () => {
@@ -221,6 +245,48 @@ describe('FormShapeCompiler', () => {
         const extraSources = shape.properties.find(property => property.label === 'Extra')?.sourceShapes || []
         expect(extraSources).toHaveLength(2)
         expect(extraSources[1].termType).toBe('BlankNode')
+        expect(shape.role).toBe('STRUCTURAL')
+    })
+
+    it('classifies value-only node shapes and projects their focus-node constraints', () => {
+        const store = storeFromTurtle(`
+            ex:ValueShape a sh:NodeShape ;
+                sh:datatype xsd:string ;
+                sh:nodeKind sh:Literal ;
+                sh:pattern "^[a-z]+$" ;
+                sh:targetObjectsOf ex:value .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}ValueShape`)
+
+        expect(shape.role).toBe('VALUE_ONLY')
+        expect(shape.properties).toEqual([])
+        expect(shape.valueConstraints.datatype?.value).toBe('http://www.w3.org/2001/XMLSchema#string')
+        expect(shape.valueConstraints.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#Literal')
+        expect(shape.valueConstraints.pattern).toBe('^[a-z]+$')
+    })
+
+    it('uses value-only sh:node shapes as property value constraints, not nested empty forms', () => {
+        const store = storeFromTurtle(`
+            ex:ParentShape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:child ;
+                    sh:name "Child" ;
+                    sh:node ex:ChildValueShape
+                ] .
+
+            ex:ChildValueShape a sh:NodeShape ;
+                sh:datatype xsd:string ;
+                sh:nodeKind sh:Literal .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}ParentShape`)
+        const property = shape.properties[0]
+
+        expect(property.nodeShape?.value).toBe(`${EX}ChildValueShape`)
+        expect(property.nestedNodeShapes).toEqual([])
+        expect(property.datatype?.value).toBe('http://www.w3.org/2001/XMLSchema#string')
+        expect(property.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#Literal')
     })
 
     it('does not treat logical alternatives as unconditional effective properties', () => {
@@ -247,6 +313,7 @@ describe('FormShapeCompiler', () => {
 
         expect(shape.properties).toEqual([])
         expect(shape.logicalAlternatives.map(alternative => alternative.kind)).toEqual(['or', 'xone'])
+        expect(shape.role).toBe('NON_RENDERABLE')
     })
 
     it('handles cyclic sh:and composition without recursing indefinitely', () => {
@@ -346,5 +413,23 @@ describe('FormShapeCompiler', () => {
             kind: 'xone',
             shapes: [DataFactory.namedNode(`${EX}EmailValueShape`), DataFactory.namedNode(`${EX}PhoneValueShape`)],
         }])
+    })
+
+    it('preserves sh:message in the final SHACL validation report', async () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:targetNode ex:Focus ;
+                sh:property [
+                    sh:path ex:required ;
+                    sh:minCount 1 ;
+                    sh:message "Required value is missing"
+                ] .
+        `)
+
+        const report = await new Validator(store, { details: true, factory: DataFactory }).validate({ dataset: store })
+        const messages = JSON.stringify(report)
+
+        expect(report.conforms).toBe(false)
+        expect(messages).toContain('Required value is missing')
     })
 })

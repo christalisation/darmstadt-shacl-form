@@ -12,6 +12,7 @@ function storeFromTurtle(turtle: string): Store {
     const prelude = `
         @prefix ex: <${EX}> .
         @prefix sh: <${SH}> .
+        @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
     `
     return new Store(parser.parse(`${prelude}\n${turtle}`))
 }
@@ -236,5 +237,55 @@ describe('ShapeGraphModel', () => {
 
         expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}StructuralShape`))).toBe(true)
         expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}ValueShape`))).toBe(false)
+    })
+
+    it('uses effective structural properties, not direct properties, for generic root fallback', () => {
+        const model = shapeGraph(`
+            ex:DirectShape a sh:NodeShape ;
+                sh:property [ sh:path ex:direct ] .
+
+            ex:ComposedShape a sh:NodeShape ;
+                sh:and ( ex:BaseShape ) .
+
+            ex:BaseShape a sh:NodeShape ;
+                sh:property [ sh:path ex:base ] .
+
+            ex:ValueOnlyShape a sh:NodeShape ;
+                sh:datatype xsd:string ;
+                sh:nodeKind sh:Literal ;
+                sh:targetObjectsOf ex:value .
+
+            ex:PlainPropertyShape a sh:PropertyShape ;
+                sh:path ex:value .
+        `)
+
+        expect(model.findRootNodeShapes().map(root => root.value)).toEqual([
+            `${EX}DirectShape`,
+            `${EX}ComposedShape`,
+            `${EX}BaseShape`,
+        ])
+    })
+
+    it('keeps explicit root configuration stronger than generic classification', () => {
+        const model = shapeGraph(`
+            ex:ValueOnlyShape a sh:NodeShape ;
+                sh:datatype xsd:string ;
+                sh:nodeKind sh:Literal .
+        `)
+
+        const roots = model.findRootNodeShapes({ shapeSubject: `${EX}ValueOnlyShape` })
+
+        expect(roots.map(root => root.value)).toEqual([`${EX}ValueOnlyShape`])
+    })
+
+    it('does not infer value-only targetObjectsOf shapes as generic roots', () => {
+        const model = shapeGraph(`
+            ex:ChildValueShape a sh:NodeShape ;
+                sh:datatype xsd:string ;
+                sh:nodeKind sh:Literal ;
+                sh:targetObjectsOf ex:child .
+        `)
+
+        expect(model.findRootNodeShapes()).toEqual([])
     })
 })

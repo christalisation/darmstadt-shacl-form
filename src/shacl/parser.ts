@@ -50,12 +50,16 @@ export class ShaclParser {
             ...this.rdf.getObjects(id, SH.description).map(term => this.requireLiteral(term, 'sh:description')),
             ...this.rdf.getObjects(id, RDFS_VOCAB.comment).map(term => this.requireLiteral(term, 'rdfs:comment')),
         ]
+        const messages = [
+            ...this.rdf.getObjects(id, SH.message).map(term => this.requireLiteral(term, 'sh:message')),
+        ]
         const order = this.readOptionalInteger(id, SH.order)
 
         return {
             names,
             labels,
             descriptions,
+            messages,
             order,
             group: this.rdf.getSingleObject(id, SH.group),
             defaultValue: this.rdf.getSingleObject(id, SH.defaultValue),

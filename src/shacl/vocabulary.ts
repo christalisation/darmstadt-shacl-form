@@ -28,6 +28,7 @@ export const SH = {
     path: namedNode(`${SHACL}path`),
     name: namedNode(`${SHACL}name`),
     description: namedNode(`${SHACL}description`),
+    message: namedNode(`${SHACL}message`),
     order: namedNode(`${SHACL}order`),
     group: namedNode(`${SHACL}group`),
     targetClass: namedNode(`${SHACL}targetClass`),

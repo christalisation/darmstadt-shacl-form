@@ -21,6 +21,7 @@ export interface ShaclShapeMetadata {
     names: Literal[]
     labels: Literal[]
     descriptions: Literal[]
+    messages: Literal[]
     order?: number
     group?: Term
     defaultValue?: Term
