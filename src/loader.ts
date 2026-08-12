@@ -1,10 +1,9 @@
-import { Store, Quad, NamedNode, DataFactory, StreamParser } from 'n3'
+import { Store, Quad, NamedNode, DataFactory } from 'n3'
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, OWL_PREDICATE_IMPORTS, REFERENCE_GRAPH, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHAPES_GRAPH } from './constants'
 import { Config } from './config'
 import { isURL } from './util'
-import { RdfXmlParser } from 'rdfxml-streaming-parser'
-import { toRDF } from 'jsonld'
-import { ShaclShapeGraphValidator } from './shacl-spec'
+import { ShaclShapeValidator } from './shacl'
+import { parseRdf } from './rdf'
 
 
 // cache external data in module scope (and not in Loader instance) to avoid requesting
@@ -38,7 +37,7 @@ export class Loader {
 
             // 3. shapes shacl validation (semantic pass)
             if (this.config.attributes.skipShapeValidation === null) {
-                const shaclValidator = new ShaclShapeGraphValidator();
+                const shaclValidator = new ShaclShapeValidator();
                 const report = await shaclValidator.validate(store);
                 if (!report.conforms) {
                     console.error('SHACL shapes validation report:', report);
@@ -81,54 +80,41 @@ export class Loader {
     async importRDF(input: string | Promise<string>, store: Store, graph?: NamedNode) {
         const parse = async (input: string) => {
             const dependencies: Promise<void>[] = []
-            await new Promise((resolve, reject) => {
-                const parser = guessContentType(input) === 'xml' ? new RdfXmlParser() : new StreamParser()
-                parser.on('data', (quad: Quad) => {
-                    store.add(new Quad(quad.subject, quad.predicate, quad.object, graph))
-                    // check if this is an owl:imports predicate and try to load the url
-                    if (this.config.attributes.ignoreOwlImports === null && OWL_PREDICATE_IMPORTS.equals(quad.predicate)) {
-                        const url = this.toURL(quad.object.value)
-                        // import url only once
-                        if (url && this.loadedExternalUrls.indexOf(url) < 0) {
-                            this.loadedExternalUrls.push(url)
-                            // import into separate graph
-                            dependencies.push(this.importRDF(this.fetchRDF(url), store, DataFactory.namedNode(url)))
-                        }
-                    }
-                    // check if this is an sh:class predicate and invoke class instance provider
-                    if (this.config.classInstanceProvider && (SHACL_PREDICATE_CLASS.equals(quad.predicate) || SHACL_PREDICATE_TARGET_CLASS.equals(quad.predicate))) {
-                        const className = quad.object.value
-                        // import class definitions only once
-                        if (this.loadedClasses.indexOf(className) < 0) {
-                            let promise: Promise<string>
-                            // check if class is in module scope cache
-                            if (className in loadedClassesCache) {
-                                promise = loadedClassesCache[className]
-                            } else {
-                                promise = this.config.classInstanceProvider(className)
-                                loadedClassesCache[className] = promise
-                            }
-                            this.loadedClasses.push(className)
-                            dependencies.push(this.importRDF(promise, store, REFERENCE_GRAPH))
-                        }
-                    }
-                })
-                .on('error', (error) => {
-                    console.warn('failed parsing graph', graph, error.message)
-                    reject(error)
-                })
-                .on('prefix', (prefix, iri) => {
-                    // ignore empty (default) namespace
-                    if (prefix) {
-                        this.config.prefixes[prefix] = iri
-                    }
-                })
-                .on('end', () => {
-                    resolve(null)
-                })
-                parser.write(input)
-                parser.end()
+            const parsed = await parseRdf(input).catch(error => {
+                console.warn('failed parsing graph', graph, error.message)
+                throw error
             })
+            Object.assign(this.config.prefixes, parsed.prefixes)
+            for (const quad of parsed.quads) {
+                store.add(new Quad(quad.subject, quad.predicate, quad.object, graph))
+                // check if this is an owl:imports predicate and try to load the url
+                if (this.config.attributes.ignoreOwlImports === null && OWL_PREDICATE_IMPORTS.equals(quad.predicate)) {
+                    const url = this.toURL(quad.object.value)
+                    // import url only once
+                    if (url && this.loadedExternalUrls.indexOf(url) < 0) {
+                        this.loadedExternalUrls.push(url)
+                        // import into separate graph
+                        dependencies.push(this.importRDF(this.fetchRDF(url), store, DataFactory.namedNode(url)))
+                    }
+                }
+                // check if this is an sh:class predicate and invoke class instance provider
+                if (this.config.classInstanceProvider && (SHACL_PREDICATE_CLASS.equals(quad.predicate) || SHACL_PREDICATE_TARGET_CLASS.equals(quad.predicate))) {
+                    const className = quad.object.value
+                    // import class definitions only once
+                    if (this.loadedClasses.indexOf(className) < 0) {
+                        let promise: Promise<string>
+                        // check if class is in module scope cache
+                        if (className in loadedClassesCache) {
+                            promise = loadedClassesCache[className]
+                        } else {
+                            promise = this.config.classInstanceProvider(className)
+                            loadedClassesCache[className] = promise
+                        }
+                        this.loadedClasses.push(className)
+                        dependencies.push(this.importRDF(promise, store, REFERENCE_GRAPH))
+                    }
+                }
+            }
             try {
                 await Promise.allSettled(dependencies)
             } catch (e) {
@@ -140,14 +126,6 @@ export class Loader {
             input = await input
         }
         if (input) {
-            if (guessContentType(input) === 'json') {
-                // convert json to n-quads
-                try {
-                    input = await toRDF(JSON.parse(input), { format: 'application/n-quads' }) as string
-                } catch(e) {
-                    console.error(e)
-                }
-            }
             await parse(input)
         }
     }
@@ -191,14 +169,4 @@ export class Loader {
         loadedURLCache[url] = promise
         return promise
     }
-}
-
-/* Can't rely on HTTP content-type header, since many resources are delivered with text/plain */
-function guessContentType(input: string) {
-    if (/^\s*\{/.test(input)) {
-        return 'json'
-    } else if (/^\s*<\?xml/.test(input)) {
-        return 'xml'
-    } 
-    return 'ttl'
 }

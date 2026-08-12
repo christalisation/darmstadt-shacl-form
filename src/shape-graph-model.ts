@@ -1,8 +1,10 @@
 import { DataFactory, NamedNode, Store, Term as N3Term } from 'n3'
 import { Term as RdfTerm } from '@rdfjs/types'
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_NODE, SHACL_PREDICATE_PROPERTY, SHACL_PREDICATE_TARGET_CLASS } from './constants'
-import { extractLists, findLabel } from './util'
+import { findLabel } from './util'
 import { getAlternativePredicatePaths, getPredicatePath, ShaclPath } from './shacl-path'
+import { RdfReader } from './rdf'
+import { ShaclNodeShape, ShaclParser, ShaclPathParser } from './shacl'
 
 export type RootShapeOptions = {
     shapeSubject?: string | null,
@@ -15,19 +17,22 @@ export type RootShapeOptions = {
  * This class centralises SHACL-specific graph queries
  */
 export class ShapeGraphModel {
-    private listsCache: Record<string, RdfTerm[]> | undefined
     private groupIdsCache: string[] | undefined
+    private readonly rdf: RdfReader
+    private readonly pathParser: ShaclPathParser
+    private readonly shaclParser: ShaclParser
 
     constructor(
         private readonly store: Store,
         private readonly languages: string[],
-    ) {}
+    ) {
+        this.rdf = new RdfReader(store)
+        this.pathParser = new ShaclPathParser(this.rdf)
+        this.shaclParser = new ShaclParser(this.rdf, this.pathParser)
+    }
 
     get lists(): Record<string, RdfTerm[]> {
-        if (!this.listsCache) {
-            this.listsCache = extractLists(this.store, { ignoreErrors: true })
-        }
-        return this.listsCache
+        return this.rdf.lists
     }
 
     get groupIds(): string[] {
@@ -189,7 +194,23 @@ export class ShapeGraphModel {
 
     getPath(propertyShape: RdfTerm): ShaclPath | undefined {
         const pathTerm = this.store.getObjects(propertyShape, `${PREFIX_SHACL}path`, null)[0]
-        return pathTerm ? this.parsePath(pathTerm) : undefined
+        if (!pathTerm) {
+            return undefined
+        }
+        try {
+            return this.pathParser.parse(pathTerm)
+        } catch (error) {
+            console.warn(error)
+            return undefined
+        }
+    }
+
+    /**
+     * Temporary compatibility bridge: newer code can read a semantic node
+     * shape, while existing rendering continues using the facade methods above.
+     */
+    parseNodeShape(nodeShape: RdfTerm): ShaclNodeShape {
+        return this.shaclParser.parseNodeShape(nodeShape)
     }
 
     private isNodeShape(term: RdfTerm): term is NamedNode {
@@ -199,73 +220,6 @@ export class ShapeGraphModel {
 
     private uniqueNamedNodes(nodes: NamedNode[]): NamedNode[] {
         return [...new Map(nodes.map(node => [node.value, node])).values()]
-    }
-
-    private parsePath(term: RdfTerm, visited = new Set<string>()): ShaclPath | undefined {
-        if (term.termType === 'NamedNode') {
-            return { kind: 'predicate', predicate: term }
-        }
-
-        const key = this.termKey(term)
-        if (visited.has(key)) {
-            console.warn(`recursive SHACL path ignored: ${key}`)
-            return undefined
-        }
-        visited.add(key)
-
-        const sequenceItems = this.getList(term)
-        if (sequenceItems.length > 0) {
-            const paths = sequenceItems.flatMap(item => {
-                const path = this.parsePath(item, visited)
-                return path ? [path] : []
-            })
-            return paths.length > 0 ? { kind: 'sequence', paths } : undefined
-        }
-
-        const alternativePath = this.parsePathListObject(term, 'alternativePath', visited)
-        if (alternativePath.length > 0) {
-            return { kind: 'alternative', paths: alternativePath }
-        }
-
-        const inversePath = this.parsePathObject(term, 'inversePath', visited)
-        if (inversePath) {
-            return { kind: 'inverse', path: inversePath }
-        }
-
-        const zeroOrMorePath = this.parsePathObject(term, 'zeroOrMorePath', visited)
-        if (zeroOrMorePath) {
-            return { kind: 'zeroOrMore', path: zeroOrMorePath }
-        }
-
-        const oneOrMorePath = this.parsePathObject(term, 'oneOrMorePath', visited)
-        if (oneOrMorePath) {
-            return { kind: 'oneOrMore', path: oneOrMorePath }
-        }
-
-        const zeroOrOnePath = this.parsePathObject(term, 'zeroOrOnePath', visited)
-        if (zeroOrOnePath) {
-            return { kind: 'zeroOrOne', path: zeroOrOnePath }
-        }
-
-        console.warn(`unsupported SHACL path expression ignored: ${key}`)
-        return undefined
-    }
-
-    private parsePathObject(subject: RdfTerm, predicate: string, visited: Set<string>): ShaclPath | undefined {
-        const object = this.store.getObjects(subject, `${PREFIX_SHACL}${predicate}`, null)[0]
-        return object ? this.parsePath(object, visited) : undefined
-    }
-
-    private parsePathListObject(subject: RdfTerm, predicate: string, visited: Set<string>): ShaclPath[] {
-        const listNode = this.store.getObjects(subject, `${PREFIX_SHACL}${predicate}`, null)[0]
-        if (!listNode) {
-            return []
-        }
-
-        return this.getList(listNode).flatMap(item => {
-            const path = this.parsePath(item, visited)
-            return path ? [path] : []
-        })
     }
 
     private termKey(term: RdfTerm): string {
