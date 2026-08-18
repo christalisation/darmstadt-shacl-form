@@ -1,7 +1,9 @@
 # SHACL Core Coverage Matrix
 
 This matrix audits the current project support after the RDF, SHACL semantic,
-Form Shape, and effective-shape-resolution refactoring passes.
+Form Shape, effective-shape-resolution, and rendering-adapter refactoring
+passes. Form Shape records expose effective properties and focus-node value
+constraints directly; no root/renderability classification is used.
 
 Statuses:
 
@@ -20,7 +22,7 @@ Statuses:
 | `sh:maxCount` | Yes | Yes | Partial | Delegated | Single/multiple controls use it; final correctness remains validator-backed. |
 | `sh:minExclusive` | Yes | Yes | Partial | Delegated | Projected to numeric input metadata where applicable. |
 | `sh:minInclusive` | Yes | Yes | Partial | Delegated | Projected to numeric input metadata where applicable. |
-| `sh:maxExclusive` | Yes | Yes | Partial | Delegated | Projected to numeric input metadata where applicable. |
+| `sh:maxExclusive` | Yes | Yes | Partial | Delegated | Projected through FormPropertyShape into the legacy numeric editor adapter where applicable. |
 | `sh:maxInclusive` | Yes | Yes | Partial | Delegated | Projected to numeric input metadata where applicable. |
 | `sh:minLength` | Yes | Yes | Yes | Delegated | Projected to editor attributes. |
 | `sh:maxLength` | Yes | Yes | Yes | Delegated | Projected to editor attributes. |
@@ -28,15 +30,15 @@ Statuses:
 | `sh:languageIn` | Yes | Yes | Partial | Delegated | Language chooser support exists; full language-tag semantics remain validator-backed. |
 | `sh:uniqueLang` | Yes | No | No | Delegated | Parsed semantically, not projected into deterministic form authoring. |
 | `sh:in` | Yes | Yes | Yes | Delegated | Projected to enumerated choices. |
-| `sh:hasValue` | Yes | Yes | Partial | Delegated | Preserved and reused by legacy template behavior. |
-| `sh:equals` | Yes | No | No | Delegated | Parsed but not projected or authored as linked value constraints. |
+| `sh:hasValue` | Yes | Yes | Partial | Delegated | Projected through FormPropertyShape; current editing ensures the required value is present but does not make it exclusive. |
+| `sh:equals` | Yes | No | Partial | Delegated | Parsed and final validation compares value sets. The generic form can author both predicates if both property shapes are present, but there is no ex-ante equals enforcement. |
 | `sh:disjoint` | Yes | No | No | Delegated | Parsed but not projected or authored as linked value constraints. |
 | `sh:lessThan` | Yes | No | No | Delegated | Parsed but not projected or authored as linked value constraints. |
 | `sh:lessThanOrEquals` | Yes | No | No | Delegated | Parsed but not projected or authored as linked value constraints. |
 | `sh:not` | Yes | No | No | Delegated | Kept semantic; not a deterministic form-generation structure. |
 | `sh:and` | Yes | Yes | Partial | Delegated | Effective structural properties are resolved before Form Shape compilation. |
-| `sh:or` | Yes | Yes | Partial | Delegated | Preserved as logical alternatives; not flattened into unconditional fields. |
-| `sh:xone` | Yes | Yes | Partial | Delegated | Preserved as logical alternatives; not flattened into unconditional fields. |
+| `sh:or` | Yes | Yes | Partial | Delegated | Preserved as FormLogicalAlternative and used by logical-choice rendering; branch matching for existing data still has a legacy runtime fallback. |
+| `sh:xone` | Yes | Yes | Partial | Delegated | Preserved as FormLogicalAlternative and used by logical-choice rendering; branch matching for existing data still has a legacy runtime fallback. |
 | `sh:qualifiedValueShape` | Yes | Partial | Partial | Delegated | Shape and min/max counts are projected onto property metadata; full qualified authoring semantics are not modeled. |
 | `sh:qualifiedMinCount` | Yes | Partial | Partial | Delegated | Projected only together with `sh:qualifiedValueShape`. |
 | `sh:qualifiedMaxCount` | Yes | Partial | Partial | Delegated | Projected only together with `sh:qualifiedValueShape`. |
@@ -46,7 +48,7 @@ Statuses:
 | `sh:targetClass` | Yes | Yes | Partial | Delegated | Used as metadata and compatible-shape policy input; not automatically a root policy. |
 | `sh:targetNode` | Yes | No | No | Delegated | Validation target only; not treated as an authoring root by itself. |
 | `sh:targetSubjectsOf` | Yes | No | No | Delegated | Validation target only; not treated as a root heuristic. |
-| `sh:targetObjectsOf` | Yes | No | No | Delegated | Validation target only; value-only targeted shapes are not default roots. |
+| `sh:targetObjectsOf` | Yes | No | No | Delegated | Validation target only; broad root fallback still exposes all NodeShapes because SHACL does not define form entry points. |
 | Predicate path | Yes | Yes | Yes | Delegated | Main authored path type. |
 | Alternative path | Yes | Yes | Partial | Delegated | UI can select among predicate alternatives; data provenance is not yet modeled. |
 | Sequence path | Yes | Yes | No | Delegated | Syntax is represented, but current RDF binding cannot write arbitrary sequence paths. |

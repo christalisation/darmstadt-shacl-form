@@ -65,7 +65,7 @@
             link.click();
         });
 
-        fetch('rml-core-io.ttl')
+        fetch('core.ttl')
             .then(response => response.text())
             .then(text => {
                 shapesEditor.value = text;

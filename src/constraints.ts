@@ -4,7 +4,7 @@ import { ShaclNode } from "./node"
 import { ShaclProperty, createPropertyInstance } from "./property"
 import { Config } from './config'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHACL_PREDICATE_NODE_KIND, SHACL_OBJECT_IRI, SHACL_PREDICATE_PROPERTY } from './constants'
-import { findLabel, removePrefixes } from './util'
+import type { ShaclPropertyTemplate } from './property-template'
 
 export function createAlternativePathConstraint(property: ShaclProperty, value?: Term, linked = false): HTMLElement {
     const wrapper = document.createElement('div')
@@ -65,7 +65,7 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
 
     // 2. PRÉPARATION DES DONNÉES
     const nodeOptions: ShaclProperty[][] = []
-    const propertyOptions: Quad[][] = []
+    const propertyOptions: ShaclPropertyTemplate[] = []
     
     // Structure simple pour alimenter notre select natif
     const selectOptions: { label: string, value: string }[] = []
@@ -73,33 +73,46 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
     if (context instanceof ShaclNode) {
         let optionsAreReferencedProperties = false
         if (options.length) {
-            optionsAreReferencedProperties = config.store.countQuads(options[0], SHACL_PREDICATE_PROPERTY, null, null) > 0
+            const firstFormShape = config.shapeGraph.getFormNodeShape(options[0])
+            optionsAreReferencedProperties = Boolean(firstFormShape?.properties.length) ||
+                config.store.countQuads(options[0], SHACL_PREDICATE_PROPERTY, null, null) > 0
         }
         for (let i = 0; i < options.length; i++) {
             if (optionsAreReferencedProperties) {
-                const quads = config.store.getObjects(options[i] , SHACL_PREDICATE_PROPERTY, null)
+                const formShape = config.shapeGraph.getFormNodeShape(options[i])
+                const formProperties = formShape?.properties || []
                 const list: ShaclProperty[] = []
                 let combinedText = ''
-                for (const subject of quads) {
-                    const property = new ShaclProperty(subject as NamedNode | BlankNode, context, config)
+                for (const formProperty of formProperties) {
+                    const property = new ShaclProperty(formProperty.id as NamedNode | BlankNode, context, config, undefined, formProperty)
                     list.push(property)
                     combinedText += (combinedText.length > 1 ? ' / ' : '') + property.template.label
+                }
+                if (!formProperties.length) {
+                    // TODO: temporary fallback for logical branch nodes not yet
+                    // available as FormNodeShape projections.
+                    const propertySubjects = config.store.getObjects(options[i] , SHACL_PREDICATE_PROPERTY, null)
+                    for (const subject of propertySubjects) {
+                        const property = new ShaclProperty(subject as NamedNode | BlankNode, context, config)
+                        list.push(property)
+                        combinedText += (combinedText.length > 1 ? ' / ' : '') + property.template.label
+                    }
                 }
                 nodeOptions.push(list)
                 selectOptions.push({ label: combinedText, value: i.toString() })
             } else {
-                const property = new ShaclProperty(options[i] as NamedNode | BlankNode, context, config)
+                const formProperty = config.shapeGraph.getFormPropertyShape(options[i])
+                const property = new ShaclProperty(options[i] as NamedNode | BlankNode, context, config, undefined, formProperty)
                 nodeOptions.push([property])
                 selectOptions.push({ label: property.template.label, value: i.toString() })
             }
         }
     } else {
         for (let i = 0; i < options.length; i++) {
-            const quads = config.store.getQuads(options[i], null, null, null)
-            if (quads.length) {
-                propertyOptions.push(quads)
-                const label = findLabel(quads, config.languages) || (removePrefixes(quads[0].predicate.value, config.prefixes) + ' = ' + removePrefixes(quads[0].object.value, config.prefixes))
-                selectOptions.push({ label: label, value: i.toString() })
+            const template = context.template.createTemplateForLogicalOption(options[i])
+            if (template) {
+                propertyOptions.push(template)
+                selectOptions.push({ label: template.label, value: i.toString() })
             }
         }
     }
@@ -147,10 +160,9 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
                 }
             }
         } else {
-            const selectedQuads = propertyOptions[index]
-            if (selectedQuads) {
-                const newTemplate = context.template.clone().merge(selectedQuads)
-                const instance = createPropertyInstance(newTemplate, undefined, true)
+            const selectedTemplate = propertyOptions[index]
+            if (selectedTemplate) {
+                const instance = createPropertyInstance(selectedTemplate, undefined, true)
                 // Idem pour les propriétés simples
                 instance.style.display = 'block';
                 instance.classList.add('w-100');
@@ -175,6 +187,10 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
 }
 
 export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term, config: Config): Quad[] {
+    // TODO: temporary legacy runtime resolver. This inspects branch SHACL
+    // quads to decide which already-existing value should be displayed.
+    // It should move to RDF binding / Form Data once runtime graph state is
+    // no longer owned by the DOM.
     if (value instanceof Literal) {
         const valueType = value.datatype
         for (const subject of subjects) {
@@ -216,6 +232,9 @@ export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term
 }
 
 export function resolveShaclOrConstraintOnNode(subjects: Term[], value: Term, config: Config): Term[] {
+    // TODO: temporary legacy runtime resolver. FormLogicalAlternative is now
+    // the source of branch structure; this raw query only preserves existing
+    // branch matching for previously loaded data.
     for (const subject of subjects) {
         let subjectMatches = false
         const propertySubjects = config.store.getObjects(subject, SHACL_PREDICATE_PROPERTY, null)

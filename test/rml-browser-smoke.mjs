@@ -103,7 +103,7 @@ try {
     assert(result.predicateObjectMapText.includes('object/objectMap/quotedTriplesMap'), 'PredicateObjectMap is missing object/objectMap/quotedTriplesMap')
     assert(result.childMapText.includes('template/constant/reference/functionExecution'), 'ChildMap did not render inherited ExpressionMap structure')
     assert(result.logicalSourceText.includes('rml:source'), 'LogicalSource concrete authoring shape did not expose rml:source')
-    assert(!result.rootOptions.includes('child'), 'RML value-only child shape appeared as an empty root option')
+    assert(result.rootOptions.includes('child'), 'RML value-only child shape was incorrectly hidden from broad root options')
     assert(result.rootOptions.includes('TriplesMap'), 'Explicit top-level RML TriplesMap candidate disappeared from root options')
 
     console.log('rml browser smoke passed')

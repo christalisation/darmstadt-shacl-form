@@ -5,7 +5,7 @@ import { Config } from './config'
 import { findLabel, prioritizeByLanguage, removePrefixes } from './util'
 import { ShaclNode } from './node'
 import { getAlternativePredicatePaths, getPredicatePath, pathToString, ShaclPath } from './shacl-path'
-import { FormPropertyShape } from './form-shape'
+import { FormPropertyShape, FormValueConstraints } from './form-shape'
 
 const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => void> = {
     [`${PREFIX_SHACL}name`]:         (template, term) => { const literal = term as Literal; template.name = prioritizeByLanguage(template.config.languages, template.name, literal) },
@@ -120,6 +120,10 @@ export class ShaclPropertyTemplate {
     config: Config
     extendedShapes: NamedNode[]  = []
 
+    static fromFormPropertyShape(shape: FormPropertyShape, parent: ShaclNode, config: Config): ShaclPropertyTemplate {
+        return new ShaclPropertyTemplate(config.store.getQuads(shape.id, null, null, null), parent, config, shape)
+    }
+
     constructor(quads: Quad[], parent: ShaclNode, config: Config, formShape?: FormPropertyShape) {
         this.id = formShape?.id || quads[0]?.subject
         this.parent = parent
@@ -199,6 +203,9 @@ export class ShaclPropertyTemplate {
     }
 
     merge(quads: Quad[]): ShaclPropertyTemplate {
+        // TODO: temporary legacy fallback for property shapes that cannot yet be
+        // compiled to FormPropertyShape. Normal rendering paths should reach
+        // this class through applyFormPropertyShape instead.
         for (const quad of quads) {
             mappers[quad.predicate.id]?.call(this, this, quad.object)
         }
@@ -237,6 +244,8 @@ export class ShaclPropertyTemplate {
     }
 
     private mergeValueNodeShapeConstraints(node: NamedNode): void {
+        // TODO: temporary legacy fallback. Value-only sh:node constraints are
+        // projected by FormShapeCompiler on the normal FormPropertyShape path.
         for (const quad of this.config.store.getQuads(node, null, null, null)) {
             if (valueNodeConstraintPredicates.has(quad.predicate.id)) {
                 mappers[quad.predicate.id]?.call(this, this, quad.object)
@@ -291,6 +300,69 @@ export class ShaclPropertyTemplate {
         template.pathAlternatives = undefined
         template.pathAlternativeLabels = {}
         return template
+    }
+
+    createTemplateForLogicalOption(option: Term): ShaclPropertyTemplate | undefined {
+        const nodeShape = this.config.shapeGraph.getFormNodeShape(option)
+        if (nodeShape && nodeShape.properties.length === 0 && this.hasFormValueConstraints(nodeShape.valueConstraints)) {
+            const template = this.clone()
+            template.applyFormValueConstraints(nodeShape.valueConstraints)
+            return template
+        }
+
+        const propertyShape = this.config.shapeGraph.getFormPropertyShape(option)
+        if (propertyShape) {
+            const template = this.clone()
+            template.applyFormPropertyShape(propertyShape)
+            template.path = this.path
+            template.pathExpression = this.pathExpression
+            template.pathAlternatives = this.pathAlternatives ? [...this.pathAlternatives] : undefined
+            template.pathAlternativeLabels = { ...this.pathAlternativeLabels }
+            return template
+        }
+
+        const quads = this.config.store.getQuads(option, null, null, null)
+        if (!quads.length) {
+            return undefined
+        }
+
+        // TODO: temporary legacy fallback for anonymous logical value-shape
+        // branches that are not yet exposed as Form Shape branch projections.
+        return this.clone().merge(quads)
+    }
+
+    private applyFormValueConstraints(constraints: FormValueConstraints): void {
+        this.datatype = constraints.datatype as NamedNode | undefined
+        this.nodeKind = constraints.nodeKind as NamedNode | undefined
+        this.class = constraints.class as NamedNode | undefined
+        this.minLength = constraints.minLength
+        this.maxLength = constraints.maxLength
+        this.minInclusive = constraints.minInclusive
+        this.maxInclusive = constraints.maxInclusive
+        this.minExclusive = constraints.minExclusive
+        this.maxExclusive = constraints.maxExclusive
+        this.pattern = constraints.pattern
+        this.shaclInValues = constraints.shaclIn ? [...constraints.shaclIn] : undefined
+        this.languageIn = constraints.languageIn ? [...constraints.languageIn] : undefined
+        this.hasValue = constraints.hasValue
+    }
+
+    private hasFormValueConstraints(constraints: FormValueConstraints): boolean {
+        return Boolean(
+            constraints.datatype ||
+            constraints.nodeKind ||
+            constraints.class ||
+            constraints.minLength !== undefined ||
+            constraints.maxLength !== undefined ||
+            constraints.minInclusive !== undefined ||
+            constraints.maxInclusive !== undefined ||
+            constraints.minExclusive !== undefined ||
+            constraints.maxExclusive !== undefined ||
+            constraints.pattern !== undefined ||
+            constraints.shaclIn?.length ||
+            constraints.languageIn?.length ||
+            constraints.hasValue
+        )
     }
 
     private findAlternativePathLabel(path: string): string {

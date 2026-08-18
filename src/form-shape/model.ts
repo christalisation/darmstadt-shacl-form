@@ -1,8 +1,6 @@
 import { Literal, NamedNode, Term } from '@rdfjs/types'
 import { ShaclPath } from '../shacl'
 
-export type FormNodeShapeRole = 'STRUCTURAL' | 'VALUE_ONLY' | 'NON_RENDERABLE'
-
 export interface FormValueConstraints {
     datatype?: NamedNode
     nodeKind?: NamedNode
@@ -21,7 +19,6 @@ export interface FormValueConstraints {
 
 export interface FormNodeShape {
     id: Term
-    role: FormNodeShapeRole
     label: string
     description?: string
     messages: Literal[]

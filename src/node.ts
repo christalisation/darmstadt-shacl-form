@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { createShaclOrConstraint, resolveShaclOrConstraintOnNode } from './constraints'
 import { Config } from './config'
 import { ShaclNodeCollection } from './node-collection'
+import { FormPropertyShape } from './form-shape'
 
 export class ShaclNode extends HTMLElement {
     parent: ShaclNode | undefined
@@ -28,19 +29,18 @@ export class ShaclNode extends HTMLElement {
         this.config = this.nodeCollection.config
         this.shaclSubject = shaclSubject
         this.linked = linked || false
+        const formShape = this.config.shapeGraph.getFormNodeShape(shaclSubject)
         let nodeId: NamedNode | BlankNode | undefined = valueSubject
         if (!nodeId) {
             // if no value subject given, create new node id with a type depending on own nodeKind or given parent property nodeKind
             if (!nodeKind) {
-                const spec = this.config.store.getObjects(shaclSubject, `${PREFIX_SHACL}nodeKind`, null)
-                if (spec.length) {
-                    nodeKind = spec[0] as NamedNode
-                }
+                nodeKind = formShape?.valueConstraints.nodeKind as NamedNode | undefined
             }
             // if nodeKind is not set, but a value namespace is configured or if nodeKind is sh:IRI, then create a NamedNode
             if ((nodeKind === undefined && this.config.attributes.valuesNamespace) || nodeKind?.value === `${PREFIX_SHACL}IRI`) {
                 // no requirements on node type, so create a NamedNode and use configured value namespace
                 nodeId = DataFactory.namedNode(this.config.attributes.valuesNamespace + uuidv4())
+                // TODO: mieulleur noeud, example incrementer un iri.
             } else {
                 // otherwise create a BlankNode
                 nodeId = DataFactory.blankNode(uuidv4())
@@ -82,17 +82,19 @@ export class ShaclNode extends HTMLElement {
             for (const owlImport of this.config.store.getQuads(shaclSubject, OWL_PREDICATE_IMPORTS, null, null)) {
                 this.owlImports.push(owlImport.object as NamedNode)
             }
-            const formShape = this.config.shapeGraph.getFormNodeShape(shaclSubject)
             this.targetClass = formShape?.targetClasses[0] as NamedNode | undefined
 
             if (formShape) {
                 for (const propertyShape of formShape.properties) {
-                    this.addPropertyInstance(propertyShape.id, valueSubject)
+                    this.addPropertyInstance(propertyShape, valueSubject)
                 }
                 for (const alternative of formShape.logicalAlternatives) {
                     this.tryResolveOptions(alternative.shapes, valueSubject)
                 }
             } else {
+                // TODO: temporary legacy fallback for shapes that cannot yet be
+                // compiled into FormNodeShape. The normal rendering path above
+                // is authoritative for form structure.
                 const renderablePropertyShapes = new Set(this.config.shapeGraph.getRenderablePropertyShapes(shaclSubject).map(shape => shape.id))
                 // now parse other node quads
                 for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
@@ -168,12 +170,13 @@ export class ShaclNode extends HTMLElement {
         return false
     }
 
-    addPropertyInstance(shaclSubject: Term, valueSubject: NamedNode | BlankNode | undefined) {
+    addPropertyInstance(shaclSubject: Term | FormPropertyShape, valueSubject: NamedNode | BlankNode | undefined) {
+        const formPropertyShape = this.isFormPropertyShape(shaclSubject) ? shaclSubject : this.config.shapeGraph.getFormPropertyShape(shaclSubject)
+        const propertySubject = formPropertyShape?.id || shaclSubject as Term
         let parentElement: HTMLElement = this
         // check if property belongs to a group
-        const groupRef = this.config.store.getQuads(shaclSubject as Term, `${PREFIX_SHACL}group`, null, null)
-        if (groupRef.length > 0) {
-            const groupSubject = groupRef[0].object.value
+        const groupSubject = formPropertyShape?.group?.value || this.config.store.getQuads(propertySubject, `${PREFIX_SHACL}group`, null, null)[0]?.object.value
+        if (groupSubject) {
             if (this.config.groups.indexOf(groupSubject) > -1) {
                 // check if group element already exists, otherwise create it
                 let group = this.querySelector(`:scope > .shacl-group[data-subject='${groupSubject}']`) as HTMLElement
@@ -183,10 +186,10 @@ export class ShaclNode extends HTMLElement {
                 }
                 parentElement = group
             } else {
-                console.warn('ignoring unknown group reference', groupRef[0], 'existing groups:', this.config.groups)
+                console.warn('ignoring unknown group reference', groupSubject, 'existing groups:', this.config.groups)
             }
         }
-        const property = new ShaclProperty(shaclSubject as NamedNode | BlankNode, this, this.config, valueSubject)
+        const property = new ShaclProperty(propertySubject as NamedNode | BlankNode, this, this.config, valueSubject, formPropertyShape)
         // do not add empty properties (i.e. properties with no instances). This can be the case e.g. in viewer mode when there is no data for the respective property.
         if (property.childElementCount > 0) {
             parentElement.appendChild(property)
@@ -224,9 +227,17 @@ export class ShaclNode extends HTMLElement {
             return false
         }
 
-        const optionsReferenceProperties = options.every(option => this.config.store.countQuads(option, SHACL_PREDICATE_PROPERTY, null, null) > 0)
+        const optionsReferenceProperties = options.every(option => {
+            const formShape = this.config.shapeGraph.getFormNodeShape(option)
+            return Boolean(formShape?.properties.length) ||
+                this.config.store.countQuads(option, SHACL_PREDICATE_PROPERTY, null, null) > 0
+        })
         if (optionsReferenceProperties) {
             return options.every(option => {
+                const formShape = this.config.shapeGraph.getFormNodeShape(option)
+                if (formShape) {
+                    return formShape.properties.length > 0
+                }
                 const propertySubjects = this.config.store.getObjects(option, SHACL_PREDICATE_PROPERTY, null)
                 return propertySubjects.length > 0 && propertySubjects.every(propertySubject => this.hasRenderablePropertyShape(propertySubject))
             })
@@ -236,7 +247,13 @@ export class ShaclNode extends HTMLElement {
     }
 
     private hasRenderablePropertyShape(subject: Term): boolean {
-        return this.config.store.countQuads(subject, `${PREFIX_SHACL}path`, null, null) > 0
+        return Boolean(this.config.shapeGraph.getFormPropertyShape(subject)) ||
+            this.config.store.countQuads(subject, `${PREFIX_SHACL}path`, null, null) > 0
+    }
+
+    private isFormPropertyShape(value: Term | FormPropertyShape): value is FormPropertyShape {
+        return typeof (value as FormPropertyShape).label === 'string' &&
+            Array.isArray((value as FormPropertyShape).sourceShapes)
     }
 }
 

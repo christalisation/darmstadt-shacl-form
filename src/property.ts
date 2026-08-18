@@ -8,17 +8,20 @@ import { ShaclPropertyTemplate } from './property-template'
 import { Editor, fieldFactory, InputListEntry } from './theme'
 import { toRDF } from './serialize'
 import { findPlugin } from './plugin'
-import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_TARGET_CLASS } from './constants'
+import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE } from './constants'
 import { RokitButton, RokitCollapsible, RokitSelect } from '@ro-kit/ui-widgets'
+import { FormPropertyShape } from './form-shape'
 
 export class ShaclProperty extends HTMLElement {
     template: ShaclPropertyTemplate
     addButton: RokitSelect | undefined
     container: HTMLElement
 
-    constructor(shaclSubject: BlankNode | NamedNode, parent: ShaclNode, config: Config, valueSubject?: NamedNode | BlankNode) {
+    constructor(shaclSubject: BlankNode | NamedNode, parent: ShaclNode, config: Config, valueSubject?: NamedNode | BlankNode, formShape?: FormPropertyShape) {
         super()
-        this.template = new ShaclPropertyTemplate(config.store.getQuads(shaclSubject, null, null, null), parent, config)
+        this.template = formShape
+            ? ShaclPropertyTemplate.fromFormPropertyShape(formShape, parent, config)
+            : new ShaclPropertyTemplate(config.store.getQuads(shaclSubject, null, null, null), parent, config)
         this.container = this
         if (this.template.extendedShapes.length && this.template.config.attributes.collapse !== null && (!this.template.maxCount || this.template.maxCount > 1)) {
             // Use standard HTML <details> instead of RokitCollapsible
@@ -205,7 +208,7 @@ export class ShaclProperty extends HTMLElement {
         else {
             for (const node of this.template.extendedShapes) {
                 // if this property has no sh:class but sh:node, then use the node shape's sh:targetClass to find protiential instances
-                const targetClasses = this.template.config.store.getObjects(node, SHACL_PREDICATE_TARGET_CLASS, null)
+                const targetClasses = this.template.config.shapeGraph.getFormNodeShape(node)?.targetClasses || []
                 if (targetClasses.length > 0) {
                     return targetClasses[0] as NamedNode
                 }
@@ -221,7 +224,7 @@ export class ShaclProperty extends HTMLElement {
         }
         // property has node shape(s), so check if value conforms to any targetClass
         for (const node of this.template.extendedShapes) {
-            const targetClasses = this.template.config.store.getObjects(node, SHACL_PREDICATE_TARGET_CLASS, null)
+            const targetClasses = this.template.config.shapeGraph.getFormNodeShape(node)?.targetClasses || []
             for (const targetClass of targetClasses) {
                 if (this.template.config.store.countQuads(value, RDF_PREDICATE_TYPE, targetClass, null) > 0) {
                     return true
@@ -358,7 +361,7 @@ export class ShaclProperty extends HTMLElement {
     }
 
     private getReusableNodeLabel(node: ShaclNode): string {
-        const shapeLabel = this.template.config.shapeGraph.getLabel(node.shaclSubject) || this.shortNodeId(node)
+        const shapeLabel = this.template.config.shapeGraph.getFormNodeShape(node.shaclSubject)?.label || this.shortNodeId(node)
         const valueLabel = this.findFirstEditorValue(node)
         return valueLabel ? `${shapeLabel}: ${valueLabel}` : `${shapeLabel} (${this.shortNodeId(node)})`
     }

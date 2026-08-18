@@ -239,7 +239,7 @@ describe('ShapeGraphModel', () => {
         expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}ValueShape`))).toBe(false)
     })
 
-    it('uses effective structural properties, not direct properties, for generic root fallback', () => {
+    it('keeps all NodeShapes available as generic root choices', () => {
         const model = shapeGraph(`
             ex:DirectShape a sh:NodeShape ;
                 sh:property [ sh:path ex:direct ] .
@@ -263,6 +263,7 @@ describe('ShapeGraphModel', () => {
             `${EX}DirectShape`,
             `${EX}ComposedShape`,
             `${EX}BaseShape`,
+            `${EX}ValueOnlyShape`,
         ])
     })
 
@@ -278,7 +279,7 @@ describe('ShapeGraphModel', () => {
         expect(roots.map(root => root.value)).toEqual([`${EX}ValueOnlyShape`])
     })
 
-    it('does not infer value-only targetObjectsOf shapes as generic roots', () => {
+    it('keeps targetObjectsOf value-constraint shapes in broad root fallback', () => {
         const model = shapeGraph(`
             ex:ChildValueShape a sh:NodeShape ;
                 sh:datatype xsd:string ;
@@ -286,6 +287,37 @@ describe('ShapeGraphModel', () => {
                 sh:targetObjectsOf ex:child .
         `)
 
-        expect(model.findRootNodeShapes()).toEqual([])
+        expect(model.findRootNodeShapes().map(root => root.value)).toEqual([`${EX}ChildValueShape`])
+    })
+
+    it('resolves nested structural and value-only sh:node shapes independently from root choices', () => {
+        const model = shapeGraph(`
+            ex:ParentShape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:structuralChild ;
+                    sh:node ex:StructuralChildShape
+                ] ;
+                sh:property [
+                    sh:path ex:valueChild ;
+                    sh:node ex:ValueChildShape
+                ] .
+
+            ex:StructuralChildShape a sh:NodeShape ;
+                sh:property [ sh:path ex:name ] .
+
+            ex:ValueChildShape a sh:NodeShape ;
+                sh:datatype xsd:string ;
+                sh:nodeKind sh:Literal .
+        `)
+
+        const parent = model.getFormNodeShape(DataFactory.namedNode(`${EX}ParentShape`))
+        const structural = parent?.properties.find(property => property.writablePath?.value === `${EX}structuralChild`)
+        const valueOnly = parent?.properties.find(property => property.writablePath?.value === `${EX}valueChild`)
+
+        expect(model.findRootNodeShapes().map(root => root.value)).toContain(`${EX}ValueChildShape`)
+        expect(structural?.nestedNodeShapes.map(shape => shape.value)).toEqual([`${EX}StructuralChildShape`])
+        expect(valueOnly?.nestedNodeShapes).toEqual([])
+        expect(valueOnly?.datatype?.value).toBe('http://www.w3.org/2001/XMLSchema#string')
+        expect(valueOnly?.nodeKind?.value).toBe(`${SH}Literal`)
     })
 })

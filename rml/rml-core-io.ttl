@@ -545,7 +545,7 @@
         Exactly one rml:logicalSource is required to access the data source.
         """ ;
             sh:minCount 1 ;
-            sh:node <http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> ;
+            sh:node <http://w3id.org/rml/shapes/RMLLogicalSourceShape> ;
             sh:nodeKind sh:BlankNodeOrIRI ;
             sh:path rml:logicalSource ;
             sh:targetSubjectsOf rml:logicalSource ],
@@ -806,5 +806,6 @@
             sh:node <http://w3id.org/rml/shapes/RMLSourceShape> ;
             sh:nodeKind sh:BlankNodeOrIRI ;
             sh:path rml:source ] ;
+        sh:node <http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> ;
     sh:targetClass rml:LogicalSource ;
     sh:targetSubjectsOf rml:source .

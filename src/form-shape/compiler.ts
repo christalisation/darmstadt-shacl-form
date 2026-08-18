@@ -10,7 +10,6 @@ import {
     ShaclShapeResolver,
 } from '../shacl'
 import { PREFIX_RDF } from '../constants'
-import { FormShapeClassifier } from './classifier'
 import { FormLogicalAlternative, FormNodeShape, FormPropertyShape, FormValueConstraints } from './model'
 
 export interface FormShapeCompilerOptions {
@@ -24,8 +23,6 @@ export interface FormShapeCompilerOptions {
 }
 
 export class FormShapeCompiler {
-    private readonly classifier = new FormShapeClassifier()
-
     constructor(private readonly options: FormShapeCompilerOptions) {}
 
     compileNodeShape(shape: ShaclNodeShape): FormNodeShape {
@@ -38,9 +35,8 @@ export class FormShapeCompiler {
         const properties = this.getRenderableProperties(
             effectiveProperties.map(entry => this.compilePropertyShape(entry.property, semanticSiblings, entry.sourceShapes))
         )
-        const formShape: FormNodeShape = {
+        return {
             id: shape.id,
-            role: 'NON_RENDERABLE',
             label: this.resolveLabel(shape) || this.fallbackLabel(shape.id),
             description: this.resolveDescription(shape)?.value,
             messages: shape.metadata.messages,
@@ -50,8 +46,6 @@ export class FormShapeCompiler {
             composedNodeShapes: effectiveShape?.composedNodeShapes || this.composedNodeShapes(shape.constraints),
             logicalAlternatives: this.logicalAlternatives(shape.constraints),
         }
-        formShape.role = this.classifier.classify(formShape).role
-        return formShape
     }
 
     compilePropertyShape(shape: ShaclPropertyShape, siblings: ShaclPropertyShape[] = [], sourceShapes: Term[] = []): FormPropertyShape {

@@ -5,7 +5,7 @@ import { findLabel } from './util'
 import { getAlternativePredicatePaths, getPredicatePath, ShaclPath } from './shacl-path'
 import { RdfReader } from './rdf'
 import { RDFS_VOCAB, ShaclNodeShape, ShaclParser, ShaclPathParser, ShaclPropertyShape, ShaclShapeResolver } from './shacl'
-import { FormNodeShape, FormPropertyShape, FormRootPolicy, FormShapeCompiler, FormShapeRegistry } from './form-shape'
+import { FormNodeShape, FormPropertyShape, FormShapeCompiler, FormShapeRegistry } from './form-shape'
 
 export type RootShapeOptions = {
     shapeSubject?: string | null,
@@ -25,7 +25,6 @@ export class ShapeGraphModel {
     private readonly semanticShapes = new Map<string, ShaclNodeShape>()
     private readonly semanticProperties = new Map<string, ShaclPropertyShape>()
     private readonly formShapeRegistry: FormShapeRegistry
-    private readonly rootPolicy = new FormRootPolicy()
 
     constructor(
         private readonly store: Store,
@@ -71,10 +70,12 @@ export class ShapeGraphModel {
      * Selection follows application root-entry policy:
      * 1. explicit `data-shape-subject`;
      * 2. shape inferred from the bound data subject;
-     * 3. fallback to structural form shapes.
+     * 3. broad fallback to all declared `sh:NodeShape`s.
      *
-     * SHACL targets describe validation scope. They are not enough on their
-     * own to make a shape a useful top-level authoring form.
+     * SHACL does not define form entry points. In the absence of explicit
+     * application configuration, expose all NodeShapes as root choices while
+     * keeping the full Form Shape registry available for nested and logical
+     * resolution.
      */
     findRootNodeShapes(options: RootShapeOptions = {}): NamedNode[] {
         const rootShapes: NamedNode[] = []
@@ -130,7 +131,6 @@ export class ShapeGraphModel {
             this.store.getQuads(null, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null)
                 .map(quad => quad.subject)
                 .filter((subject): subject is NamedNode => subject.termType === 'NamedNode')
-                .filter(subject => this.isFallbackRootCandidate(subject))
         )
     }
 
@@ -185,7 +185,7 @@ export class ShapeGraphModel {
 
         const formShape = this.getFormNodeShape(nodeShape)
         if (formShape) {
-            return formShape.role === 'STRUCTURAL'
+            return formShape.properties.length > 0
         }
 
         if (this.getRenderablePropertyShapes(nodeShape).length > 0) {
@@ -318,14 +318,6 @@ export class ShapeGraphModel {
     private isNodeShape(term: RdfTerm): term is NamedNode {
         return term.termType === 'NamedNode' &&
             this.store.countQuads(term, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null) > 0
-    }
-
-    private isFallbackRootCandidate(term: RdfTerm): term is NamedNode {
-        if (!this.isNodeShape(term)) {
-            return false
-        }
-        const formShape = this.getFormNodeShape(term)
-        return Boolean(formShape && this.rootPolicy.isFallbackRootCandidate(formShape))
     }
 
     private uniqueNamedNodes(nodes: NamedNode[]): NamedNode[] {

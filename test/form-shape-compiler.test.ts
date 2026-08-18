@@ -111,7 +111,7 @@ describe('FormShapeCompiler', () => {
         expect(property.minLength).toBe(3)
         expect(property.pattern).toBe('.+')
         expect(property.shaclIn?.map(term => term.value)).toEqual(['A', 'B'])
-        expect(shape.role).toBe('STRUCTURAL')
+        expect(shape.properties.length).toBeGreaterThan(0)
     })
 
     it('resolves labels and descriptions at the form compilation boundary', () => {
@@ -218,7 +218,7 @@ describe('FormShapeCompiler', () => {
 
         expect(shape.properties.map(property => property.label)).toEqual(['Own', 'Composed'])
         expect(shape.composedNodeShapes.map(term => term.value)).toEqual([`${EX}ComposedShape`])
-        expect(shape.role).toBe('STRUCTURAL')
+        expect(shape.properties.length).toBeGreaterThan(0)
     })
 
     it('includes anonymous sh:and property-shape members', () => {
@@ -245,10 +245,10 @@ describe('FormShapeCompiler', () => {
         const extraSources = shape.properties.find(property => property.label === 'Extra')?.sourceShapes || []
         expect(extraSources).toHaveLength(2)
         expect(extraSources[1].termType).toBe('BlankNode')
-        expect(shape.role).toBe('STRUCTURAL')
+        expect(shape.properties.length).toBeGreaterThan(0)
     })
 
-    it('classifies value-only node shapes and projects their focus-node constraints', () => {
+    it('projects focus-node value constraints without assigning a form role', () => {
         const store = storeFromTurtle(`
             ex:ValueShape a sh:NodeShape ;
                 sh:datatype xsd:string ;
@@ -259,7 +259,6 @@ describe('FormShapeCompiler', () => {
 
         const shape = compilerFor(store).compile(`${EX}ValueShape`)
 
-        expect(shape.role).toBe('VALUE_ONLY')
         expect(shape.properties).toEqual([])
         expect(shape.valueConstraints.datatype?.value).toBe('http://www.w3.org/2001/XMLSchema#string')
         expect(shape.valueConstraints.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#Literal')
@@ -313,7 +312,7 @@ describe('FormShapeCompiler', () => {
 
         expect(shape.properties).toEqual([])
         expect(shape.logicalAlternatives.map(alternative => alternative.kind)).toEqual(['or', 'xone'])
-        expect(shape.role).toBe('NON_RENDERABLE')
+        expect(shape.valueConstraints).toEqual({})
     })
 
     it('handles cyclic sh:and composition without recursing indefinitely', () => {
@@ -379,13 +378,14 @@ describe('FormShapeCompiler', () => {
         expect(shape.properties.length).toBeGreaterThan(0)
     })
 
-    it('does not invent RML logical-source compatibility without class hierarchy data', () => {
+    it('uses the RML logical-source shape explicitly referenced by sh:node', () => {
         const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLTriplesMapPropertiesShape')
         const logicalSource = shape.properties.find(property => property.label === 'logicalSource')
 
-        expect(logicalSource?.nodeShape?.value).toBe('http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape')
+        expect(logicalSource?.nodeShape?.value).toBe('http://w3id.org/rml/shapes/RMLLogicalSourceShape')
+        expect(logicalSource?.nestedNodeShapes.map(shape => shape.value)).toEqual(['http://w3id.org/rml/shapes/RMLLogicalSourceShape'])
         expect(logicalSource?.compatibleNodeShapes).toEqual([])
     })
 
