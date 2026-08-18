@@ -38,6 +38,7 @@ export interface FormPropertyShape {
     writablePath?: NamedNode
     pathAlternatives?: NamedNode[]
     pathAlternativeLabels: Record<string, string>
+    pathAlternativeBranches: Record<string, FormPropertyShape>
     group?: Term
     order?: number
     minCount?: number

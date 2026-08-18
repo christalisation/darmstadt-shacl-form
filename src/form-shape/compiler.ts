@@ -41,10 +41,10 @@ export class FormShapeCompiler {
             description: this.resolveDescription(shape)?.value,
             messages: shape.metadata.messages,
             targetClasses: shape.targets.flatMap(target => target.kind === 'class' ? [target.class] : []),
-            valueConstraints: this.compileValueConstraints(shape.constraints),
+            valueConstraints: this.compileValueConstraints(effectiveShape?.constraints || shape.constraints),
             properties,
             composedNodeShapes: effectiveShape?.composedNodeShapes || this.composedNodeShapes(shape.constraints),
-            logicalAlternatives: this.logicalAlternatives(shape.constraints),
+            logicalAlternatives: this.logicalAlternatives(effectiveShape?.constraints || shape.constraints),
         }
     }
 
@@ -58,6 +58,7 @@ export class FormShapeCompiler {
             writablePath: shape.path ? getPredicatePath(shape.path) : undefined,
             pathAlternatives: shape.path ? getAlternativePredicatePaths(shape.path) : undefined,
             pathAlternativeLabels: {},
+            pathAlternativeBranches: {},
             group: shape.metadata.group,
             order: shape.metadata.order,
             defaultValue: shape.metadata.defaultValue,
@@ -86,6 +87,10 @@ export class FormShapeCompiler {
 
         for (const alternative of property.pathAlternatives || []) {
             property.pathAlternativeLabels[alternative.value] = this.findAlternativePathLabel(alternative, siblings)
+            const branch = this.findAlternativePathBranch(alternative, siblings)
+            if (branch) {
+                property.pathAlternativeBranches[alternative.value] = this.compilePropertyShape(branch, [], sourceShapes)
+            }
         }
 
         return property
@@ -263,20 +268,27 @@ export class FormShapeCompiler {
     }
 
     private findAlternativePathLabel(path: NamedNode, siblings: ShaclPropertyShape[]): string {
+        const sibling = this.findAlternativePathBranch(path, siblings)
+        if (sibling) {
+            const label = this.resolveLabel(sibling)
+            if (label) {
+                return label
+            }
+        }
+
+        return this.options.labelForTerm?.(path) || this.fallbackLabel(path)
+    }
+
+    private findAlternativePathBranch(path: NamedNode, siblings: ShaclPropertyShape[]): ShaclPropertyShape | undefined {
         for (const sibling of siblings) {
             if (!sibling.path) {
                 continue
             }
             const siblingPredicate = getPredicatePath(sibling.path)
             if (siblingPredicate?.value === path.value) {
-                const label = this.resolveLabel(sibling)
-                if (label) {
-                    return label
-                }
+                return sibling
             }
         }
-
-        return this.options.labelForTerm?.(path) || this.fallbackLabel(path)
     }
 
     private getRenderableProperties(properties: FormPropertyShape[]): FormPropertyShape[] {

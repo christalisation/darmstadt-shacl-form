@@ -34,6 +34,7 @@ const shapes = `
     sh:property [
       sh:path ex:child ;
       sh:name "Child" ;
+      sh:nodeKind sh:BlankNodeOrIRI ;
       sh:node ex:ChildShape
     ] .
 
@@ -47,6 +48,7 @@ const shapes = `
 
   ex:SecondShape a sh:NodeShape ;
     sh:name "Second" ;
+    sh:nodeKind sh:BlankNode ;
     sh:property [
       sh:path ex:secondValue ;
       sh:name "Second value" ;
@@ -142,6 +144,8 @@ try {
         await new Promise(resolve => setTimeout(resolve, 250))
         const nestedNodeAfterClick = nestedControl?.querySelector('shacl-node')
         const nestedNodeId = nestedNodeAfterClick?.dataset.nodeId
+        const rootIdLabel = root?.querySelector(':scope > .node-id-display .node-id-label')?.textContent
+        const nestedIdLabel = nestedNodeAfterClick?.querySelector(':scope > .node-id-display .node-id-label')?.textContent
         const childEditor = nestedNodeAfterClick?.querySelector('shacl-property .property-instance .editor')
         childEditor.value = 'Child value'
         childEditor.dispatchEvent(new Event('change', { bubbles: true }))
@@ -149,6 +153,15 @@ try {
         const multi = await createForm()
         const selector = multi.shadowRoot.querySelector('.root-selector-container select')
         const rootOptions = selector ? [...selector.options].map(option => option.textContent) : []
+
+        const blank = await createForm({
+            shapeSubject: 'http://example.org/SecondShape',
+            showNodeIds: '',
+        })
+        const blankNodeDisplay = blank.shadowRoot.querySelector('shacl-node > .node-id-display')
+        const blankNodeDisplayLabel = blankNodeDisplay?.querySelector('.node-id-label')?.textContent
+        const blankNodeDisplayValue = blankNodeDisplay?.querySelector('.node-id-value')?.textContent
+        const blankNodeHasIriEditor = Boolean(blankNodeDisplay?.querySelector('.node-id-editor'))
 
         const invalidReport = await simple.validate(false, true)
         const editor = simple.shadowRoot.querySelector('.property-instance .editor')
@@ -166,6 +179,11 @@ try {
             generatedRootId,
             customizedRootId,
             nestedNodeId,
+            rootIdLabel,
+            nestedIdLabel,
+            blankNodeDisplayLabel,
+            blankNodeDisplayValue,
+            blankNodeHasIriEditor,
             hasAlternative: Boolean(alternative),
             selectedAlternativeLabel,
             rootOptions,
@@ -182,6 +200,10 @@ try {
     assert(result.generatedRootId === 'http://data.example/simple-1', 'readable generated root IRI was not used')
     assert(result.customizedRootId === 'http://data.example/custom-root', 'custom root IRI was not preserved')
     assert(result.nestedNodeId === 'http://data.example/child-1', 'nested node did not receive independent readable identity')
+    assert(result.rootIdLabel === 'IRI:', 'editable NamedNode identifier label is not IRI')
+    assert(result.nestedIdLabel === 'IRI:', 'nested BlankNodeOrIRI NamedNode identifier label is not IRI')
+    assert(result.blankNodeDisplayLabel === 'Blank node:' && result.blankNodeDisplayValue.startsWith('_:'), 'generated blank node did not use non-editable Blank node label')
+    assert(result.blankNodeHasIriEditor === false, 'generated blank node displayed an editable IRI editor')
     assert(result.hasAlternative, 'alternative path selector did not render')
     assert(result.selectedAlternativeLabel === 'Mailbox', 'alternative path selection did not update the visible label')
     assert(result.rootOptions.includes('Simple') && result.rootOptions.includes('Second'), 'multiple-root selector did not render expected options')

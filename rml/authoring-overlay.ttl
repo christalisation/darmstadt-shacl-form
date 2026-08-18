@@ -1,0 +1,6 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+# Authoring bridge between RML-IO LogicalSource and
+# the RML-Core AbstractLogicalSource constraints.
+<http://w3id.org/rml/shapes/RMLLogicalSourceShape>
+    sh:node <http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> .

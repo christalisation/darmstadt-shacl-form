@@ -11,6 +11,7 @@ export interface ResolvedShaclNodeShape {
     shape: ShaclNodeShape
     properties: ResolvedShaclPropertyShape[]
     composedNodeShapes: Term[]
+    constraints: ShaclConstraint[]
     logicalConstraints: ShaclConstraint[]
 }
 
@@ -29,7 +30,8 @@ export class ShaclShapeResolver {
             shape,
             properties: this.dedupeResolvedProperties(resolved.properties),
             composedNodeShapes: this.uniqueTerms(resolved.composedNodeShapes),
-            logicalConstraints: shape.constraints.filter(constraint =>
+            constraints: resolved.constraints,
+            logicalConstraints: resolved.constraints.filter(constraint =>
                 constraint.kind === 'or' ||
                 constraint.kind === 'xone' ||
                 constraint.kind === 'not'
@@ -40,10 +42,11 @@ export class ShaclShapeResolver {
     private resolveNodeShape(shape: ShaclNodeShape, sourceShapes: Term[], visited: Set<string>): {
         properties: ResolvedShaclPropertyShape[]
         composedNodeShapes: Term[]
+        constraints: ShaclConstraint[]
     } {
         const key = this.termKey(shape.id)
         if (visited.has(key)) {
-            return { properties: [], composedNodeShapes: [] }
+            return { properties: [], composedNodeShapes: [], constraints: [] }
         }
         visited.add(key)
 
@@ -52,6 +55,10 @@ export class ShaclShapeResolver {
             sourceShapes,
         }))
         const composedNodeShapes: Term[] = []
+        const constraints: ShaclConstraint[] = shape.constraints.filter(constraint =>
+            constraint.kind !== 'and' &&
+            constraint.kind !== 'node'
+        )
 
         for (const constraint of shape.constraints) {
             if (constraint.kind === 'and') {
@@ -71,12 +78,22 @@ export class ShaclShapeResolver {
                         const nested = this.resolveNodeShape(nodeShape, [...sourceShapes, member], new Set(visited))
                         properties.push(...nested.properties)
                         composedNodeShapes.push(...nested.composedNodeShapes)
+                        constraints.push(...nested.constraints)
                     }
+                }
+            } else if (constraint.kind === 'node') {
+                const nodeShape = this.options.resolveNodeShape(constraint.shape)
+                if (nodeShape) {
+                    composedNodeShapes.push(constraint.shape)
+                    const nested = this.resolveNodeShape(nodeShape, [...sourceShapes, constraint.shape], new Set(visited))
+                    properties.push(...nested.properties)
+                    composedNodeShapes.push(...nested.composedNodeShapes)
+                    constraints.push(...nested.constraints)
                 }
             }
         }
 
-        return { properties, composedNodeShapes }
+        return { properties, composedNodeShapes, constraints }
     }
 
     private dedupeResolvedProperties(properties: ResolvedShaclPropertyShape[]): ResolvedShaclPropertyShape[] {

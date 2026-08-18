@@ -7,6 +7,7 @@ import { ShaclNodeShape, ShaclParser, ShaclShapeResolver } from '../src/shacl'
 import { FormShapeCompiler } from '../src/form-shape'
 
 const EX = 'http://example.org/'
+const RML = 'http://w3id.org/rml/'
 
 function storeFromTurtle(turtle: string): Store {
     const parser = new Parser()
@@ -387,6 +388,92 @@ describe('FormShapeCompiler', () => {
         expect(logicalSource?.nodeShape?.value).toBe('http://w3id.org/rml/shapes/RMLLogicalSourceShape')
         expect(logicalSource?.nestedNodeShapes.map(shape => shape.value)).toEqual(['http://w3id.org/rml/shapes/RMLLogicalSourceShape'])
         expect(logicalSource?.compatibleNodeShapes).toEqual([])
+    })
+
+    it('includes same-focus properties from node-level sh:node composition in RML LogicalSource', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLLogicalSourceShape')
+        const labels = shape.properties.map(property => property.label)
+
+        expect(labels).toContain('rml:source')
+        expect(labels).toContain('rml:referenceFormulation')
+        expect(labels).toContain('rml:iterator')
+        expect(shape.composedNodeShapes.map(term => term.value)).toEqual(expect.arrayContaining([
+            'http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape',
+            'http://w3id.org/rml/shapes/RMLIterableShape',
+        ]))
+    })
+
+    it('projects direct RML Join alternative branches as branch-specific templates', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLJoinShape')
+        const parentAlternative = shape.properties.find(property => property.label === 'parentMap/parent')
+
+        expect(parentAlternative?.pathAlternativeLabels[`${RML}parent`]).toBe('parent')
+        expect(parentAlternative?.pathAlternativeLabels[`${RML}parentMap`]).toBe('parentMap')
+        expect(parentAlternative?.pathAlternativeBranches[`${RML}parent`]?.label).toBe('parent')
+        expect(parentAlternative?.pathAlternativeBranches[`${RML}parentMap`]?.label).toBe('parentMap')
+    })
+
+    it('projects composed RML ChildMap alternative branches as branch-specific templates', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLChildMapShape')
+        const expressionAlternative = shape.properties.find(property => property.label === 'template/constant/reference/functionExecution')
+
+        expect(expressionAlternative?.pathAlternativeLabels[`${RML}template`]).toBe('template')
+        expect(expressionAlternative?.pathAlternativeLabels[`${RML}reference`]).toBe('reference')
+        expect(expressionAlternative?.pathAlternativeBranches[`${RML}template`]?.label).toBe('template')
+        expect(expressionAlternative?.pathAlternativeBranches[`${RML}reference`]?.label).toBe('reference')
+    })
+
+    it('projects composed RML TriplesMap alternative branches as branch-specific templates', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLTriplesMapShape')
+        const subjectAlternative = shape.properties.find(property => property.label === 'subjectMap/subject/quotedTriplesMap')
+
+        expect(subjectAlternative?.pathAlternativeLabels[`${RML}subject`]).toBe('subject')
+        expect(subjectAlternative?.pathAlternativeLabels[`${RML}subjectMap`]).toBe('subjectMap')
+        expect(subjectAlternative?.pathAlternativeBranches[`${RML}subject`]?.label).toBe('subject')
+        expect(subjectAlternative?.pathAlternativeBranches[`${RML}subjectMap`]?.label).toBe('subjectMap')
+        expect(subjectAlternative?.pathAlternativeBranches[`${RML}subjectMap`]?.logicalAlternatives.map(alternative => alternative.kind)).toEqual(['or'])
+    })
+
+    it('represents RML value-only NodeShapes as focus-node value constraints', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const childShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLchildShape')
+        const strategyAppendShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLStrategyAppendShape')
+
+        expect(childShape.properties).toEqual([])
+        expect(childShape.valueConstraints.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#Literal')
+        expect(strategyAppendShape.properties).toEqual([])
+        expect(strategyAppendShape.valueConstraints.shaclIn?.map(term => term.value)).toContain(`${RML}append`)
+    })
+
+    it('includes RML-IO source shapes required by the combined demo fixture', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const sourceShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLSourceShape')
+        const relativePathSourceShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLRelativePathSourceShape')
+        const logicalSourceShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLLogicalSourceShape')
+        const sourceProperty = logicalSourceShape.properties.find(property => property.label === 'rml:source')
+
+        expect(sourceShape.properties.map(property => property.label)).toEqual(expect.arrayContaining([
+            'rml:null',
+            'rml:compression',
+            'rml:encoding',
+        ]))
+        expect(relativePathSourceShape.properties.map(property => property.label)).toEqual(expect.arrayContaining([
+            'rml:root',
+            'rml:path',
+        ]))
+        expect(sourceProperty?.nodeShape?.value).toBe('http://w3id.org/rml/shapes/RMLSourceShape')
+        expect(sourceProperty?.nestedNodeShapes.map(term => term.value)).toContain('http://w3id.org/rml/shapes/RMLSourceShape')
+        expect(sourceProperty?.compatibleNodeShapes.map(term => term.value)).not.toContain('http://w3id.org/rml/shapes/RMLRelativePathSourceShape')
     })
 
     it('keeps logical alternatives explicit', () => {

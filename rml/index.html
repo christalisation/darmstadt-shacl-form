@@ -64,14 +64,20 @@
             link.download = 'rml-output.ttl';
             link.click();
         });
+        const shapeFiles = [
+            'rml-core-io.ttl'
+        ];
+        Promise.all(
+            shapeFiles.map(file =>
+                fetch(file).then(response => response.text())
+            )
+        ).then(parts => {
+            const text = parts.join('\n\n');
 
-        fetch('rml-core-io.ttl')
-            .then(response => response.text())
-            .then(text => {
-                shapesEditor.value = text;
-                form.dataset.shapes = text;
-                form.removeAttribute('data-shapes-url');
-            });
+            shapesEditor.value = text;
+            form.dataset.shapes = text;
+            form.removeAttribute('data-shapes-url');
+        });
 
         updateLayout();
     </script>
@@ -230,6 +236,8 @@
                 id="shacl-form"
                 data-submit-button="Save"
                 data-collapse=""
+                data-values-namespace="http://example.org/"
+                data-show-node-ids
             ></shacl-form>
         </section>
 

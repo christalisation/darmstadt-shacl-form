@@ -1,0 +1,536 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rml: <http://w3id.org/rml/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xml: <http://www.w3.org/XML/1998/namespace> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://w3id.org/rml/shapes/RMLIterableShape> a sh:NodeShape ;
+    rdfs:label "Iterable" ;
+    rdfs:comment """\r
+    An abstract construct to describe data access and iteration for a data source.\r
+    """ ;
+    sh:message """\r
+    Iterable must specify how to generate logical iterations on a data source.\r
+    """ ;
+    sh:property [ rdfs:label "rml:referenceFormulation" ;
+            rdfs:comment """\r
+        The reference formulation (rml:referenceFormulation) defines how to \r
+        reference to elements of the data of the input source.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        rml:referenceFormulation must be a blank node or IRI specifying the \r
+        reference formulation on how to reference elements of a data source,\r
+        and may be provided at most once.\r
+        """ ;
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:path rml:referenceFormulation ],
+        [ rdfs:label "rml:iterator" ;
+            rdfs:comment """\r
+        The logical iterator (rml:iterator) defines the iteration loop used to \r
+        map the data of the input source. Depends on the reference formulation\r
+        if an iterator is necessary.  \r
+        """ ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        rml:iterator specifies the iterator to iterate over\r
+        the data source, and may be provided at most once.\r
+        """ ;
+            sh:nodeKind sh:Literal ;
+            sh:path rml:iterator ] .
+
+<http://w3id.org/rml/shapes/RMLStrategyShape> a sh:NodeShape ;
+    rdfs:label "Strategy" ;
+    sh:targetClass rml:Strategy .
+
+<http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> a sh:NodeShape ;
+    rdfs:label "Abstract Logical Source" ;
+    rdfs:comment """\r
+    A sub-class of iterable that can be associated with a triples map such that a data source can be mapped to RDF triples.\r
+    """ ;
+    sh:message """\r
+    rml:AbstractLogicalSource must specify how to generate logical iterations on a data source for a triples map.\r
+    """ .
+
+<http://w3id.org/rml/shapes/RMLChildMapShape> a sh:NodeShape ;
+    rdfs:label "ChildMap" ;
+    rdfs:comment """\r
+    Represents a Child Map.\r
+    """ ;
+    sh:message """\r
+    rml:ChildMap must specify a literal referencing data in the child data\r
+    source.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLExpressionMapShape> .
+
+<http://w3id.org/rml/shapes/RMLDatatypeMapShape> a sh:NodeShape ;
+    rdfs:label "DatatypeMap" ;
+    rdfs:comment """\r
+    Represents a Datatype Map.\r
+    """ ;
+    sh:message """\r
+    rml:DatatypeMap must specify an rml:template, rml:reference, or rml:constant\r
+    with the IRI of the datatype.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLTermMapShape> .
+
+<http://w3id.org/rml/shapes/RMLGraphMapShape> a sh:NodeShape ;
+    rdfs:label "GraphMap" ;
+    rdfs:comment """\r
+    Represents a Graph Map.\r
+    """ ;
+    sh:message """\r
+    rml:GraphMap must specify an rml:template, rml:reference or rml:constant\r
+    with the IRI of the Named Graph.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLTermMapShape> ;
+    sh:property [ sh:in ( rml:IRI rml:UnsafeIRI rml:URI rml:UnsafeURI rml:BlankNode ) ;
+            sh:message """\r
+        rml:termType must be an rml:IRI, rml:UnsafeIRI, rml:URI,\r
+        rml:UnsafeURI, or rml:BlankNode for a Graph Map.\r
+        """ ;
+            sh:path rml:termType ] .
+
+<http://w3id.org/rml/shapes/RMLJoinShape> a sh:NodeShape ;
+    rdfs:label "Join" ;
+    rdfs:comment """\r
+    Represents a Join.\r
+    """ ;
+    sh:message """\r
+    rml:Join must specify exactly one rml:parent/rml:parentMap \r
+    and rml:child/rml:childMap.\r
+    """ ;
+    sh:property [ rdfs:label "parentMap/parent" ;
+            rdfs:comment """\r
+        rml:parent/rml:parentMap may only be provided once and \r
+        not at the same time.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path [ sh:alternativePath ( rml:parentMap rml:parent ) ] ],
+        [ rdfs:label "childMap" ;
+            rdfs:comment """\r
+        Specifies the child of the object component for joining.\r
+        """ ;
+            sh:message """\r
+        rml:childMap must point to a rml:ChildMap specifying the\r
+        child of the Literal.\r
+        """ ;
+            sh:node <http://w3id.org/rml/shapes/RMLChildMapShape> ;
+            sh:path rml:childMap ],
+        [ rdfs:label "child" ;
+            rdfs:comment """\r
+        Specifies the child of the object component for joining.\r
+        """ ;
+            sh:datatype xsd:string ;
+            sh:nodeKind sh:Literal ;
+            sh:path rml:child ],
+        [ rdfs:label "parentMap" ;
+            rdfs:comment """\r
+        Specifies the parent of the object component for joining.\r
+        """ ;
+            sh:message """\r
+        rml:parentMap must point to a rml:ParentMap specifying the \r
+        parent tag of the string Literal.\r
+        """ ;
+            sh:node <http://w3id.org/rml/shapes/RMLParentMapShape> ;
+            sh:path rml:parentMap ],
+        [ rdfs:label "parent" ;
+            rdfs:comment """\r
+        Specifies the parent of the object component for joining.\r
+        """ ;
+            sh:datatype xsd:string ;
+            sh:nodeKind sh:Literal ;
+            sh:path rml:parent ],
+        [ rdfs:label "childMap/child" ;
+            rdfs:comment """\r
+        rml:child/rml:childMap may only be provided once and \r
+        not at the same time.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path [ sh:alternativePath ( rml:childMap rml:child ) ] ] .
+
+<http://w3id.org/rml/shapes/RMLLanguageMapShape> a sh:NodeShape ;
+    rdfs:label "LanguageMap" ;
+    rdfs:comment """\r
+    Represents a Language Map.\r
+    """ ;
+    sh:message """\r
+    rml:LanguageMap must specify an rml:template, rml:reference, or rml:constant\r
+    with the BCP47 name of the language as string.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLExpressionMapShape> ;
+    sh:property [ sh:path rml:constant ;
+            sh:pattern "^((?:(en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE)|(art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang))|((?:([A-Za-z]{2,3}(-(?:[A-Za-z]{3}(-[A-Za-z]{3}){0,2}))?)|[A-Za-z]{4})(-(?:[A-Za-z]{4}))?(-(?:[A-Za-z]{2}|[0-9]{3}))?(-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(-(?:[0-9A-WY-Za-wy-z](-[A-Za-z0-9]{2,8})+))*(-(?:x(-[A-Za-z0-9]{1,8})+))?)|(?:x(-[A-Za-z0-9]{1,8})+))$" ] .
+
+<http://w3id.org/rml/shapes/RMLObjectMapShape> a sh:NodeShape ;
+    rdfs:label "ObjectMap" ;
+    rdfs:comment """\r
+    Represents an Object Map.\r
+    """ ;
+    sh:message """\r
+    Object Map must generate a IRI, Blank Node, or Literal which has optionally\r
+    a language tag or datatype.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLTermMapShape> ;
+    sh:property [ rdfs:label "languageMap/datatypeMap/language/datatype" ;
+            rdfs:comment """\r
+        rml:language/rml:languageMap and rml:datatype/rml:datatypeMap\r
+        may only be provided once and not at the same time.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:minCount 0 ;
+            sh:path [ sh:alternativePath ( rml:languageMap rml:datatypeMap rml:language rml:datatype ) ] ],
+        [ rdfs:label "datatype" ;
+            rdfs:comment """\r
+        Datatype for the object.\r
+        """ ;
+            sh:nodeKind sh:IRI ;
+            sh:path rml:datatype ],
+        [ rdfs:label "languageMap" ;
+            rdfs:comment """\r
+        Specified the language map for the object component for the \r
+        generated RDF triples.\r
+        """ ;
+            sh:message """\r
+        rml:languageMap must point to a rml:LanguageMap specifying the \r
+        language tag of the string Literal.\r
+        """ ;
+            sh:node <http://w3id.org/rml/shapes/RMLLanguageMapShape> ;
+            sh:path rml:languageMap ],
+        [ rdfs:label "datatypeMap" ;
+            rdfs:comment """\r
+        Specifies the datatype of the object component for the generated \r
+        RDF triples.\r
+        """ ;
+            sh:message """\r
+        rml:datatypeMap must point to a rml:DatatypeMap specifying the\r
+        datatype of the Literal.\r
+        """ ;
+            sh:node <http://w3id.org/rml/shapes/RMLDatatypeMapShape> ;
+            sh:path rml:datatypeMap ],
+        [ rdfs:label "language" ;
+            rdfs:comment """\r
+        Language tag for the object.\r
+        """ ;
+            xsd:datatype xsd:string ;
+            sh:nodeKind sh:Literal ;
+            sh:path rml:language ;
+            sh:pattern "^((?:(en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE)|(art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang))|((?:([A-Za-z]{2,3}(-(?:[A-Za-z]{3}(-[A-Za-z]{3}){0,2}))?)|[A-Za-z]{4})(-(?:[A-Za-z]{4}))?(-(?:[A-Za-z]{2}|[0-9]{3}))?(-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(-(?:[0-9A-WY-Za-wy-z](-[A-Za-z0-9]{2,8})+))*(-(?:x(-[A-Za-z0-9]{1,8})+))?)|(?:x(-[A-Za-z0-9]{1,8})+))$" ] .
+
+<http://w3id.org/rml/shapes/RMLParentMapShape> a sh:NodeShape ;
+    rdfs:label "ParentMap" ;
+    rdfs:comment """\r
+    Represents a Parent Map.\r
+    """ ;
+    sh:message """\r
+    rml:ParentMap must specify a literal referencing data in the parent data\r
+    source.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLExpressionMapShape> .
+
+<http://w3id.org/rml/shapes/RMLPredicateMapShape> a sh:NodeShape ;
+    rdfs:label "PredicateMap" ;
+    rdfs:comment """\r
+    Represents a Predicate Map.\r
+    """ ;
+    sh:message """\r
+    Predicate Object Map must generate an IRI representing the predicate of an\r
+    RDF triple.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLTermMapShape> ;
+    sh:property [ sh:in ( rml:IRI rml:UnsafeIRI rml:URI rml:UnsafeURI ) ;
+            sh:message """\r
+        rml:termType for Predicate Map can only be a rml:IRI, rml:UnsafeIRI,\r
+        rml:URI, or rml:UnsafeURI;\r
+        """ ;
+            sh:path rml:termType ] .
+
+<http://w3id.org/rml/shapes/RMLPredicateObjectMapShape> a sh:NodeShape ;
+    rdfs:label "PredicateObjectMap" ;
+    rdfs:comment """\r
+    Represents a Predicate Object Map.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLSubjectMapORPredicateObjectMapShape> ;
+    sh:property [ rdfs:label "predicate/predicateMap" ;
+            rdfs:comment """\r
+        At least one rml:predicate or rml:predicateMap must be provided.\r
+        """ ;
+            sh:message """\r
+        At least one rml:predicate or rml:predicateMap must be provided.\r
+        """ ;
+            sh:minCount 1 ;
+            sh:path [ sh:alternativePath ( rml:predicate rml:predicateMap ) ] ],
+        [ rdfs:label "objectMap" ;
+            rdfs:comment """\r
+        An ObjectMap element to generate the object component of the \r
+        (predicate, object) pair from a logical table row or iterator.\r
+        """ ;
+            sh:message """\r
+        rml:objectMap must be an IRI or blank node and be provided once.\r
+        """ ;
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:or ( [ sh:node <http://w3id.org/rml/shapes/RMLObjectMapShape> ] [ sh:node <http://w3id.org/rml/shapes/RMLRefObjectMapShape> ] ) ;
+            sh:path rml:objectMap ],
+        [ rdfs:label "object" ;
+            rdfs:comment """\r
+        Specifies the object for the generated RDF triples.\r
+        """ ;
+            sh:message """\r
+        rml:object must be an IRI and be provided once.\r
+        """ ;
+            sh:path rml:object ],
+        [ rdfs:label "predicateMap" ;
+            rdfs:comment """\r
+        A PredicateMap element to generate the predicate component of the \r
+        (predicate, object) pair from a logical table row or iterator.\r
+        """ ;
+            sh:message """\r
+        rml:predicateMap must be an IRI or blank node and be provided once.\r
+        """ ;
+            sh:node <http://w3id.org/rml/shapes/RMLPredicateMapShape> ;
+            sh:path rml:predicateMap ],
+        [ rdfs:label "predicate" ;
+            rdfs:comment """\r
+        Specifies the predicate for the generated triple from the logical table \r
+        row or iterator.\r
+        """ ;
+            sh:message """\r
+        rml:predicate must be an IRI and be provided once.\r
+        """ ;
+            sh:nodeKind sh:IRI ;
+            sh:path rml:predicate ],
+        [ rdfs:label "object/objectMap" ;
+            rdfs:comment """\r
+        Either an rml:object or rml:objectMap must be provided, not multiple.\r
+        """ ;
+            sh:message """\r
+        Either an rml:object or rml:objectMap must be provided, not multiple\r
+        """ ;
+            sh:minCount 1 ;
+            sh:path [ sh:alternativePath ( rml:object rml:objectMap ) ] ] .
+
+<http://w3id.org/rml/shapes/RMLRefObjectMapShape> a sh:NodeShape ;
+    rdfs:label "RefObjectMap" ;
+    rdfs:comment """\r
+    Represents a Reference Object Map.\r
+    """ ;
+    sh:message """\r
+    rml:RefObjectMap must specify a rml:parentTriplesMap and zero or more \r
+    rml:joinConditions.\r
+    """ ;
+    sh:property [ rdfs:label "parentTriplesMap" ;
+            rdfs:comment """\r
+        Specifies the Triples Map element corresponding to the parent data\r
+        source of the foreign key constraint.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        rml:parentTriplesMap may only be provided once and must be an IRI\r
+        or Blank Node referring to a Triples Map.\r
+        """ ;
+            sh:minCount 1 ;
+            sh:node <http://w3id.org/rml/shapes/RMLTriplesMapShape> ;
+            sh:path rml:parentTriplesMap ],
+        [ rdfs:label "joinCondition" ;
+            sh:node <http://w3id.org/rml/shapes/RMLJoinShape> ;
+            sh:path rml:joinCondition ] .
+
+<http://w3id.org/rml/shapes/RMLSubjectMapShape> a sh:NodeShape ;
+    rdfs:label "SubjectMap" ;
+    rdfs:comment """\r
+    Represents a Subject Map.\r
+    """ ;
+    sh:message """\r
+    Subject Map must generate a resource representing the subject of\r
+    an RDF triple.\r
+    """ ;
+    sh:and ( <http://w3id.org/rml/shapes/RMLSubjectMapORPredicateObjectMapShape> <http://w3id.org/rml/shapes/RMLTermMapShape> ) ;
+    sh:property [ rdfs:label "class" ;
+            rdfs:comment """\r
+        The subject value generated will be asserted as an instance of this\r
+        RDFS class.\r
+        """ ;
+            sh:message """\r
+        rml:class must be an IRI and may be specified multiple times.\r
+        """ ;
+            sh:nodeKind sh:IRI ;
+            sh:path rml:class ],
+        [ sh:in ( rml:IRI rml:UnsafeIRI rml:URI rml:UnsafeURI rml:BlankNode ) ;
+            sh:message """\r
+        rml:termType must be a rml:IRI, rml:UnsafeIRI, rml:URI,\r
+        rml:UnsafeURI, or rml:BlankNode for a Subject Map.\r
+        """ ;
+            sh:path rml:termType ] .
+
+<http://w3id.org/rml/shapes/RMLTriplesMapShape> a sh:NodeShape ;
+    rdfs:label "TriplesMap" ;
+    rdfs:comment """\r
+    Represents a Triples Map.\r
+    """ ;
+    sh:message """\r
+    Triples Map requires exactly one rml:subject or one rml:subjectMap and zero\r
+    or more rml:predicateObjectMaps.\r
+    """ ;
+    sh:property [ rdfs:label "logicalSource" ;
+            rdfs:comment """\r
+        A logical source is any source that is mapped to RDF triples.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        Exactly one rml:logicalSource is required to access the data source.\r
+        """ ;
+            sh:minCount 1 ;
+            sh:node <http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> ;
+            sh:path rml:logicalSource ],
+        [ rdfs:label "subjectMap/subject" ;
+            rdfs:comment """\r
+        Either a rml:subject, rml:subjectMap is required, not multiple.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        Either a rml:subject, rml:subjectMap is required, not multiple.\r
+        """ ;
+            sh:minCount 1 ;
+            sh:path [ sh:alternativePath ( rml:subjectMap rml:subject ) ] ],
+        [ rdfs:label "subjectMap" ;
+            rdfs:comment """\r
+        A Subject Map element to generate a subject for generated RDF triples.\r
+        """ ;
+            sh:message """\r
+        rml:SubjectMap must be an IRI or blank node.\r
+        """ ;
+            sh:node <http://w3id.org/rml/shapes/RMLSubjectMapShape> ;
+            sh:path rml:subjectMap ],
+        [ rdfs:label "subject" ;
+            rdfs:comment """\r
+        An IRI reference for use as subject for all generated RDF triples.\r
+        """ ;
+            sh:message """\r
+        rml:subject must be an IRI or blank node.\r
+        """ ;
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:path rml:subject ],
+        [ rdfs:label "predicateObjectMap" ;
+            rdfs:comment """\r
+        A Predicate Object Map element to generate a (predicate, object) pair.\r
+        """ ;
+            sh:message """\r
+        rml:PredicateObjectMap must be an IRI or blank node.\r
+        """ ;
+            sh:node <http://w3id.org/rml/shapes/RMLPredicateObjectMapShape> ;
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:path rml:predicateObjectMap ],
+        [ sh:description """\r
+        Base IRI to use for generating RDF triples or quads.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        rml:baseIRI must be an IRI.\r
+        """ ;
+            sh:nodeKind sh:IRI ;
+            sh:path rml:baseIRI ] ;
+    sh:targetClass rml:TriplesMap ;
+    sh:targetObjectsOf rml:parentTriplesMap ;
+    sh:targetSubjectsOf rml:baseIRI,
+        rml:logicalSource,
+        rml:predicateObjectMap,
+        rml:subject,
+        rml:subjectMap .
+
+<http://w3id.org/rml/shapes/RMLSubjectMapORPredicateObjectMapShape> a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:path [ sh:alternativePath ( rml:graph rml:graphMap ) ] ],
+        [ sh:node <http://w3id.org/rml/shapes/RMLGraphMapShape> ;
+            sh:path rml:graphMap ],
+        [ sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:path rml:graph ] .
+
+<http://w3id.org/rml/shapes/RMLExpressionMapShape> a sh:NodeShape ;
+    rdfs:label "ExpressionMap" ;
+    rdfs:comment """\r
+    Represents a Expression Map.\r
+    """ ;
+    sh:message """\r
+    Expression Map must have one of rml:template, rml:constant, or\r
+    rml:reference, unless rml:termType is rml:BlankNode with no expression.\r
+    """ ;
+    sh:or ( [ sh:property [ sh:minCount 1 ;
+                        sh:path [ sh:alternativePath ( rml:template rml:constant rml:reference ) ] ] ] [ sh:property [ sh:hasValue rml:BlankNode ;
+                        sh:path rml:termType ] ] ) ;
+    sh:property [ rdfs:label "template/constant/reference" ;
+            rdfs:comment """\r
+            Only one of rml:template, rml:constant, or rml:reference is\r
+            allowed.\r
+        """ ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        Only one of rml:template, rml:constant, or rml:reference is allowed.\r
+        """ ;
+            sh:path [ sh:alternativePath ( rml:template rml:constant rml:reference ) ] ],
+        [ rdfs:label "template" ;
+            rdfs:comment """\r
+        A template (format string) to specify how to generate a value for a \r
+        subject, predicate, or object, using one or more columns from a logical\r
+        table row or iterator.\r
+        """ ;
+            sh:datatype xsd:string ;
+            sh:message """\r
+        rml:template must be a string.\r
+        """ ;
+            sh:nodeKind sh:Literal ;
+            sh:path rml:template ],
+        [ rdfs:label "constant" ;
+            rdfs:comment """\r
+        A property for indicating whether a term map is a constant-valued term \r
+        map.\r
+        """ ;
+            sh:message """\r
+        rml:constant must be an IRI or Literal.\r
+        """ ;
+            sh:path rml:constant ],
+        [ rdfs:label "reference" ;
+            rdfs:comment """\r
+        A reference rml:reference is used to refer to a column in case of \r
+        databases, a record in case of CSV or TSV data source, an element in \r
+        case of XML data source, an object in case of a JSON data source, etc.\r
+\r
+        A reference must be a valid identifier, considering the reference \r
+        formulation (rml:referenceFormulation) specified. The reference can be\r
+        an absolute path, or a path relative to the iterator specified at the \r
+        logical source. \r
+        """ ;
+            sh:datatype xsd:string ;
+            sh:message """\r
+        rml:reference must be a string.\r
+        """ ;
+            sh:nodeKind sh:Literal ;
+            sh:path rml:reference ] .
+
+<http://w3id.org/rml/shapes/RMLTermMapShape> a sh:NodeShape ;
+    rdfs:label "TermMap" ;
+    rdfs:comment """\r
+    Represents a Term Map.\r
+    """ ;
+    sh:message """\r
+    Term Map is an Expression Map with optionally a term type specified.\r
+    """ ;
+    sh:node <http://w3id.org/rml/shapes/RMLExpressionMapShape> ;
+    sh:property [ rdfs:label "termType" ;
+            rdfs:comment """\r
+        An IRI indicating whether a generated term should be an IRI, \r
+        Blank Node, or a Literal.\r
+        """ ;
+            sh:in ( rml:IRI rml:UnsafeIRI rml:URI rml:UnsafeURI rml:Literal rml:BlankNode ) ;
+            sh:maxCount 1 ;
+            sh:message """\r
+        rml:termType must be either rml:IRI, rml:UnsafeIRI,\r
+        rml:URI, rml:UnsafeURI, rml:Literal, or rml:BlankNode for a Term Map.\r
+        May only be provided once.\r
+        """ ;
+            sh:nodeKind sh:IRI ;
+            sh:path rml:termType ] .
+

@@ -89,6 +89,7 @@ export class ShaclPropertyTemplate {
     pathExpression: ShaclPath | undefined
     pathAlternatives: string[] | undefined
     pathAlternativeLabels: Record<string, string> = {}
+    pathAlternativeBranches: Record<string, FormPropertyShape> = {}
     node: NamedNode | BlankNode | undefined
     class: NamedNode | undefined
     minCount: number | undefined
@@ -152,6 +153,7 @@ export class ShaclPropertyTemplate {
         this.path = shape.writablePath?.value || shape.pathAlternatives?.[0]?.value
         this.pathAlternatives = shape.pathAlternatives?.map(path => path.value)
         this.pathAlternativeLabels = { ...shape.pathAlternativeLabels }
+        this.pathAlternativeBranches = { ...shape.pathAlternativeBranches }
         const nodeShape = shape.compatibleNodeShapes.length === 1
             ? shape.compatibleNodeShapes[0]
             : shape.nodeShape
@@ -292,6 +294,16 @@ export class ShaclPropertyTemplate {
     }
 
     createTemplateForAlternativePath(path: string): ShaclPropertyTemplate {
+        const branchShape = this.pathAlternativeBranches[path]
+        if (branchShape) {
+            const template = new ShaclPropertyTemplate(this.config.store.getQuads(branchShape.id, null, null, null), this.parent, this.config, branchShape)
+            template.path = path
+            template.pathExpression = branchShape.path || template.pathExpression
+            template.minCount = this.minCount
+            template.maxCount = this.maxCount
+            return template
+        }
+
         const propertyShape = this.findSiblingPropertyShapeByPath(path)
         if (propertyShape) {
             const formPropertyShape = this.config.shapeGraph.getFormPropertyShape(propertyShape)
@@ -410,6 +422,7 @@ export class ShaclPropertyTemplate {
             copy.pathAlternatives = [ ...this.pathAlternatives ]
         }
         copy.pathAlternativeLabels = { ...this.pathAlternativeLabels }
+        copy.pathAlternativeBranches = { ...this.pathAlternativeBranches }
         if (this.shaclOr) {
             copy.shaclOr = [ ...this.shaclOr ]
         }

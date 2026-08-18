@@ -75,7 +75,11 @@ export class ShaclNodeCollection {
     }
 
     public createNodeId(shapeSubject: NodeShapeTerm, nodeKind?: NamedNode): NamedNode | BlankNode {
-        if ((nodeKind === undefined && this.config.attributes.valuesNamespace) || nodeKind?.value === `${PREFIX_SHACL}IRI`) {
+        if (
+            nodeKind?.value === `${PREFIX_SHACL}IRI` ||
+            (nodeKind?.value === `${PREFIX_SHACL}BlankNodeOrIRI` && this.config.attributes.valuesNamespace) ||
+            (nodeKind === undefined && this.config.attributes.valuesNamespace)
+        ) {
             return DataFactory.namedNode(this.uniqueResourceIri(shapeSubject))
         }
 
