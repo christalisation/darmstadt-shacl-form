@@ -1,4 +1,4 @@
-form { display:block; --label-width: 8em; --caret-size: 10px; }
+form { display:block; --label-width: min(14rem, 42vw); --caret-size: 10px; }
 form.mode-edit { padding-left: 1em;  }
 form, form * { box-sizing: border-box; }
 shacl-node, .collapsible::part(content) { display: flex; flex-direction: column; width: 100%; position: relative; }
@@ -12,21 +12,21 @@ shacl-property:not(.may-add) > .add-button { display: none; }
 shacl-property:not(.may-remove) > .property-instance > .remove-button:not(.persistent) { visibility: hidden; }
 shacl-property:not(.may-remove) > .shacl-or-constraint > .remove-button:not(.persistent) { visibility: hidden; }
 .mode-view .shacl-group:not(:has(shacl-property)) { display: none; }
-.property-instance, .shacl-or-constraint, .alternative-path-constraint { display: flex; align-items: flex-start; padding: 4px 0; width: 100%; position: relative; }
+.property-instance, .shacl-or-constraint, .alternative-path-constraint { display: flex; align-items: flex-start; gap: 0.75rem; padding: 6px 0; width: 100%; position: relative; }
 .shacl-or-constraint { flex-direction: column; align-items: stretch; }
 .shacl-or-constraint > div { display: flex; flex-grow: 1; align-items: flex-start; width: 100%; }
 .shacl-or-content { flex-direction: column; }
-.alternative-path-constraint label { display: inline-flex; word-break: break-word; line-height: 1em; padding-top: 0.15em; padding-right: 1em; flex-shrink: 0; position: relative; width: var(--label-width); }
+.alternative-path-constraint label { display: inline-flex; overflow-wrap: anywhere; line-height: 1.25; padding-top: 0.15em; padding-right: 0.75rem; flex-shrink: 0; position: relative; width: var(--label-width); }
 /* .shacl-or-constraint label { display: inline-block; word-break: break-word; width: var(--label-width); line-height: 1em; padding-top: 0.15em; padding-right: 1em; flex-shrink: 0; position: relative; } */
 .property-instance label[title] { cursor: help; text-decoration: underline dashed #AAA; }
 .property-instance.linked label:after, label.linked:after { content: '\1F517'; font-size: 0.6em; padding-left: 6px; }
 .mode-edit .property-instance label.required::before { color: red; content: '\2736'; font-size: 0.6rem; position: absolute; left: -1.4em; top: 0.15rem; }
 .mode-edit .alternative-path-constraint label.required::before { color: red; content: '\2736'; font-size: 0.6rem; position: absolute; left: -1.4em; top: 0.15rem; }
-.property-instance:has(> shacl-node) { flex-direction: column; align-items: stretch; }
-.property-instance:has(> shacl-node) > label { width: auto; max-height: none; visibility: visible; padding-bottom: 0.35em; }
-.property-instance:has(> shacl-node) > shacl-node { width: 100%; }
+.property-instance:has(> shacl-node), .nested-property-instance { flex-direction: column; align-items: stretch; gap: 0.45rem; padding: 0.75rem 0 0.8rem 0.75rem; margin: 0.35rem 0 0.75rem; border-left: 3px solid #DDD; }
+.property-instance:has(> shacl-node) > label, .nested-property-instance > label { width: auto; max-height: none; visibility: visible; padding: 0 0 0.1rem; line-height: 1.25; overflow-wrap: anywhere; }
+.property-instance:has(> shacl-node) > shacl-node, .nested-property-instance > shacl-node { width: 100%; padding-left: 0.75rem; }
 .property-instance.valid::before { content: ''; position: absolute; left: calc(var(--label-width) - 1em); top:0.5em; width: 0.9em; height: 0.9em; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1024 1024" fill="green" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M866.133333 258.133333L362.666667 761.6l-204.8-204.8L98.133333 618.666667 362.666667 881.066667l563.2-563.2z"/></svg>'); }
-.editor:not([type='checkbox']) { flex-grow: 1; }
+.editor:not([type='checkbox']) { flex-grow: 1; min-width: 0; }
 textarea.editor { resize: vertical; }
 .lang-chooser { border: 0; background-color: #e9e9ed; padding: 2px 4px; align-self: flex-start; }
 .validation-error { position: absolute; left: calc(var(--label-width) - 1em); color: red; cursor: help; }
@@ -55,4 +55,7 @@ a, a:visited { color: inherit; }
 .collapsible > .property-instance > shacl-node > h1 { display: none; }
 .ref-link { cursor: pointer; }
 .ref-link:hover { text-decoration: underline; }
-.node-id-display { color: #999; font-size: 11px; }
+.node-id-display { display: flex; align-items: center; gap: 0.5rem; width: 100%; min-width: 0; margin: 0.3rem 0 0.65rem; color: #777; font-size: 12px; line-height: 1.3; }
+shacl-node > .node-id-display > .node-id-label { flex: 0 0 auto; width: auto; min-width: 4.8rem; padding: 0; color: #777; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+shacl-node > .node-id-display > .node-id-value { min-width: 0; overflow-wrap: anywhere; color: #666; }
+shacl-node > .node-id-display > .node-id-editor { flex: 1 1 auto; width: 100%; min-width: 12rem; max-width: 100%; padding: 0.2rem 0.35rem; font: inherit; color: inherit; }

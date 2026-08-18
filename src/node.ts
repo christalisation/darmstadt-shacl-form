@@ -249,15 +249,24 @@ export class ShaclNode extends HTMLElement {
         const wrapper = document.createElement('div')
         wrapper.classList.add('node-id-display')
 
-        if (!this.config.editMode || this.linked || this.nodeId.termType !== 'NamedNode') {
-            wrapper.innerText = `id: ${this.nodeId.id}`
+        if (this.nodeId.termType === 'BlankNode') {
+            wrapper.appendChild(this.createNodeIdLabel('Blank node:'))
+            wrapper.appendChild(this.createNodeIdValue(this.nodeId.id))
+            return wrapper
+        }
+
+        if (!this.config.editMode || this.linked) {
+            wrapper.appendChild(this.createNodeIdLabel('IRI:'))
+            wrapper.appendChild(this.createNodeIdValue(this.nodeId.id))
             return wrapper
         }
 
         const label = document.createElement('label')
-        label.innerText = 'id: '
+        label.classList.add('node-id-label')
+        label.innerText = 'IRI:'
         const input = document.createElement('input')
         input.classList.add('node-id-editor')
+        input.setAttribute('aria-label', 'RDF node IRI')
         input.value = this.nodeId.value
         input.addEventListener('change', () => {
             const value = input.value.trim()
@@ -278,9 +287,23 @@ export class ShaclNode extends HTMLElement {
             input.setCustomValidity('')
             input.value = this.nodeId.value
         })
-        label.appendChild(input)
         wrapper.appendChild(label)
+        wrapper.appendChild(input)
         return wrapper
+    }
+
+    private createNodeIdLabel(text: string): HTMLElement {
+        const label = document.createElement('span')
+        label.classList.add('node-id-label')
+        label.innerText = text
+        return label
+    }
+
+    private createNodeIdValue(text: string): HTMLElement {
+        const value = document.createElement('span')
+        value.classList.add('node-id-value')
+        value.innerText = text
+        return value
     }
 
     private isValidIri(value: string): boolean {

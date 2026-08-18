@@ -415,7 +415,7 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
 
         // Create the main container for the property instance
         instance = document.createElement('div');
-        instance.classList.add('property-instance');
+        instance.classList.add('property-instance', 'nested-property-instance');
 
         // Create the label for the property
         const labelElem = document.createElement('label');
