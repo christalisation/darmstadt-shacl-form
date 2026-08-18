@@ -340,10 +340,8 @@ export class ShaclProperty extends HTMLElement {
             }
         }
         for (const shape of this.template.extendedShapes) {
-            if (shape.termType === 'NamedNode') {
-                for (const node of this.template.parent.nodeCollection.findNodesByShape(shape)) {
-                    nodes.set(node.nodeId.id, node)
-                }
+            for (const node of this.template.parent.nodeCollection.findNodesByShape(shape)) {
+                nodes.set(node.nodeId.id, node)
             }
         }
         return Array.from(nodes.values()).filter(node => !this.isCurrentPathNode(node))

@@ -267,7 +267,26 @@ describe('ShapeGraphModel', () => {
         ])
     })
 
-    it('keeps explicit root configuration stronger than generic classification', () => {
+    it('keeps anonymous NodeShapes available without treating PropertyShapes as roots', () => {
+        const model = shapeGraph(`
+            [
+                a sh:NodeShape ;
+                sh:name "Anonymous Shape" ;
+                sh:property [ sh:path ex:value ]
+            ] .
+
+            ex:NamedPropertyShape a sh:PropertyShape ;
+                sh:path ex:notARoot .
+        `)
+
+        const roots = model.findRootNodeShapes()
+
+        expect(roots).toHaveLength(1)
+        expect(roots[0].termType).toBe('BlankNode')
+        expect(model.getFormNodeShape(roots[0])?.label).toBe('Anonymous Shape')
+    })
+
+    it('keeps explicit root configuration stronger than broad root fallback', () => {
         const model = shapeGraph(`
             ex:ValueOnlyShape a sh:NodeShape ;
                 sh:datatype xsd:string ;

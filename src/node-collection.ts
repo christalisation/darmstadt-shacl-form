@@ -1,6 +1,8 @@
 import { ShaclNode } from './node'
 import { Config } from './config'
 import { BlankNode, DataFactory, NamedNode, Store } from 'n3'
+import { PREFIX_SHACL } from './constants'
+import type { NodeShapeTerm } from './shape-graph-model'
 
 /**
  * Runtime collection of rendered SHACL nodes.
@@ -34,7 +36,7 @@ export class ShaclNodeCollection {
         }
     }
 
-    public createRootNode(subject: NamedNode, valueSubject?: NamedNode | BlankNode): ShaclNode {
+    public createRootNode(subject: NodeShapeTerm, valueSubject?: NamedNode | BlankNode): ShaclNode {
         const label = this.config.shapeGraph.getLabel(subject);
         return new ShaclNode(subject, this, valueSubject, undefined, undefined, label || subject.value);
     }
@@ -72,6 +74,36 @@ export class ShaclNodeCollection {
         }
     }
 
+    public createNodeId(shapeSubject: NodeShapeTerm, nodeKind?: NamedNode): NamedNode | BlankNode {
+        if ((nodeKind === undefined && this.config.attributes.valuesNamespace) || nodeKind?.value === `${PREFIX_SHACL}IRI`) {
+            return DataFactory.namedNode(this.uniqueResourceIri(shapeSubject))
+        }
+
+        return DataFactory.blankNode(this.uniqueBlankNodeId(shapeSubject))
+    }
+
+    public canUseNodeId(node: ShaclNode, nodeId: NamedNode | BlankNode): boolean {
+        if (node.nodeId.equals(nodeId)) {
+            return true
+        }
+        const existingNode = this.allNodesById.get(nodeId.id)
+        return (!existingNode || existingNode === node) && !this.config.store.countQuads(nodeId, null, null, null)
+    }
+
+    public updateNodeId(node: ShaclNode, nodeId: NamedNode | BlankNode): boolean {
+        if (!this.canUseNodeId(node, nodeId)) {
+            return false
+        }
+
+        this.allNodesById.delete(node.nodeId.id)
+        this.config.renderedNodes.delete(this.renderedNodeKey(node.shaclSubject, node.nodeId))
+        node.nodeId = nodeId
+        node.dataset.nodeId = nodeId.id
+        this.allNodesById.set(nodeId.id, node)
+        this.config.renderedNodes.add(this.renderedNodeKey(node.shaclSubject, nodeId))
+        return true
+    }
+
     public findNodeById(nodeId: NamedNode | BlankNode | string): ShaclNode | undefined {
         const id = typeof nodeId === 'string' ? nodeId : nodeId.id
         return this.allNodesById.get(id)
@@ -81,7 +113,7 @@ export class ShaclNodeCollection {
         return this.findReusableNodes(node => node.targetClass?.equals(clazz) || false)
     }
 
-    public findNodesByShape(shape: NamedNode): ShaclNode[] {
+    public findNodesByShape(shape: NodeShapeTerm): ShaclNode[] {
         return this.findReusableNodes(node => node.shaclSubject.equals(shape))
     }
 
@@ -97,6 +129,48 @@ export class ShaclNodeCollection {
             current = current.parent
         }
         return this.committedRootNodes.includes(current)
+    }
+
+    private uniqueResourceIri(shapeSubject: NodeShapeTerm): string {
+        const namespace = this.config.attributes.valuesNamespace || 'urn:shacl-form:'
+        return this.uniqueIdentifier(shapeSubject, candidate => {
+            const iri = namespace + candidate
+            const node = DataFactory.namedNode(iri)
+            return !this.allNodesById.has(node.id) && !this.config.store.countQuads(node, null, null, null)
+        }, namespace)
+    }
+
+    private uniqueBlankNodeId(shapeSubject: NodeShapeTerm): string {
+        return this.uniqueIdentifier(shapeSubject, candidate => {
+            const blankNode = DataFactory.blankNode(candidate)
+            return !this.allNodesById.has(blankNode.id) && !this.config.store.countQuads(blankNode, null, null, null)
+        })
+    }
+
+    private uniqueIdentifier(shapeSubject: NodeShapeTerm, available: (candidate: string) => boolean, namespace = ''): string {
+        const base = this.identifierBase(shapeSubject)
+        let index = 1
+        while (true) {
+            const candidate = `${base}-${index}`
+            if (available(candidate)) {
+                return namespace + candidate
+            }
+            index++
+        }
+    }
+
+    private identifierBase(shapeSubject: NodeShapeTerm): string {
+        const label = this.config.shapeGraph.getFormNodeShape(shapeSubject)?.label || shapeSubject.value
+        const local = label.split(/[\/#]/).filter(Boolean).pop() || label
+        return local
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'node'
+    }
+
+    private renderedNodeKey(shapeSubject: NodeShapeTerm, nodeId: NamedNode | BlankNode): string {
+        return JSON.stringify([shapeSubject.id, nodeId.id])
     }
 
     public toRDF(graph: Store): Store {

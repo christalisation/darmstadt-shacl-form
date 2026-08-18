@@ -3,7 +3,6 @@ import { Term } from '@rdfjs/types'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, OWL_PREDICATE_IMPORTS, SHACL_PREDICATE_PROPERTY } from './constants'
 import { ShaclProperty } from './property'
 import { createShaclGroup } from './group'
-import { v4 as uuidv4 } from 'uuid'
 import { createShaclOrConstraint, resolveShaclOrConstraintOnNode } from './constraints'
 import { Config } from './config'
 import { ShaclNodeCollection } from './node-collection'
@@ -12,7 +11,7 @@ import { FormPropertyShape } from './form-shape'
 export class ShaclNode extends HTMLElement {
     parent: ShaclNode | undefined
     parentPropertyLabel?: string; // label of the parent property,
-    shaclSubject: NamedNode
+    shaclSubject: NamedNode | BlankNode
     nodeId: NamedNode | BlankNode
     targetClass: NamedNode | undefined
     owlImports: NamedNode[] = []
@@ -20,7 +19,7 @@ export class ShaclNode extends HTMLElement {
     linked: boolean
     nodeCollection: ShaclNodeCollection
 
-    constructor(shaclSubject: NamedNode, nodeCollection: ShaclNodeCollection, valueSubject: NamedNode | BlankNode | undefined, parent?: ShaclNode, nodeKind?: NamedNode, label?: string, linked?: boolean) {
+    constructor(shaclSubject: NamedNode | BlankNode, nodeCollection: ShaclNodeCollection, valueSubject: NamedNode | BlankNode | undefined, parent?: ShaclNode, nodeKind?: NamedNode, label?: string, linked?: boolean) {
         super()
 
         this.parent = parent
@@ -32,19 +31,12 @@ export class ShaclNode extends HTMLElement {
         const formShape = this.config.shapeGraph.getFormNodeShape(shaclSubject)
         let nodeId: NamedNode | BlankNode | undefined = valueSubject
         if (!nodeId) {
-            // if no value subject given, create new node id with a type depending on own nodeKind or given parent property nodeKind
+            // if no value subject given, create a stable readable id based on
+            // the shape. User-provided valuesSubject still wins before this.
             if (!nodeKind) {
                 nodeKind = formShape?.valueConstraints.nodeKind as NamedNode | undefined
             }
-            // if nodeKind is not set, but a value namespace is configured or if nodeKind is sh:IRI, then create a NamedNode
-            if ((nodeKind === undefined && this.config.attributes.valuesNamespace) || nodeKind?.value === `${PREFIX_SHACL}IRI`) {
-                // no requirements on node type, so create a NamedNode and use configured value namespace
-                nodeId = DataFactory.namedNode(this.config.attributes.valuesNamespace + uuidv4())
-                // TODO: mieulleur noeud, example incrementer un iri.
-            } else {
-                // otherwise create a BlankNode
-                nodeId = DataFactory.blankNode(uuidv4())
-            }
+            nodeId = this.nodeCollection.createNodeId(shaclSubject, nodeKind)
         }
         this.nodeId = nodeId
 
@@ -72,10 +64,7 @@ export class ShaclNode extends HTMLElement {
             this.config.renderedNodes.add(renderedNodeKey)
             this.dataset.nodeId = this.nodeId.id
             if (this.config.attributes.showNodeIds !== null) {
-                const div = document.createElement('div')
-                div.innerText = `id: ${this.nodeId.id}`
-                div.classList.add('node-id-display')
-                this.appendChild(div)
+                this.appendChild(this.createNodeIdDisplay())
             }
 
             // first initialize owl:imports, this is needed before adding properties to properly resolve class instances etc.
@@ -254,6 +243,56 @@ export class ShaclNode extends HTMLElement {
     private isFormPropertyShape(value: Term | FormPropertyShape): value is FormPropertyShape {
         return typeof (value as FormPropertyShape).label === 'string' &&
             Array.isArray((value as FormPropertyShape).sourceShapes)
+    }
+
+    private createNodeIdDisplay(): HTMLElement {
+        const wrapper = document.createElement('div')
+        wrapper.classList.add('node-id-display')
+
+        if (!this.config.editMode || this.linked || this.nodeId.termType !== 'NamedNode') {
+            wrapper.innerText = `id: ${this.nodeId.id}`
+            return wrapper
+        }
+
+        const label = document.createElement('label')
+        label.innerText = 'id: '
+        const input = document.createElement('input')
+        input.classList.add('node-id-editor')
+        input.value = this.nodeId.value
+        input.addEventListener('change', () => {
+            const value = input.value.trim()
+            const currentValue = this.nodeId.value
+            if (!this.isValidIri(value)) {
+                input.setCustomValidity('Enter a valid absolute IRI.')
+                input.reportValidity()
+                input.value = currentValue
+                return
+            }
+            const nodeId = DataFactory.namedNode(value)
+            if (!this.nodeCollection.updateNodeId(this, nodeId)) {
+                input.setCustomValidity('This IRI is already used in the form or loaded graph.')
+                input.reportValidity()
+                input.value = currentValue
+                return
+            }
+            input.setCustomValidity('')
+            input.value = this.nodeId.value
+        })
+        label.appendChild(input)
+        wrapper.appendChild(label)
+        return wrapper
+    }
+
+    private isValidIri(value: string): boolean {
+        if (!value || /\s/.test(value)) {
+            return false
+        }
+        try {
+            new URL(value)
+            return true
+        } catch {
+            return false
+        }
     }
 }
 

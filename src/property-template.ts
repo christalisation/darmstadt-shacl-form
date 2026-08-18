@@ -1,4 +1,4 @@
-import { Literal, NamedNode, Quad, DataFactory } from 'n3'
+import { BlankNode, Literal, NamedNode, Quad, DataFactory } from 'n3'
 import { Term } from '@rdfjs/types'
 import { OWL_PREDICATE_IMPORTS, PREFIX_DASH, PREFIX_OA, PREFIX_RDF, PREFIX_SHACL, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS } from './constants'
 import { Config } from './config'
@@ -11,7 +11,7 @@ const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => v
     [`${PREFIX_SHACL}name`]:         (template, term) => { const literal = term as Literal; template.name = prioritizeByLanguage(template.config.languages, template.name, literal) },
     [`${PREFIX_SHACL}description`]:  (template, term) => { const literal = term as Literal; template.description = prioritizeByLanguage(template.config.languages, template.description, literal) },
     [`${PREFIX_SHACL}path`]:         (template, term) => { template.setPath(term) },
-    [`${PREFIX_SHACL}node`]:         (template, term) => { template.node = term as NamedNode },
+    [`${PREFIX_SHACL}node`]:         (template, term) => { template.node = toNodeShapeReference(term) },
     [`${PREFIX_SHACL}datatype`]:     (template, term) => { template.datatype = term as NamedNode },
     [`${PREFIX_SHACL}nodeKind`]:     (template, term) => { template.nodeKind = term as NamedNode },
     [`${PREFIX_SHACL}minCount`]:     (template, term) => { template.minCount = parseInt(term.value) },
@@ -42,7 +42,7 @@ const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => v
         // try to find node shape that has requested target class
         const nodeShapes = template.config.store.getSubjects(SHACL_PREDICATE_TARGET_CLASS, term, null)
         if (nodeShapes.length > 0) {
-            template.node = nodeShapes[0] as NamedNode
+            template.node = nodeShapes[0] as NamedNode | BlankNode
         }
     },
     [`${PREFIX_SHACL}or`]:           (template, term) => {
@@ -89,7 +89,7 @@ export class ShaclPropertyTemplate {
     pathExpression: ShaclPath | undefined
     pathAlternatives: string[] | undefined
     pathAlternativeLabels: Record<string, string> = {}
-    node: NamedNode | undefined
+    node: NamedNode | BlankNode | undefined
     class: NamedNode | undefined
     minCount: number | undefined
     maxCount: number | undefined
@@ -118,7 +118,7 @@ export class ShaclPropertyTemplate {
     owlImports: NamedNode[] = []
 
     config: Config
-    extendedShapes: NamedNode[]  = []
+    extendedShapes: Array<NamedNode | BlankNode>  = []
 
     static fromFormPropertyShape(shape: FormPropertyShape, parent: ShaclNode, config: Config): ShaclPropertyTemplate {
         return new ShaclPropertyTemplate(config.store.getQuads(shape.id, null, null, null), parent, config, shape)
@@ -155,7 +155,7 @@ export class ShaclPropertyTemplate {
         const nodeShape = shape.compatibleNodeShapes.length === 1
             ? shape.compatibleNodeShapes[0]
             : shape.nodeShape
-        this.node = nodeShape as NamedNode | undefined
+        this.node = nodeShape ? toNodeShapeReference(nodeShape) : undefined
         this.datatype = shape.datatype as NamedNode | undefined
         this.nodeKind = shape.nodeKind as NamedNode | undefined
         this.class = shape.class as NamedNode | undefined
@@ -178,7 +178,10 @@ export class ShaclPropertyTemplate {
             ? shape.compatibleNodeShapes
             : shape.nestedNodeShapes
         this.extendedShapes = nestedNodeShapes
-            .filter((node): node is NamedNode => node.termType === 'NamedNode')
+            .flatMap(node => {
+                const reference = toNodeShapeReference(node)
+                return reference ? [reference] : []
+            })
         this.shaclOr = shape.logicalAlternatives.find(alternative => alternative.kind === 'or')?.shapes
         this.shaclXone = shape.logicalAlternatives.find(alternative => alternative.kind === 'xone')?.shapes
 
@@ -230,20 +233,23 @@ export class ShaclPropertyTemplate {
             const list = this.config.lists[this.shaclAnd]
             if (list?.length) {
                 for (const node of list) {
-                    this.addExtendedShape(node as NamedNode)
+                    const reference = toNodeShapeReference(node)
+                    if (reference) {
+                        this.addExtendedShape(reference)
+                    }
                 }
             }
         }
         return this
     }
 
-    private addExtendedShape(node: NamedNode): void {
-        if (!this.extendedShapes.some(shape => shape.value === node.value)) {
+    private addExtendedShape(node: NamedNode | BlankNode): void {
+        if (!this.extendedShapes.some(shape => shape.termType === node.termType && shape.value === node.value)) {
             this.extendedShapes.push(node)
         }
     }
 
-    private mergeValueNodeShapeConstraints(node: NamedNode): void {
+    private mergeValueNodeShapeConstraints(node: NamedNode | BlankNode): void {
         // TODO: temporary legacy fallback. Value-only sh:node constraints are
         // projected by FormShapeCompiler on the normal FormPropertyShape path.
         for (const quad of this.config.store.getQuads(node, null, null, null)) {
@@ -412,4 +418,14 @@ export class ShaclPropertyTemplate {
         }
         return copy
     }
+}
+
+function toNodeShapeReference(term: Term): NamedNode | BlankNode | undefined {
+    if (term.termType === 'NamedNode') {
+        return DataFactory.namedNode(term.value)
+    }
+    if (term.termType === 'BlankNode') {
+        return DataFactory.blankNode(term.value)
+    }
+    return undefined
 }
