@@ -55,7 +55,7 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
     return wrapper
 }
 
-export function createShaclOrConstraint(options: Term[], context: ShaclNode | ShaclProperty, config: Config): HTMLElement {
+export function createShaclOrConstraint(options: Term[], context: ShaclNode | ShaclProperty | { template: ShaclPropertyTemplate }, config: Config): HTMLElement {
     // 1. LE CONTENEUR GLOBAL
     // Wrapper vertical simple qui prend toute la largeur
     const wrapper = document.createElement('div')

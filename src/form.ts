@@ -190,6 +190,9 @@ export class ShaclForm extends HTMLElement {
         for (const elem of this.form.querySelectorAll(':scope .validation-error')) {
             elem.remove()
         }
+        for (const elem of this.form.querySelectorAll(':scope .validation-summary')) {
+            elem.remove()
+        }
         for (const elem of this.form.querySelectorAll(':scope .property-instance')) {
             elem.classList.remove('invalid')
             if (((elem.querySelector(':scope > .editor')) as Editor)?.value) {
@@ -217,8 +220,10 @@ export class ShaclForm extends HTMLElement {
         try {
             const dataset = this.createValidationDataset()
             const report = await new Validator(dataset, { details: true, factory: DataFactory }).validate({ dataset })
+            const unmappedResults: any[] = []
 
             for (const result of this.flattenValidationResults(report.results)) {
+                let mappedInline = false
                 if (result.focusNode?.ptrs?.length) {
                     for (const ptr of result.focusNode.ptrs) {
                         const focusNode = ptr._term
@@ -235,10 +240,11 @@ export class ShaclForm extends HTMLElement {
                                         let parent: HTMLElement | null = invalidElement.parentElement!
                                         parent.classList.add('invalid')
                                         parent.classList.remove('valid')
-                                        parent.appendChild(this.createValidationErrorDisplay(result))
-                                        do {
-                                            if (parent instanceof RokitCollapsible) {
-                                                parent.open = true
+                                            parent.appendChild(this.createValidationErrorDisplay(result))
+                                            mappedInline = true
+                                            do {
+                                                if (parent instanceof RokitCollapsible) {
+                                                    parent.open = true
                                             }
                                             parent = parent.parentElement
                                         } while (parent)
@@ -248,13 +254,22 @@ export class ShaclForm extends HTMLElement {
                                     invalidElement.classList.add('invalid')
                                     invalidElement.classList.remove('valid')
                                     invalidElement.appendChild(this.createValidationErrorDisplay(result, 'node'))
+                                    mappedInline = true
                                 }
                             }
                         } else if (!ignoreEmptyValues) {
-                            this.form.querySelector(`:scope [data-node-id='${focusNode.id}']`)?.prepend(this.createValidationErrorDisplay(result, 'node'))
+                            const nodeElement = this.form.querySelector(`:scope [data-node-id='${focusNode.id}']`)
+                            nodeElement?.prepend(this.createValidationErrorDisplay(result, 'node'))
+                            mappedInline = Boolean(nodeElement)
                         }
                     }
                 }
+                if (!mappedInline && !ignoreEmptyValues) {
+                    unmappedResults.push(result)
+                }
+            }
+            if (unmappedResults.length) {
+                this.form.prepend(this.createValidationSummary(unmappedResults))
             }
             return report
         } catch(e) {
@@ -276,6 +291,54 @@ export class ShaclForm extends HTMLElement {
             messageElement.title = 'Validation failed'
         }
         return messageElement
+    }
+
+    private createValidationSummary(results: any[]): HTMLElement {
+        const summary = document.createElement('div')
+        summary.classList.add('validation-summary')
+
+        const heading = document.createElement('strong')
+        heading.innerText = 'Validation issues'
+        summary.appendChild(heading)
+
+        const list = document.createElement('ul')
+        for (const result of this.uniqueValidationResults(results)) {
+            const item = document.createElement('li')
+            const details = [
+                this.formatValidationFocusNodes(result),
+                this.formatValidationPath(result),
+                this.getValidationMessages(result).join('; ') || 'Validation failed',
+            ].filter(Boolean)
+            item.innerText = details.join(' - ')
+            list.appendChild(item)
+        }
+        summary.appendChild(list)
+        return summary
+    }
+
+    private uniqueValidationResults(results: any[]): any[] {
+        return [...new Map(results.map(result => [
+            [
+                this.formatValidationFocusNodes(result),
+                this.formatValidationPath(result),
+                this.getValidationMessages(result).join('\n'),
+            ].join('|'),
+            result,
+        ])).values()]
+    }
+
+    private formatValidationFocusNodes(result: any): string | undefined {
+        const focusNodes = result.focusNode?.ptrs
+            ?.map((ptr: any) => ptr._term?.value || ptr._term?.id)
+            ?.filter(Boolean)
+            ?.map((value: string) => removePrefixes(value, this.config.prefixes))
+        return focusNodes?.length ? `Focus: ${[...new Set(focusNodes)].join(', ')}` : undefined
+    }
+
+    private formatValidationPath(result: any): string | undefined {
+        const paths = this.getValidationPathPredicates(result)
+            .map(path => removePrefixes(path.id, this.config.prefixes))
+        return paths.length ? `Path: ${[...new Set(paths)].join(', ')}` : undefined
     }
 
     private createNavigationUI() {

@@ -14,6 +14,7 @@ export class ShaclNode extends HTMLElement {
     shaclSubject: NamedNode | BlankNode
     nodeId: NamedNode | BlankNode
     targetClass: NamedNode | undefined
+    targetClasses: NamedNode[] = []
     owlImports: NamedNode[] = []
     config: Config // taken from the ShaclNodeCollection
     linked: boolean
@@ -71,7 +72,8 @@ export class ShaclNode extends HTMLElement {
             for (const owlImport of this.config.store.getQuads(shaclSubject, OWL_PREDICATE_IMPORTS, null, null)) {
                 this.owlImports.push(owlImport.object as NamedNode)
             }
-            this.targetClass = formShape?.targetClasses[0] as NamedNode | undefined
+            this.targetClasses = formShape?.targetClasses as NamedNode[] || []
+            this.targetClass = this.targetClasses[0]
 
             if (formShape) {
                 for (const propertyShape of formShape.properties) {
@@ -95,6 +97,7 @@ export class ShaclNode extends HTMLElement {
                             break;
                         case `${PREFIX_SHACL}targetClass`:
                             this.targetClass = quad.object as NamedNode
+                            this.targetClasses = [this.targetClass]
                             break;
                         case `${PREFIX_SHACL}or`:
                             this.tryResolve(quad.object, valueSubject)
@@ -137,8 +140,9 @@ export class ShaclNode extends HTMLElement {
         for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property')) {
             (shape as ShaclNode | ShaclProperty).toRDF(graph, subject, serializedNodes)
         }
-        if (this.targetClass) {
-            graph.addQuad(subject, RDF_PREDICATE_TYPE, this.targetClass, this.config.valuesGraphId)
+        const targetClasses = this.getRdfTypeClasses()
+        for (const targetClass of targetClasses) {
+            graph.addQuad(subject, RDF_PREDICATE_TYPE, targetClass, this.config.valuesGraphId)
         }
         // if this is the root shacl node, check if we should add one of the rdf:type or dcterms:conformsTo predicates
         if (this.config.attributes.generateNodeShapeReference && !this.parent) {
@@ -304,6 +308,17 @@ export class ShaclNode extends HTMLElement {
         value.classList.add('node-id-value')
         value.innerText = text
         return value
+    }
+
+    private getRdfTypeClasses(): NamedNode[] {
+        const targetClasses = this.targetClasses.length ? [...this.targetClasses] : (this.targetClass ? [this.targetClass] : [])
+        const formShape = this.config.shapeGraph.getFormNodeShape(this.shaclSubject)
+        for (const composedShape of formShape?.composedNodeShapes || []) {
+            for (const targetClass of this.config.shapeGraph.getFormNodeShape(composedShape)?.targetClasses || []) {
+                targetClasses.push(DataFactory.namedNode(targetClass.value))
+            }
+        }
+        return [...new Map(targetClasses.map(targetClass => [targetClass.value, targetClass])).values()]
     }
 
     private isValidIri(value: string): boolean {

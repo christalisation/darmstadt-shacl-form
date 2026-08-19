@@ -323,14 +323,14 @@ export class ShaclPropertyTemplate {
     createTemplateForLogicalOption(option: Term): ShaclPropertyTemplate | undefined {
         const nodeShape = this.config.shapeGraph.getFormNodeShape(option)
         if (nodeShape && nodeShape.properties.length === 0 && this.hasFormValueConstraints(nodeShape.valueConstraints)) {
-            const template = this.clone()
+            const template = this.cloneForLogicalOption()
             template.applyFormValueConstraints(nodeShape.valueConstraints)
             return template
         }
 
         const propertyShape = this.config.shapeGraph.getFormPropertyShape(option)
         if (propertyShape) {
-            const template = this.clone()
+            const template = this.cloneForLogicalOption()
             template.applyFormPropertyShape(propertyShape)
             template.path = this.path
             template.pathExpression = this.pathExpression
@@ -346,7 +346,14 @@ export class ShaclPropertyTemplate {
 
         // TODO: temporary legacy fallback for anonymous logical value-shape
         // branches that are not yet exposed as Form Shape branch projections.
-        return this.clone().merge(quads)
+        return this.cloneForLogicalOption().merge(quads)
+    }
+
+    private cloneForLogicalOption(): ShaclPropertyTemplate {
+        const template = this.clone()
+        template.shaclOr = undefined
+        template.shaclXone = undefined
+        return template
     }
 
     private applyFormValueConstraints(constraints: FormValueConstraints): void {

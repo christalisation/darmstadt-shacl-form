@@ -157,9 +157,9 @@ export class ShaclProperty extends HTMLElement {
     }
 
     toRDF(graph: Store, subject: NamedNode | BlankNode, serializedNodes = new Set<string>()) {
-        for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .collapsible > .property-instance')) {
+        for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .shacl-or-constraint, :scope > .collapsible > .property-instance, :scope > .collapsible > .shacl-or-constraint')) {
             const pathNode = DataFactory.namedNode((instance as HTMLElement).dataset.path!)
-            const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node')
+            const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node, :scope > .shacl-or-content > .property-instance > shacl-node')
 
             if (nestedNodes.length) {
                 for (const nestedNode of nestedNodes) {
@@ -170,7 +170,7 @@ export class ShaclProperty extends HTMLElement {
                     graph.addQuad(subject, pathNode, shapeSubject, this.template.config.valuesGraphId)
                 }
             } else {
-                for (const editor of instance.querySelectorAll<Editor>(':scope > .editor')) {
+                for (const editor of instance.querySelectorAll<Editor>(':scope > .editor, :scope > .shacl-or-content > .property-instance > .editor')) {
                     const value = toRDF(editor)
                     if (value) {
                         graph.addQuad(subject, pathNode, value, this.template.config.valuesGraphId)
@@ -181,8 +181,8 @@ export class ShaclProperty extends HTMLElement {
     }
 
     hasSerializableValue(): boolean {
-        for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .collapsible > .property-instance')) {
-            const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node')
+        for (const instance of this.querySelectorAll(':scope > .property-instance, :scope > .shacl-or-constraint, :scope > .collapsible > .property-instance, :scope > .collapsible > .shacl-or-constraint')) {
+            const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node, :scope > .shacl-or-content > .property-instance > shacl-node')
 
             if (nestedNodes.length) {
                 for (const nestedNode of nestedNodes) {
@@ -191,7 +191,7 @@ export class ShaclProperty extends HTMLElement {
                     }
                 }
             } else {
-                for (const editor of instance.querySelectorAll<Editor>(':scope > .editor')) {
+                for (const editor of instance.querySelectorAll<Editor>(':scope > .editor, :scope > .shacl-or-content > .property-instance > .editor')) {
                     if (toRDF(editor)) {
                         return true
                     }
@@ -400,7 +400,10 @@ function parseTerm(value: string): Term {
 
 export function createPropertyInstance(template: ShaclPropertyTemplate, value?: Term, forceRemovable = false, linked = false): HTMLElement {
     let instance: HTMLElement
-    if (template.extendedShapes.length) {
+    if (template.shaclOr?.length || template.shaclXone?.length) {
+        const options = template.shaclOr?.length ? template.shaclOr : template.shaclXone as Term[]
+        instance = createShaclOrConstraint(options, { template }, template.config)
+    } else if (template.extendedShapes.length) {
         if (linked && value) {
             instance = createReferenceInstance(template, value)
             if (template.config.editMode) {
