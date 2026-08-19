@@ -320,11 +320,14 @@ export class ShaclPropertyTemplate {
         return template
     }
 
-    createTemplateForLogicalOption(option: Term): ShaclPropertyTemplate | undefined {
+    createTemplateForLogicalOption(option: Term, fallbackLabel = 'Alternative'): ShaclPropertyTemplate | undefined {
         const nodeShape = this.config.shapeGraph.getFormNodeShape(option)
         if (nodeShape && nodeShape.properties.length === 0 && this.hasFormValueConstraints(nodeShape.valueConstraints)) {
             const template = this.cloneForLogicalOption()
             template.applyFormValueConstraints(nodeShape.valueConstraints)
+            template.ensureLogicalOptionLabel(fallbackLabel)
+            template.path = this.path
+            template.pathExpression = this.pathExpression
             return template
         }
 
@@ -336,6 +339,7 @@ export class ShaclPropertyTemplate {
             template.pathExpression = this.pathExpression
             template.pathAlternatives = this.pathAlternatives ? [...this.pathAlternatives] : undefined
             template.pathAlternativeLabels = { ...this.pathAlternativeLabels }
+            template.ensureLogicalOptionLabel(fallbackLabel)
             return template
         }
 
@@ -346,14 +350,47 @@ export class ShaclPropertyTemplate {
 
         // TODO: temporary legacy fallback for anonymous logical value-shape
         // branches that are not yet exposed as Form Shape branch projections.
-        return this.cloneForLogicalOption().merge(quads)
+        const template = this.cloneForLogicalOption().merge(quads)
+        template.ensureLogicalOptionLabel(fallbackLabel)
+        template.path = this.path
+        template.pathExpression = this.pathExpression
+        return template
     }
 
     private cloneForLogicalOption(): ShaclPropertyTemplate {
         const template = this.clone()
+        template.label = ''
+        template.name = undefined
+        template.path = undefined
+        template.pathExpression = undefined
+        template.pathAlternatives = undefined
+        template.pathAlternativeLabels = {}
+        template.pathAlternativeBranches = {}
         template.shaclOr = undefined
         template.shaclXone = undefined
         return template
+    }
+
+    private ensureLogicalOptionLabel(fallbackLabel: string): void {
+        if (this.label && this.label !== 'unknown') {
+            return
+        }
+        if (this.node) {
+            const nodeLabel = this.config.shapeGraph.getFormNodeShape(this.node)?.label
+            if (nodeLabel) {
+                this.label = nodeLabel
+                return
+            }
+        }
+        if (this.pathAlternatives?.length) {
+            this.label = this.pathAlternatives.map(path => this.getPathLabel(path)).join(' / ')
+            return
+        }
+        if (this.path) {
+            this.label = removePrefixes(this.path, this.config.prefixes)
+            return
+        }
+        this.label = fallbackLabel
     }
 
     private applyFormValueConstraints(constraints: FormValueConstraints): void {

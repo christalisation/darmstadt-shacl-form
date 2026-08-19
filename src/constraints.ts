@@ -6,6 +6,15 @@ import { Config } from './config'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHACL_PREDICATE_NODE_KIND, SHACL_OBJECT_IRI, SHACL_PREDICATE_PROPERTY } from './constants'
 import type { ShaclPropertyTemplate } from './property-template'
 
+type LogicalNodeOption =
+    | { kind: 'nodeShape'; label: string; shape: Term }
+    | { kind: 'anonymousProperties'; label: string; properties: Term[] }
+    | { kind: 'propertyShape'; label: string; property: Term }
+
+type LogicalPropertyOption =
+    | { kind: 'template'; label: string; template: ShaclPropertyTemplate }
+    | { kind: 'emptyNodeShape'; label: string }
+
 export function createAlternativePathConstraint(property: ShaclProperty, value?: Term, linked = false): HTMLElement {
     const wrapper = document.createElement('div')
     wrapper.classList.add('alternative-path-constraint')
@@ -63,58 +72,37 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
     wrapper.style.gap = '0.5rem'; 
     wrapper.style.marginBottom = '1rem';
 
-    // 2. PRÉPARATION DES DONNÉES
-    const nodeOptions: ShaclProperty[][] = []
-    const propertyOptions: ShaclPropertyTemplate[] = []
+    // 2. PRÉPARATION DES DÉFINITIONS
+    const nodeOptions: LogicalNodeOption[] = []
+    const propertyOptions: LogicalPropertyOption[] = []
     
     // Structure simple pour alimenter notre select natif
     const selectOptions: { label: string, value: string }[] = []
 
     if (context instanceof ShaclNode) {
-        let optionsAreReferencedProperties = false
-        if (options.length) {
-            const firstFormShape = config.shapeGraph.getFormNodeShape(options[0])
-            optionsAreReferencedProperties = Boolean(firstFormShape?.properties.length) ||
-                config.store.countQuads(options[0], SHACL_PREDICATE_PROPERTY, null, null) > 0
-        }
         for (let i = 0; i < options.length; i++) {
-            if (optionsAreReferencedProperties) {
-                const formShape = config.shapeGraph.getFormNodeShape(options[i])
-                const formProperties = formShape?.properties || []
-                const list: ShaclProperty[] = []
-                let combinedText = ''
-                for (const formProperty of formProperties) {
-                    const property = new ShaclProperty(formProperty.id as NamedNode | BlankNode, context, config, undefined, formProperty)
-                    list.push(property)
-                    combinedText += (combinedText.length > 1 ? ' / ' : '') + property.template.label
-                }
-                if (!formProperties.length) {
-                    // TODO: temporary fallback for logical branch nodes not yet
-                    // available as FormNodeShape projections.
-                    const propertySubjects = config.store.getObjects(options[i] , SHACL_PREDICATE_PROPERTY, null)
-                    for (const subject of propertySubjects) {
-                        const property = new ShaclProperty(subject as NamedNode | BlankNode, context, config)
-                        list.push(property)
-                        combinedText += (combinedText.length > 1 ? ' / ' : '') + property.template.label
-                    }
-                }
-                nodeOptions.push(list)
-                selectOptions.push({ label: combinedText, value: i.toString() })
-            } else {
-                const formProperty = config.shapeGraph.getFormPropertyShape(options[i])
-                const property = new ShaclProperty(options[i] as NamedNode | BlankNode, context, config, undefined, formProperty)
-                nodeOptions.push([property])
-                selectOptions.push({ label: property.template.label, value: i.toString() })
+            const option = createNodeLogicalOption(options[i], i, config)
+            if (option) {
+                nodeOptions.push(option)
+                selectOptions.push({ label: option.label, value: String(nodeOptions.length - 1) })
             }
         }
     } else {
         for (let i = 0; i < options.length; i++) {
-            const template = context.template.createTemplateForLogicalOption(options[i])
-            if (template) {
-                propertyOptions.push(template)
-                selectOptions.push({ label: template.label, value: i.toString() })
+            const option = createPropertyLogicalOption(options[i], i, context.template, config)
+            if (option) {
+                propertyOptions.push(option)
+                selectOptions.push({ label: option.label, value: String(propertyOptions.length - 1) })
             }
         }
+    }
+
+    const allBranchesRenderable = context instanceof ShaclNode
+        ? nodeOptions.length === options.length
+        : propertyOptions.length === options.length
+
+    if (!selectOptions.length || !allBranchesRenderable) {
+        return createValidationOnlyLogicalConstraint()
     }
 
     // 3. CONSTRUCTION MANUELLE DU SÉLECTEUR (Plus de RokitSelect, plus de label inutile)
@@ -123,6 +111,11 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
     
     const select = document.createElement('select');
     select.classList.add('form-select', 'w-100', 'editor'); 
+
+    const placeholder = document.createElement('option')
+    placeholder.value = ''
+    placeholder.innerText = 'Select alternative'
+    select.appendChild(placeholder)
     
     // Remplissage des options
     for (const opt of selectOptions) {
@@ -150,23 +143,41 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
         if (isNaN(index)) return
 
         if (context instanceof ShaclNode) {
-            const selectedProps = nodeOptions[index]
-            if (selectedProps) {
-                for (const prop of selectedProps) {
+            const selectedOption = nodeOptions[index]
+            if (selectedOption?.kind === 'nodeShape') {
+                const formShape = config.shapeGraph.getFormNodeShape(selectedOption.shape)
+                for (const formProperty of formShape?.properties || []) {
+                    const prop = new ShaclProperty(formProperty.id as NamedNode | BlankNode, context, config, undefined, formProperty)
                     // On force l'affichage bloc et la pleine largeur
                     prop.style.display = 'block';
                     prop.classList.add('w-100');
                     contentContainer.appendChild(prop)
                 }
+            } else if (selectedOption?.kind === 'anonymousProperties') {
+                for (const propertySubject of selectedOption.properties) {
+                    const formProperty = config.shapeGraph.getFormPropertyShape(propertySubject)
+                    const prop = new ShaclProperty(propertySubject as NamedNode | BlankNode, context, config, undefined, formProperty)
+                    prop.style.display = 'block';
+                    prop.classList.add('w-100');
+                    contentContainer.appendChild(prop)
+                }
+            } else if (selectedOption?.kind === 'propertyShape') {
+                const formProperty = config.shapeGraph.getFormPropertyShape(selectedOption.property)
+                const prop = new ShaclProperty(selectedOption.property as NamedNode | BlankNode, context, config, undefined, formProperty)
+                prop.style.display = 'block';
+                prop.classList.add('w-100');
+                contentContainer.appendChild(prop)
             }
         } else {
-            const selectedTemplate = propertyOptions[index]
-            if (selectedTemplate) {
-                const instance = createPropertyInstance(selectedTemplate, undefined, true)
+            const selectedOption = propertyOptions[index]
+            if (selectedOption?.kind === 'template') {
+                const instance = createPropertyInstance(selectedOption.template, undefined, true)
                 // Idem pour les propriétés simples
                 instance.style.display = 'block';
                 instance.classList.add('w-100');
                 contentContainer.appendChild(instance)
+            } else if (selectedOption?.kind === 'emptyNodeShape') {
+                contentContainer.appendChild(createEmptyNodeShapeMessage())
             }
         }
     }
@@ -177,12 +188,132 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
         updateContent()
     })
 
-    // 7. INITIALISATION (Sélection par défaut immédiate)
-    if (selectOptions.length > 0) {
-        select.value = selectOptions[0].value
-        updateContent()
+    return wrapper
+}
+
+function createNodeLogicalOption(option: Term, index: number, config: Config): LogicalNodeOption | undefined {
+    const nodeShape = config.shapeGraph.getFormNodeShape(option)
+    if (nodeShape?.properties.length) {
+        return { kind: 'nodeShape', label: nodeShape.label, shape: option }
     }
 
+    const propertyShape = config.shapeGraph.getFormPropertyShape(option)
+    if (propertyShape?.path) {
+        return { kind: 'propertyShape', label: propertyShape.label, property: option }
+    }
+
+    const properties = config.store.getObjects(option, SHACL_PREDICATE_PROPERTY, null)
+    if (properties.length) {
+        const labels = properties
+            .map(property => config.shapeGraph.getFormPropertyShape(property)?.label)
+            .filter((label): label is string => Boolean(label))
+        return {
+            kind: 'anonymousProperties',
+            label: labels.length ? labels.join(' / ') : `Alternative ${index + 1}`,
+            properties,
+        }
+    }
+}
+
+function createPropertyLogicalOption(option: Term, index: number, parentTemplate: ShaclPropertyTemplate, config: Config): LogicalPropertyOption | undefined {
+    const label = labelForPropertyLogicalOption(option, index, parentTemplate, config)
+    const nodeTargets = config.store.getObjects(option, `${PREFIX_SHACL}node`, null)
+    if (nodeTargets.length === 1) {
+        const nodeShape = config.shapeGraph.getFormNodeShape(nodeTargets[0])
+        if (nodeShape && nodeShape.properties.length === 0 && !hasFormValueConstraints(nodeShape)) {
+            return { kind: 'emptyNodeShape', label }
+        }
+    }
+
+    const template = parentTemplate.createTemplateForLogicalOption(option, `Alternative ${index + 1}`)
+    if (!template) {
+        return undefined
+    }
+    template.label = label
+    if (template.extendedShapes.length || hasTemplateValueConstraints(template) || config.shapeGraph.getFormPropertyShape(option)?.path || config.store.countQuads(option, `${PREFIX_SHACL}path`, null, null) > 0) {
+        return { kind: 'template', label, template }
+    }
+}
+
+function labelForPropertyLogicalOption(option: Term, index: number, parentTemplate: ShaclPropertyTemplate, config: Config): string {
+    const explicitLabel = config.shapeGraph.getLabel(option)
+    if (explicitLabel) {
+        return explicitLabel
+    }
+
+    const nodeTargets = config.store.getObjects(option, `${PREFIX_SHACL}node`, null)
+    if (nodeTargets.length === 1) {
+        const nodeLabel = config.shapeGraph.getFormNodeShape(nodeTargets[0])?.label
+        if (nodeLabel) {
+            return nodeLabel
+        }
+    }
+
+    const template = parentTemplate.createTemplateForLogicalOption(option, `Alternative ${index + 1}`)
+    if (!template) {
+        return `Alternative ${index + 1}`
+    }
+
+    if (template.pathAlternatives?.length) {
+        return template.pathAlternatives.map(path => template.getPathLabel(path)).join(' / ')
+    }
+    const branchHasPath = config.store.countQuads(option, `${PREFIX_SHACL}path`, null, null) > 0
+    if (branchHasPath && template.path && template.label && template.label !== parentTemplate.label && template.label !== 'unknown') {
+        return template.label
+    }
+
+    return `Alternative ${index + 1}`
+}
+
+function hasFormValueConstraints(nodeShape: NonNullable<ReturnType<Config['shapeGraph']['getFormNodeShape']>>): boolean {
+    const constraints = nodeShape.valueConstraints
+    return Boolean(
+        constraints.datatype ||
+        constraints.nodeKind ||
+        constraints.class ||
+        constraints.minLength !== undefined ||
+        constraints.maxLength !== undefined ||
+        constraints.minInclusive !== undefined ||
+        constraints.maxInclusive !== undefined ||
+        constraints.minExclusive !== undefined ||
+        constraints.maxExclusive !== undefined ||
+        constraints.pattern !== undefined ||
+        constraints.shaclIn?.length ||
+        constraints.languageIn?.length ||
+        constraints.hasValue
+    )
+}
+
+function hasTemplateValueConstraints(template: ShaclPropertyTemplate): boolean {
+    return Boolean(
+        template.extendedShapes.length ||
+        template.datatype ||
+        template.nodeKind ||
+        template.class ||
+        template.minLength !== undefined ||
+        template.maxLength !== undefined ||
+        template.minInclusive !== undefined ||
+        template.maxInclusive !== undefined ||
+        template.minExclusive !== undefined ||
+        template.maxExclusive !== undefined ||
+        template.pattern !== undefined ||
+        template.shaclInValues?.length ||
+        template.languageIn?.length ||
+        template.hasValue
+    )
+}
+
+function createEmptyNodeShapeMessage(): HTMLElement {
+    const message = document.createElement('div')
+    message.classList.add('logical-empty-state')
+    message.innerText = 'No authoring fields are defined for this shape by the loaded shapes graph.'
+    return message
+}
+
+function createValidationOnlyLogicalConstraint(): HTMLElement {
+    const wrapper = document.createElement('div')
+    wrapper.classList.add('shacl-or-constraint', 'validation-only')
+    wrapper.hidden = true
     return wrapper
 }
 

@@ -35,6 +35,12 @@ try {
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
     const page = await browser.newPage()
+    const notFoundUrls = []
+    page.on('response', response => {
+        if (response.status() === 404) {
+            notFoundUrls.push(response.url())
+        }
+    })
     page.on('console', message => {
         if (message.type() === 'error') {
             console.error(message.text())
@@ -118,10 +124,40 @@ try {
         async function selectFirstLogicalOption(container) {
             const select = container?.querySelector(':scope > div > select')
             if (select) {
-                select.value = select.options[0]?.value || ''
+                const firstOption = [...select.options].find(option => option.value !== '')
+                select.value = firstOption?.value || ''
                 select.dispatchEvent(new Event('change', { bubbles: true }))
                 await new Promise(resolve => setTimeout(resolve, 100))
             }
+        }
+
+        function logicalOptionLabels(container) {
+            const select = container?.querySelector(':scope > div > select')
+            return select ? [...select.options].map(option => option.textContent.trim()) : []
+        }
+
+        async function selectLogicalOptionByLabel(container, label) {
+            const select = container?.querySelector(':scope > div > select')
+            const option = select ? [...select.options].find(option => option.textContent.trim().includes(label)) : undefined
+            if (!select || !option) {
+                throw new Error(`Logical option not found: ${label}`)
+            }
+            select.value = option.value
+            select.dispatchEvent(new Event('change', { bubbles: true }))
+            await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        function visibleText(root) {
+            return root?.innerText || root?.textContent || ''
+        }
+
+        function visibleLogicalConstraintCount(root) {
+            return [...root?.querySelectorAll('.shacl-or-constraint') || []]
+                .filter(element => {
+                    const style = getComputedStyle(element)
+                    return !element.hidden && style.display !== 'none' && style.visibility !== 'hidden'
+                })
+                .length
         }
 
         function findProperty(root, label) {
@@ -161,13 +197,20 @@ try {
             await fillAlternativeEditor(pomNode, 'predicate/predicateMap', 'predicate', predicateIri)
             const objectAlternative = findProperty(pomNode, 'object/objectMap/quotedTriplesMap')
             const objectMapInstance = await selectAlternativeInProperty(objectAlternative, 'objectMap')
+            const objectMapOptionLabels = logicalOptionLabels(objectMapInstance)
             await selectFirstLogicalOption(objectMapInstance)
             const objectMapNode = objectMapInstance.querySelector('shacl-node') || objectAlternative.querySelector('shacl-node')
             if (!objectMapNode) {
                 throw new Error(`ObjectMap node was not rendered: ${objectAlternative?.innerHTML}`)
             }
             await fillAlternativeEditor(objectMapNode, 'template/constant/reference/functionExecution', 'reference', reference)
-            return objectMapNode
+            return {
+                objectMapNode,
+                objectMapOptionLabels,
+                objectMapNodeId: objectMapNode.dataset.nodeId,
+                objectMapText: visibleText(objectMapNode),
+                objectMapVisibleLogicalConstraintCount: visibleLogicalConstraintCount(objectMapNode),
+            }
         }
 
         const predicateObjectMap = await createForm('http://w3id.org/rml/shapes/RMLPredicateObjectMapShape')
@@ -239,18 +282,22 @@ try {
 
         const subjectMapProperty = findProperty(acceptanceRoot, 'subjectMap/subject/quotedTriplesMap')
         const subjectMapInstance = await selectAlternativeInProperty(subjectMapProperty, 'subjectMap')
+        const subjectMapOptionLabels = logicalOptionLabels(subjectMapInstance)
         await selectFirstLogicalOption(subjectMapInstance)
         const subjectMapNode = subjectMapInstance.querySelector('shacl-node')
         if (!subjectMapNode) {
             throw new Error(`SubjectMap node was not rendered: ${findProperty(acceptanceRoot, 'subjectMap/subject/quotedTriplesMap')?.innerHTML}`)
         }
+        const subjectMapNodeId = subjectMapNode.dataset.nodeId
         await fillAlternativeEditor(subjectMapNode, 'template/constant/reference/functionExecution', 'template', 'http://data.example.com/image/{$.ID}')
+        const subjectMapText = visibleText(subjectMapNode)
+        const subjectMapVisibleLogicalConstraintCount = visibleLogicalConstraintCount(subjectMapNode)
 
         const acceptancePomProperty = findProperty(acceptanceRoot, 'predicateObjectMap')
         const pomNode1 = await addNestedValue(acceptancePomProperty)
-        await fillPredicateObjectMap(pomNode1, 'http://example.org#height', '$.Height')
+        const pom1 = await fillPredicateObjectMap(pomNode1, 'http://example.org#height', '$.Height')
         const pomNode2 = await addNestedValue(acceptancePomProperty)
-        await fillPredicateObjectMap(pomNode2, 'http://example.org#width', '$.Width')
+        const pom2 = await fillPredicateObjectMap(pomNode2, 'http://example.org#width', '$.Width')
         const acceptanceTurtle = acceptanceForm.serialize()
         const acceptanceValidation = await acceptanceForm.validate(false, true)
         const validationSummaryText = acceptanceForm.shadowRoot.querySelector('.validation-summary')?.textContent || ''
@@ -261,6 +308,21 @@ try {
         await waitForLoad(genericRoots)
         const rootSelector = genericRoots.shadowRoot.querySelector('.root-selector-container select')
         const rootOptions = rootSelector ? [...rootSelector.options].map(option => option.textContent.trim()) : []
+
+        const starMapForm = await createForm('http://w3id.org/rml/shapes/RMLTriplesMapShape', {
+            valuesNamespace: 'http://example.org/',
+        })
+        const starMapRoot = starMapForm.shadowRoot.querySelector('shacl-node')
+        const starSubjectMapProperty = findProperty(starMapRoot, 'subjectMap/subject/quotedTriplesMap')
+        const starSubjectMapInstance = await selectAlternativeInProperty(starSubjectMapProperty, 'subjectMap')
+        const starMapOptionLabels = logicalOptionLabels(starSubjectMapInstance)
+        await selectLogicalOptionByLabel(starSubjectMapInstance, 'StarMap')
+        const starMapContent = starSubjectMapInstance.querySelector('.shacl-or-content')
+        const starMapText = visibleText(starSubjectMapInstance)
+        const starMapEmptyStateText = starSubjectMapInstance.querySelector('.logical-empty-state')?.textContent || ''
+        const starMapScalarEditorCount = starMapContent
+            ? starMapContent.querySelectorAll(':scope > .property-instance > .editor, :scope > .property-instance input, :scope > .property-instance select, :scope > .property-instance textarea').length
+            : 0
 
         return {
             predicateObjectMapText,
@@ -279,6 +341,22 @@ try {
             acceptanceTurtle,
             acceptanceConforms: acceptanceValidation.conforms,
             validationSummaryText,
+            subjectMapOptionLabels,
+            subjectMapNodeId,
+            subjectMapText,
+            subjectMapVisibleLogicalConstraintCount,
+            objectMapOptionLabels: pom1.objectMapOptionLabels,
+            objectMapNodeId: pom1.objectMapNodeId,
+            objectMapText: pom1.objectMapText,
+            objectMapVisibleLogicalConstraintCount: pom1.objectMapVisibleLogicalConstraintCount,
+            secondObjectMapOptionLabels: pom2.objectMapOptionLabels,
+            secondObjectMapNodeId: pom2.objectMapNodeId,
+            secondObjectMapText: pom2.objectMapText,
+            secondObjectMapVisibleLogicalConstraintCount: pom2.objectMapVisibleLogicalConstraintCount,
+            starMapOptionLabels,
+            starMapText,
+            starMapEmptyStateText,
+            starMapScalarEditorCount,
             rootOptions,
         }
     }, shapesWithOntology)
@@ -358,6 +436,18 @@ try {
     assert(result.sourceText.includes('rml:encoding'), 'RML Source shape did not expose rml:encoding')
     assert(result.sourceText.includes('rml:root'), 'Authoring overlay did not expose RelativePathSource rml:root')
     assert(result.sourceText.includes('rml:path'), 'Authoring overlay did not expose RelativePathSource rml:path')
+    assert(result.subjectMapOptionLabels.includes('SubjectMap'), `SubjectMap sh:or branch did not use referenced shape label: ${result.subjectMapOptionLabels.join(', ')}`)
+    assert(!result.subjectMapOptionLabels.includes('unknown'), 'SubjectMap sh:or branch labels regressed to unknown')
+    assert(!result.subjectMapText.includes('unknown'), `SubjectMap still displays an unknown logical branch:\n${result.subjectMapText}`)
+    assert(result.subjectMapVisibleLogicalConstraintCount === 0, 'SubjectMap still displays node-level validation-only logical controls')
+    assert(result.objectMapOptionLabels.includes('ObjectMap'), `ObjectMap sh:or branch did not use referenced shape label: ${result.objectMapOptionLabels.join(', ')}`)
+    assert(!result.objectMapOptionLabels.includes('unknown') && !result.secondObjectMapOptionLabels.includes('unknown'), 'ObjectMap sh:or branch labels regressed to unknown')
+    assert(!result.objectMapText.includes('unknown') && !result.secondObjectMapText.includes('unknown'), 'ObjectMap still displays an unknown logical branch')
+    assert(result.objectMapVisibleLogicalConstraintCount === 0 && result.secondObjectMapVisibleLogicalConstraintCount === 0, 'ObjectMap still displays node-level validation-only logical controls')
+    assert(result.starMapOptionLabels.some(label => label.includes('StarMap')), `StarMap logical branch did not get a meaningful referenced-shape label: ${result.starMapOptionLabels.join(', ')}`)
+    assert(!result.starMapText.includes('unknown'), `StarMap branch still displays unknown:\n${result.starMapText}`)
+    assert(result.starMapEmptyStateText.includes('No authoring fields are defined'), 'Empty StarMap branch did not render the generic empty-state message')
+    assert(result.starMapScalarEditorCount === 0, 'Empty StarMap branch rendered a bogus scalar editor')
     assert(result.acceptanceTurtle.includes('<http://example.org/TM-images>'), 'Acceptance Turtle did not use explicit TriplesMap IRI')
     assert(result.acceptanceTurtle.includes('rml:logicalSource <http://example.org/rml-logical-source-1>'), 'Acceptance Turtle did not link TriplesMap to LogicalSource')
     assert(result.acceptanceTurtle.includes('rml:source <http://example.org/rml-source-1>'), 'Acceptance Turtle did not link LogicalSource to Source')
@@ -365,14 +455,18 @@ try {
     assert(result.acceptanceTurtle.includes('rml:path "images.json"'), 'Acceptance Turtle did not include RelativePathSource path')
     assert(result.acceptanceTurtle.includes('rml:referenceFormulation rml:JSONPath'), `Acceptance Turtle did not include JSONPath reference formulation:\n${result.acceptanceTurtle}`)
     assert(result.acceptanceTurtle.includes('rml:iterator "$.Images[*]"'), 'Acceptance Turtle did not include iterator')
-    assert(/rml:subjectMap <http:\/\/example\.org\/subjectmap-\d+>/.test(result.acceptanceTurtle), `Acceptance Turtle did not link TriplesMap to SubjectMap:\n${result.acceptanceTurtle}`)
+    assert(result.subjectMapNodeId === 'http://example.org/subjectmap-1', `First authored SubjectMap did not use suffix -1: ${result.subjectMapNodeId}`)
+    assert(result.acceptanceTurtle.includes('rml:subjectMap <http://example.org/subjectmap-1>'), `Acceptance Turtle did not link TriplesMap to first SubjectMap:\n${result.acceptanceTurtle}`)
     assert(result.acceptanceTurtle.includes('rml:template "http://data.example.com/image/{$.ID}"'), 'Acceptance Turtle did not include SubjectMap template literal')
     assert(result.acceptanceTurtle.includes('rml:RelativePathSource'), 'Acceptance Turtle did not type source as RelativePathSource from the authoring profile')
     assert(result.acceptanceTurtle.includes('<http://example.org/predicateobjectmap-1>'), 'Acceptance Turtle did not include first PredicateObjectMap')
     assert(result.acceptanceTurtle.includes('<http://example.org/predicateobjectmap-2>'), `Acceptance Turtle did not include second PredicateObjectMap:\n${result.acceptanceTurtle}`)
     assert(result.acceptanceTurtle.includes('rml:predicate <http://example.org#height>'), 'Acceptance Turtle did not include height predicate')
     assert(result.acceptanceTurtle.includes('rml:predicate <http://example.org#width>'), 'Acceptance Turtle did not include width predicate')
-    assert(/rml:objectMap <http:\/\/example\.org\/objectmap-\d+>/.test(result.acceptanceTurtle), 'Acceptance Turtle did not include ObjectMap links')
+    assert(result.objectMapNodeId === 'http://example.org/objectmap-1', `First authored ObjectMap did not use suffix -1: ${result.objectMapNodeId}`)
+    assert(result.secondObjectMapNodeId === 'http://example.org/objectmap-2', `Second authored ObjectMap did not use suffix -2: ${result.secondObjectMapNodeId}`)
+    assert(result.acceptanceTurtle.includes('rml:objectMap <http://example.org/objectmap-1>'), 'Acceptance Turtle did not include first ObjectMap link')
+    assert(result.acceptanceTurtle.includes('rml:objectMap <http://example.org/objectmap-2>'), 'Acceptance Turtle did not include second ObjectMap link')
     assert(result.acceptanceTurtle.includes('rml:reference "$.Height"'), 'Acceptance Turtle did not include height reference')
     assert(result.acceptanceTurtle.includes('rml:reference "$.Width"'), 'Acceptance Turtle did not include width reference')
     assert(result.acceptanceConforms === true, `Acceptance mapping did not pass internal SHACL validation: ${result.validationSummaryText}`)
@@ -385,7 +479,8 @@ try {
     assert(joinDemoResult.generatedRootId === 'http://example.org/join-1', 'RML demo did not create a readable Join IRI')
     assert(joinDemoResult.customizedRootId === 'http://example.org/Join-images', `RML demo did not preserve explicit Join IRI edit: ${joinDemoResult.customizedRootId}`)
 
-    console.log('rml browser smoke passed')
+    const uniqueNotFoundUrls = [...new Set(notFoundUrls)]
+    console.log(`rml browser smoke passed${uniqueNotFoundUrls.length ? `; 404 URLs: ${uniqueNotFoundUrls.join(', ')}` : ''}`)
 } finally {
     if (browser) {
         await browser.close()

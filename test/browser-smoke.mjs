@@ -36,6 +36,14 @@ const shapes = `
       sh:name "Child" ;
       sh:nodeKind sh:BlankNodeOrIRI ;
       sh:node ex:ChildShape
+    ] ;
+    sh:property [
+      sh:path ex:choice ;
+      sh:name "Choice" ;
+      sh:or (
+        [ sh:node ex:ChildShape ]
+        [ sh:minLength 2 ]
+      )
     ] .
 
   ex:ChildShape a sh:NodeShape ;
@@ -77,6 +85,12 @@ try {
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
     const page = await browser.newPage()
+    const notFoundUrls = []
+    page.on('response', response => {
+        if (response.status() === 404) {
+            notFoundUrls.push(response.url())
+        }
+    })
     page.on('pageerror', error => {
         throw error
     })
@@ -132,6 +146,12 @@ try {
         const titleLabel = root?.querySelector('shacl-property label')?.textContent
         const nestedControl = [...root?.querySelectorAll('shacl-property') || []]
             .find(property => property.textContent.includes('Child') && property.querySelector('.add-button'))
+        const logicalChoiceOptions = [...root?.querySelectorAll('shacl-property') || []]
+            .find(property => property.template?.label === 'Choice')
+            ?.querySelector(':scope > .shacl-or-constraint > div > select')
+        const logicalChoiceLabels = logicalChoiceOptions
+            ? [...logicalChoiceOptions.options].map(option => option.textContent)
+            : []
         const alternative = root?.querySelector('.alternative-path-constraint select')
         alternative.value = '1'
         alternative.dispatchEvent(new Event('change', { bubbles: true }))
@@ -175,6 +195,7 @@ try {
             hasRoot: Boolean(root),
             titleLabel,
             hasNestedControl: Boolean(nestedControl),
+            logicalChoiceLabels,
             hasNestedNodeAfterClick: Boolean(nestedNodeAfterClick),
             generatedRootId,
             customizedRootId,
@@ -196,10 +217,12 @@ try {
     assert(result.hasRoot, 'simple NodeShape did not render')
     assert(result.titleLabel === 'Title', 'simple property label did not render')
     assert(result.hasNestedControl, 'nested sh:node create/link control did not render')
+    assert(result.logicalChoiceLabels.includes('Child'), 'anonymous sh:node logical branch did not use referenced node-shape label')
+    assert(result.logicalChoiceLabels.includes('Alternative 2'), `anonymous logical branch without semantic label did not use deterministic fallback label: ${result.logicalChoiceLabels.join(', ')}`)
     assert(result.hasNestedNodeAfterClick, 'nested sh:node form did not render after using create control')
     assert(result.generatedRootId === 'http://data.example/simple-1', 'readable generated root IRI was not used')
     assert(result.customizedRootId === 'http://data.example/custom-root', 'custom root IRI was not preserved')
-    assert(result.nestedNodeId === 'http://data.example/child-1', 'nested node did not receive independent readable identity')
+    assert(/^http:\/\/data\.example\/child-\d+$/.test(result.nestedNodeId), `nested node did not receive independent readable identity: ${result.nestedNodeId}`)
     assert(result.rootIdLabel === 'IRI:', 'editable NamedNode identifier label is not IRI')
     assert(result.nestedIdLabel === 'IRI:', 'nested BlankNodeOrIRI NamedNode identifier label is not IRI')
     assert(result.blankNodeDisplayLabel === 'Blank node:' && result.blankNodeDisplayValue.startsWith('_:'), 'generated blank node did not use non-editable Blank node label')
@@ -211,12 +234,13 @@ try {
     assert(result.validConforms === true, 'SHACL validation did not pass after value entry')
     assert(result.turtle.includes('A title') && result.turtle.includes('ex:title'), 'serialization did not include entered RDF')
     assert(result.turtle.includes('<http://data.example/custom-root>'), 'serialization did not use custom root IRI')
-    assert(result.turtle.includes('<http://data.example/child-1>'), 'serialization did not preserve nested node identity')
-    assert(result.turtle.includes('ex:child <http://data.example/child-1>'), 'serialization did not link parent to nested node')
+    assert(result.turtle.includes(`<${result.nestedNodeId}>`), 'serialization did not preserve nested node identity')
+    assert(result.turtle.includes(`ex:child <${result.nestedNodeId}>`), 'serialization did not link parent to nested node')
     assert(result.turtle.includes('ex:childName "Child value"'), 'serialization did not include nested node data')
     assert(result.turtle.includes('ex:mbox "mailto:a@example.org"'), 'serialization did not use the selected alternative path')
 
-    console.log('browser smoke passed')
+    const uniqueNotFoundUrls = [...new Set(notFoundUrls)]
+    console.log(`browser smoke passed${uniqueNotFoundUrls.length ? `; 404 URLs: ${uniqueNotFoundUrls.join(', ')}` : ''}`)
 } finally {
     if (browser) {
         await browser.close()
