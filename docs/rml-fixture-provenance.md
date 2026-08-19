@@ -35,15 +35,23 @@ The missing RML-IO source/target definitions were added from `kg-construct/rml-i
 - `RMLSourceShape`
 - `RMLTargetShape`
 
-## Remaining source-specialization limitation
+## Thesis authoring profile
 
-The loaded shape graph now contains both `RMLSourceShape` and `RMLRelativePathSourceShape`.
+The pinned combined fixture is loaded together with `rml/authoring-overlay.ttl`
+in the RML demo. The overlay is an application authoring profile, not an
+upstream RML SHACL claim.
 
-However, the checked upstream RML-IO ontology does not state:
+It currently adds same-focus `sh:node` bridges:
 
 ```turtle
-rml:RelativePathSource rdfs:subClassOf rml:Source .
+<http://w3id.org/rml/shapes/RMLLogicalSourceShape>
+    sh:node <http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> .
+
+<http://w3id.org/rml/shapes/RMLSourceShape>
+    sh:node <http://w3id.org/rml/shapes/RMLRelativePathSourceShape> .
 ```
 
-Without that generic RDFS relationship, the application has no vocabulary-independent basis for automatically offering `RMLRelativePathSourceShape` as a compatible concrete authoring choice for a property constrained with `sh:node RMLSourceShape`.
-
+The second bridge means the thesis demo authors sources as relative path
+sources while preserving the upstream `RMLSourceShape` definition. It should
+not be cited as evidence that every RML source is necessarily a relative path
+source.

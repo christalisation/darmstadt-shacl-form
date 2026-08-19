@@ -1,6 +1,10 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 
-# Authoring bridge between RML-IO LogicalSource and
-# the RML-Core AbstractLogicalSource constraints.
+# Thesis authoring profile bridges. These same-focus sh:node constraints
+# improve the demo authoring path without claiming that every RML graph must
+# use these concrete specialisations.
 <http://w3id.org/rml/shapes/RMLLogicalSourceShape>
     sh:node <http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> .
+
+<http://w3id.org/rml/shapes/RMLSourceShape>
+    sh:node <http://w3id.org/rml/shapes/RMLRelativePathSourceShape> .
