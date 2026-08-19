@@ -46,6 +46,8 @@ function compilerFor(store: Store): {
             resolvePropertyShape: id => parser.parsePropertyShapeIfPresent(id),
         }),
         findNodeShapeByTargetClass: targetClass => store.getSubjects(DataFactory.namedNode('http://www.w3.org/ns/shacl#targetClass'), targetClass, null)[0],
+        findNodeShapesByTargetObjectsOf: predicate => store.getSubjects(DataFactory.namedNode('http://www.w3.org/ns/shacl#targetObjectsOf'), predicate, null)
+            .filter(subject => store.countQuads(subject, DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), DataFactory.namedNode('http://www.w3.org/ns/shacl#NodeShape'), null) > 0),
         findCompatibleNodeShapes: baseShape => {
             const base = resolveNodeShape(baseShape)
             if (!base) return []
@@ -289,6 +291,54 @@ describe('FormShapeCompiler', () => {
         expect(property.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#Literal')
     })
 
+    it('derives structural value-node shapes from sh:targetObjectsOf', () => {
+        const store = storeFromTurtle(`
+            ex:ParentShape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:child ;
+                    sh:name "Child" ;
+                    sh:nodeKind sh:BlankNodeOrIRI
+                ] .
+
+            ex:ChildShape a sh:NodeShape ;
+                sh:targetObjectsOf ex:child ;
+                sh:property [
+                    sh:path ex:name ;
+                    sh:name "Name"
+                ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}ParentShape`)
+        const property = shape.properties[0]
+
+        expect(property.nestedNodeShapes.map(shape => shape.value)).toEqual([`${EX}ChildShape`])
+        expect(property.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#BlankNodeOrIRI')
+    })
+
+    it('derives value-only value-node constraints from sh:targetObjectsOf', () => {
+        const store = storeFromTurtle(`
+            ex:ParentShape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:code ;
+                    sh:name "Code"
+                ] .
+
+            ex:CodeShape a sh:NodeShape ;
+                sh:targetObjectsOf ex:code ;
+                sh:datatype xsd:string ;
+                sh:nodeKind sh:Literal ;
+                sh:pattern "^[A-Z]+$" .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}ParentShape`)
+        const property = shape.properties[0]
+
+        expect(property.nestedNodeShapes).toEqual([])
+        expect(property.datatype?.value).toBe('http://www.w3.org/2001/XMLSchema#string')
+        expect(property.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#Literal')
+        expect(property.pattern).toBe('^[A-Z]+$')
+    })
+
     it('does not treat logical alternatives as unconditional effective properties', () => {
         const store = storeFromTurtle(`
             ex:Shape a sh:NodeShape ;
@@ -367,6 +417,27 @@ describe('FormShapeCompiler', () => {
         expect(labels).toContain('logicalTarget')
         expect(labels).toContain('predicate/predicateMap')
         expect(labels).toContain('object/objectMap/quotedTriplesMap')
+    })
+
+    it('derives RML PredicateObjectMap as the value shape of TriplesMap predicateObjectMap', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLTriplesMapShape')
+        const property = shape.properties.find(property => property.writablePath?.value === `${RML}predicateObjectMap`)
+
+        expect(property?.nestedNodeShapes.map(shape => shape.value)).toContain('http://w3id.org/rml/shapes/RMLPredicateObjectMapShape')
+        expect(property?.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#BlankNodeOrIRI')
+    })
+
+    it('preserves RML objectMap branch-local logical value-shape choices', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLPredicateObjectMapShape')
+        const property = shape.properties.find(property => property.label === 'object/objectMap/quotedTriplesMap')
+        const objectMapBranch = property?.pathAlternativeBranches[`${RML}objectMap`]
+
+        expect(objectMapBranch?.logicalAlternatives[0].kind).toBe('or')
+        expect(objectMapBranch?.logicalAlternatives[0].shapes).toHaveLength(3)
     })
 
     it('compiles RML ChildMap effective properties even without direct sh:property', () => {

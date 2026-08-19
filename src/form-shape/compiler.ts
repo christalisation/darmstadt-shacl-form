@@ -17,6 +17,7 @@ export interface FormShapeCompilerOptions {
     prefixes?: Record<string, unknown>
     resolveNodeShape: (id: Term) => ShaclNodeShape | undefined
     findNodeShapeByTargetClass?: (targetClass: NamedNode) => Term | undefined
+    findNodeShapesByTargetObjectsOf?: (predicate: NamedNode) => Term[]
     labelForTerm?: (term: Term) => string | undefined
     shapeResolver?: ShaclShapeResolver
     findCompatibleNodeShapes?: (baseShape: Term) => Term[]
@@ -84,6 +85,15 @@ export class FormShapeCompiler {
                 this.mergeValueNodeShapeConstraints(property, property.nodeShape)
             }
         }
+
+        for (const targetShape of this.findValueNodeShapesByTargetObjectsOf(property)) {
+            if (this.hasRenderableNodeShapeContent(targetShape)) {
+                property.nestedNodeShapes.push(targetShape)
+            } else {
+                this.mergeValueNodeShapeConstraints(property, targetShape)
+            }
+        }
+        property.nestedNodeShapes = this.uniqueTerms(property.nestedNodeShapes)
 
         for (const alternative of property.pathAlternatives || []) {
             property.pathAlternativeLabels[alternative.value] = this.findAlternativePathLabel(alternative, siblings)
@@ -220,9 +230,36 @@ export class FormShapeCompiler {
         if (!nodeShape) {
             return
         }
-        for (const constraint of nodeShape.constraints) {
+        const effectiveShape = this.options.shapeResolver?.resolveEffectiveNodeShape(nodeShape) || nodeShape
+        for (const constraint of effectiveShape.constraints) {
             this.applyConstraint(property, constraint)
         }
+    }
+
+    private findValueNodeShapesByTargetObjectsOf(property: FormPropertyShape): Term[] {
+        if (!property.writablePath || !this.options.findNodeShapesByTargetObjectsOf) {
+            return []
+        }
+
+        const locallyDeclared = new Set<string>([
+            ...property.nestedNodeShapes.map(shape => this.termKey(shape)),
+            ...(property.nodeShape ? [this.termKey(property.nodeShape)] : []),
+            ...this.composedValueNodeShapeTerms(property).map(shape => this.termKey(shape)),
+        ])
+
+        return this.options.findNodeShapesByTargetObjectsOf(property.writablePath)
+            .filter(shape => !locallyDeclared.has(this.termKey(shape)))
+    }
+
+    private composedValueNodeShapeTerms(property: FormPropertyShape): Term[] {
+        if (!property.nodeShape) {
+            return []
+        }
+        const nodeShape = this.options.resolveNodeShape(property.nodeShape)
+        if (!nodeShape) {
+            return []
+        }
+        return this.options.shapeResolver?.resolveEffectiveNodeShape(nodeShape).composedNodeShapes || []
     }
 
     private hasRenderableNodeShapeContent(nodeShapeId: Term, visited = new Set<string>()): boolean {

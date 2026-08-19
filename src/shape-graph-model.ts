@@ -45,6 +45,7 @@ export class ShapeGraphModel {
             prefixes: this.prefixes,
             resolveNodeShape: id => this.parseNodeShapeIfPresent(id),
             findNodeShapeByTargetClass: targetClass => this.findNodeShapeByTargetClass(targetClass),
+            findNodeShapesByTargetObjectsOf: predicate => this.findNodeShapesByTargetObjectsOf(predicate),
             findCompatibleNodeShapes: baseShape => this.getCompatibleFormNodeShapeTerms(baseShape),
             labelForTerm: term => this.getLabel(term),
             shapeResolver: resolver,
@@ -283,6 +284,7 @@ export class ShapeGraphModel {
                 prefixes: this.prefixes,
                 resolveNodeShape: id => this.parseNodeShapeIfPresent(id),
                 findNodeShapeByTargetClass: targetClass => this.findNodeShapeByTargetClass(targetClass),
+                findNodeShapesByTargetObjectsOf: predicate => this.findNodeShapesByTargetObjectsOf(predicate),
                 findCompatibleNodeShapes: baseShape => this.getCompatibleFormNodeShapeTerms(baseShape),
                 labelForTerm: term => this.getLabel(term),
             }).compilePropertyShape(semanticProperty)
@@ -353,6 +355,16 @@ export class ShapeGraphModel {
     private findNodeShapeByTargetClass(targetClass: RdfNamedNode): RdfTerm | undefined {
         return this.store.getSubjects(SHACL_PREDICATE_TARGET_CLASS, targetClass, null)
             .find(subject => this.isNodeShape(subject))
+    }
+
+    private findNodeShapesByTargetObjectsOf(predicate: RdfNamedNode): RdfTerm[] {
+        return this.getNodeShapeSubjects().filter(subject => {
+            const shape = this.parseNodeShapeIfPresent(subject)
+            return shape?.targets.some(target =>
+                target.kind === 'objectsOf' &&
+                target.predicate.value === predicate.value
+            )
+        })
     }
 
     private parsePropertyShapeIfPresent(propertyShape: RdfTerm): ShaclPropertyShape | undefined {
