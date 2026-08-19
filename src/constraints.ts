@@ -217,11 +217,23 @@ function createNodeLogicalOption(option: Term, index: number, config: Config): L
 
 function createPropertyLogicalOption(option: Term, index: number, parentTemplate: ShaclPropertyTemplate, config: Config): LogicalPropertyOption | undefined {
     const label = labelForPropertyLogicalOption(option, index, parentTemplate, config)
+    const directNodeShape = config.shapeGraph.getFormNodeShape(option)
+    if (directNodeShape && directNodeShape.properties.length === 0 && !hasFormValueConstraints(directNodeShape)) {
+        return { kind: 'emptyNodeShape', label }
+    }
+
     const nodeTargets = config.store.getObjects(option, `${PREFIX_SHACL}node`, null)
     if (nodeTargets.length === 1) {
         const nodeShape = config.shapeGraph.getFormNodeShape(nodeTargets[0])
         if (nodeShape && nodeShape.properties.length === 0 && !hasFormValueConstraints(nodeShape)) {
             return { kind: 'emptyNodeShape', label }
+        }
+        if (nodeShape) {
+            const template = parentTemplate.createTemplateForLogicalOption(nodeTargets[0], label)
+            if (template) {
+                template.label = label
+                return { kind: 'template', label, template }
+            }
         }
     }
 

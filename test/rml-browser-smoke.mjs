@@ -148,7 +148,7 @@ try {
         }
 
         function visibleText(root) {
-            return root?.innerText || root?.textContent || ''
+            return root?.textContent || root?.innerText || ''
         }
 
         function visibleLogicalConstraintCount(root) {
@@ -324,6 +324,21 @@ try {
             ? starMapContent.querySelectorAll(':scope > .property-instance > .editor, :scope > .property-instance input, :scope > .property-instance select, :scope > .property-instance textarea').length
             : 0
 
+        const refObjectMapForm = await createForm('http://w3id.org/rml/shapes/RMLTriplesMapShape', {
+            valuesNamespace: 'http://example.org/',
+            showNodeIds: '',
+        })
+        const refObjectMapRoot = refObjectMapForm.shadowRoot.querySelector('shacl-node')
+        const refPomProperty = findProperty(refObjectMapRoot, 'predicateObjectMap')
+        const refPomNode = await addNestedValue(refPomProperty)
+        const refObjectAlternative = findProperty(refPomNode, 'object/objectMap/quotedTriplesMap')
+        const refObjectMapInstance = await selectAlternativeInProperty(refObjectAlternative, 'objectMap')
+        await selectLogicalOptionByLabel(refObjectMapInstance, 'RefObjectMap')
+        const refObjectMapNode = refObjectMapInstance.querySelector('shacl-node')
+        const refObjectMapText = visibleText(refObjectMapNode)
+        const refObjectMapNodeIds = [...refObjectMapInstance.querySelectorAll('shacl-node')]
+            .map(node => node.dataset.nodeId)
+
         return {
             predicateObjectMapText,
             childMapText,
@@ -357,6 +372,8 @@ try {
             starMapText,
             starMapEmptyStateText,
             starMapScalarEditorCount,
+            refObjectMapText,
+            refObjectMapNodeIds,
             rootOptions,
         }
     }, shapesWithOntology)
@@ -448,6 +465,10 @@ try {
     assert(!result.starMapText.includes('unknown'), `StarMap branch still displays unknown:\n${result.starMapText}`)
     assert(result.starMapEmptyStateText.includes('No authoring fields are defined'), 'Empty StarMap branch did not render the generic empty-state message')
     assert(result.starMapScalarEditorCount === 0, 'Empty StarMap branch rendered a bogus scalar editor')
+    assert(result.refObjectMapText.includes('joinCondition'), `RefObjectMap did not expose joinCondition:\n${result.refObjectMapText}`)
+    assert(result.refObjectMapText.includes('parentTriplesMap'), `RefObjectMap did not expose parentTriplesMap:\n${result.refObjectMapText}`)
+    assert(result.refObjectMapNodeIds.length === 1, `RefObjectMap sh:and members were materialized as extra nested nodes: ${result.refObjectMapNodeIds.join(', ')}`)
+    assert(result.refObjectMapNodeIds[0] === 'http://example.org/refobjectmap-1', `First authored RefObjectMap did not use suffix -1: ${result.refObjectMapNodeIds[0]}`)
     assert(result.acceptanceTurtle.includes('<http://example.org/TM-images>'), 'Acceptance Turtle did not use explicit TriplesMap IRI')
     assert(result.acceptanceTurtle.includes('rml:logicalSource <http://example.org/rml-logical-source-1>'), 'Acceptance Turtle did not link TriplesMap to LogicalSource')
     assert(result.acceptanceTurtle.includes('rml:source <http://example.org/rml-source-1>'), 'Acceptance Turtle did not link LogicalSource to Source')

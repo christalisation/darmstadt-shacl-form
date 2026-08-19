@@ -322,6 +322,16 @@ export class ShaclPropertyTemplate {
 
     createTemplateForLogicalOption(option: Term, fallbackLabel = 'Alternative'): ShaclPropertyTemplate | undefined {
         const nodeShape = this.config.shapeGraph.getFormNodeShape(option)
+        const nodeShapeReference = toNodeShapeReference(option)
+        if (nodeShape && nodeShape.properties.length > 0 && nodeShapeReference) {
+            const template = this.cloneForLogicalOption()
+            template.node = nodeShapeReference
+            template.extendedShapes = [nodeShapeReference]
+            template.ensureLogicalOptionLabel(fallbackLabel)
+            template.path = this.path
+            template.pathExpression = this.pathExpression
+            return template
+        }
         if (nodeShape && nodeShape.properties.length === 0 && this.hasFormValueConstraints(nodeShape.valueConstraints)) {
             const template = this.cloneForLogicalOption()
             template.applyFormValueConstraints(nodeShape.valueConstraints)
@@ -361,11 +371,15 @@ export class ShaclPropertyTemplate {
         const template = this.clone()
         template.label = ''
         template.name = undefined
+        template.node = undefined
+        template.class = undefined
         template.path = undefined
         template.pathExpression = undefined
         template.pathAlternatives = undefined
         template.pathAlternativeLabels = {}
         template.pathAlternativeBranches = {}
+        template.extendedShapes = []
+        template.shaclAnd = undefined
         template.shaclOr = undefined
         template.shaclXone = undefined
         return template

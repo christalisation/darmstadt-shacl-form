@@ -440,6 +440,19 @@ describe('FormShapeCompiler', () => {
         expect(objectMapBranch?.logicalAlternatives[0].shapes).toHaveLength(3)
     })
 
+    it('compiles RML RefObjectMap sh:and members as same-focus properties', () => {
+        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+
+        const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLRefObjectMapShape')
+        const joinCondition = shape.properties.find(property => property.label === 'joinCondition')
+        const parentTriplesMap = shape.properties.find(property => property.label === 'parentTriplesMap')
+
+        expect(shape.properties.map(property => property.label)).toEqual(['joinCondition', 'parentTriplesMap'])
+        expect(joinCondition?.writablePath?.value).toBe(`${RML}joinCondition`)
+        expect(parentTriplesMap?.writablePath?.value).toBe(`${RML}parentTriplesMap`)
+        expect(shape.composedNodeShapes).toEqual([])
+    })
+
     it('compiles RML ChildMap effective properties even without direct sh:property', () => {
         const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
 
