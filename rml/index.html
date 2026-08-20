@@ -66,7 +66,8 @@
             link.click();
         });
         const shapeFiles = [
-            'rml-core-io.ttl',
+            'core.ttl',
+            'io.ttl',
             'authoring-overlay.ttl'
         ];
         Promise.all(
@@ -253,6 +254,7 @@
                 data-collapse=""
                 data-values-namespace="http://example.org/"
                 data-show-node-ids
+                data-ignore-owl-imports
             ></shacl-form>
         </section>
 
