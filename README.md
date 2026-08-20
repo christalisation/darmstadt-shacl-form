@@ -1,6 +1,6 @@
-# SHACL Form Generator - Thesis Extension
+# SHACL Form Generator - Master's Thesis Extension
 
-This repository is a thesis implementation based on the upstream
+This repository is a master's thesis implementation based on the upstream
 [`ULB-Darmstadt/shacl-form`](https://github.com/ULB-Darmstadt/shacl-form)
 web component.
 
