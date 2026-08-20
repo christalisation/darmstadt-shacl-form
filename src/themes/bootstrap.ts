@@ -1,6 +1,6 @@
 import { DefaultTheme } from './default'
 import { Term } from '@rdfjs/types'
-import { ShaclPropertyTemplate } from '../property-template'
+import { ShaclPropertyTemplate } from '../runtime/property-template'
 import { Editor } from '../theme'
 import bootstrap from 'bootstrap/dist/css/bootstrap.min.css?raw'
 import css from './bootstrap.css?raw'

@@ -1,4 +1,4 @@
-import { ShaclPropertyTemplate } from './property-template'
+import { ShaclPropertyTemplate } from './runtime/property-template'
 import { Term } from '@rdfjs/types'
 
 // store plugins in module scope so that they apply to all shacl-form elements

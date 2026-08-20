@@ -1,4 +1,4 @@
-import { ShaclPropertyTemplate } from '../property-template'
+import { ShaclPropertyTemplate } from '../runtime/property-template'
 import { Term } from '@rdfjs/types'
 import { Button, TextField, Checkbox, Select, MenuItem } from 'mdui'
 import { Theme } from '../theme'

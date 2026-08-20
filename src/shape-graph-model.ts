@@ -2,9 +2,8 @@ import { BlankNode, DataFactory, NamedNode, Store, Term as N3Term } from 'n3'
 import { NamedNode as RdfNamedNode, Term as RdfTerm } from '@rdfjs/types'
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_NODE, SHACL_PREDICATE_PROPERTY, SHACL_PREDICATE_TARGET_CLASS } from './constants'
 import { findLabel } from './util'
-import { getAlternativePredicatePaths, getPredicatePath, ShaclPath } from './shacl-path'
 import { RdfReader } from './rdf'
-import { RDFS_VOCAB, ShaclNodeShape, ShaclParser, ShaclPathParser, ShaclPropertyShape, ShaclShapeResolver } from './shacl'
+import { getAlternativePredicatePaths, getPredicatePath, RDFS_VOCAB, ShaclNodeShape, ShaclParser, ShaclPath, ShaclPathParser, ShaclPropertyShape, ShaclShapeResolver } from './shacl'
 import { FormNodeShape, FormPropertyShape, FormShapeCompiler, FormShapeRegistry } from './form-shape'
 
 export type RootShapeOptions = {

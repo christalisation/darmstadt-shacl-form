@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataFactory, Parser, Store, Term } from 'n3'
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, RDF_PREDICATE_TYPE } from '../src/constants'
 import { ShapeGraphModel } from '../src/shape-graph-model'
-import { getAlternativePredicatePaths, pathToString, ShaclPath } from '../src/shacl-path'
+import { getAlternativePredicatePaths, pathToString, ShaclPath } from '../src/shacl'
 
 const EX = 'http://example.org/'
 const SH = 'http://www.w3.org/ns/shacl#'

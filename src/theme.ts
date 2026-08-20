@@ -2,7 +2,7 @@ import { Literal, NamedNode } from 'n3'
 import { Term } from '@rdfjs/types'
 import { PREFIX_XSD, PREFIX_RDF } from './constants'
 import { createInputListEntries, findInstancesOf, findLabel, isURL } from './util'
-import { ShaclPropertyTemplate } from './property-template'
+import { ShaclPropertyTemplate } from './runtime/property-template'
 import css from './styles.css?raw'
 
 export type Editor = HTMLElement & { value: string, type?: string, shaclDatatype?: NamedNode<string>, binaryData?: string, checked?: boolean, disabled?: boolean }

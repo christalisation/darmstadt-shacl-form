@@ -1,5 +1,5 @@
 import { Plugin, PluginOptions } from '../plugin'
-import { ShaclPropertyTemplate } from '../property-template'
+import { ShaclPropertyTemplate } from '../runtime/property-template'
 
 export class FileUploadPlugin extends Plugin {   
   	onChange: (event: Event) => void

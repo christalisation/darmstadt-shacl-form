@@ -48,7 +48,7 @@ Statuses:
 | `sh:targetClass` | Yes | Yes | Partial | Delegated | Used as metadata and compatible-shape policy input; not automatically a root policy. |
 | `sh:targetNode` | Yes | No | No | Delegated | Validation target only; not treated as an authoring root by itself. |
 | `sh:targetSubjectsOf` | Yes | No | No | Delegated | Validation target only; not treated as a root heuristic. |
-| `sh:targetObjectsOf` | Yes | No | No | Delegated | Validation target only; broad root fallback still exposes all NodeShapes because SHACL does not define form entry points. |
+| `sh:targetObjectsOf` | Yes | Yes | Partial | Delegated | Parsed as validation target metadata and projected as a generic value-shape authoring hint for simple predicate properties; broad root fallback still exposes all NodeShapes because SHACL does not define form entry points. |
 | Predicate path | Yes | Yes | Yes | Delegated | Main authored path type. |
 | Alternative path | Yes | Yes | Partial | Delegated | UI can select among predicate alternatives; data provenance is not yet modeled. |
 | Sequence path | Yes | Yes | No | Delegated | Syntax is represented, but current RDF binding cannot write arbitrary sequence paths. |

@@ -2,3 +2,4 @@ dist/
 node_modules/
 out-tsc/
 .DS_Store
+thesis-audit/

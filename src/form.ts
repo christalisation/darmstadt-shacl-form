@@ -1,5 +1,5 @@
-import { ShaclNode } from './node'
-import { ShaclNodeCollection } from './node-collection'
+import { ShaclNode } from './runtime/node'
+import { ShaclNodeCollection } from './runtime/node-collection'
 import { Config } from './config'
 import { ClassInstanceProvider, Plugin, listPlugins, registerPlugin } from './plugin'
 import { Store, NamedNode, DataFactory, Quad, BlankNode } from 'n3'
