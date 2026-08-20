@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHACL Form Generator</title>
+
+    <script type="module" src="./src/form-default.ts"></script>
+
+    <script type="module">
+        const form = document.getElementById('shacl-form');
+        const shapesEditor = document.getElementById('shapes-editor');
+        const shapesUrl = document.getElementById('shapes-url');
+        const outputPre = document.getElementById('rdf-output');
+        const applyShapesBtn = document.getElementById('apply-shapes-btn');
+        const loadShapesUrlBtn = document.getElementById('load-shapes-url-btn');
+        const exportBtn = document.getElementById('export-btn');
+
+        function updateOutput(valid) {
+            try {
+                outputPre.innerText = form.serialize();
+            } catch (error) {
+                outputPre.innerText = '';
+            }
+            outputPre.classList.toggle('valid', valid !== false);
+            outputPre.classList.toggle('invalid', valid === false);
+        }
+
+        form.addEventListener('change', event => {
+            updateOutput(event.detail?.valid);
+        });
+
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            updateOutput(true);
+        });
+
+        applyShapesBtn.addEventListener('click', () => {
+            form.removeAttribute('data-shapes-url');
+            const text = shapesEditor.value.trim();
+            if (text) {
+                form.dataset.shapes = text;
+            } else {
+                form.removeAttribute('data-shapes');
+            }
+            outputPre.innerText = '';
+            outputPre.classList.remove('valid', 'invalid');
+        });
+
+        loadShapesUrlBtn.addEventListener('click', () => {
+            const url = shapesUrl.value.trim();
+            form.removeAttribute('data-shapes');
+            if (url) {
+                form.dataset.shapesUrl = url;
+            } else {
+                form.removeAttribute('data-shapes-url');
+            }
+            outputPre.innerText = '';
+            outputPre.classList.remove('valid', 'invalid');
+        });
+
+        exportBtn.addEventListener('click', () => {
+            const triples = form.serialize();
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(new Blob([triples], { type: 'text/turtle' }));
+            link.download = 'shacl-form-output.ttl';
+            link.click();
+        });
+    </script>
+
+    <style>
+        :root {
+            color: #1f2933;
+            background: #f5f7f9;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: #22313f;
+            color: white;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: minmax(18rem, 0.9fr) minmax(22rem, 1.3fr) minmax(18rem, 0.9fr);
+            gap: 1rem;
+            padding: 1rem;
+            align-items: start;
+        }
+
+        section {
+            min-width: 0;
+        }
+
+        .panel {
+            background: white;
+            border: 1px solid #d7dee4;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .panel h2 {
+            margin: 0 0 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        textarea,
+        pre {
+            box-sizing: border-box;
+            width: 100%;
+            min-height: calc(100vh - 15rem);
+            margin: 0;
+            border: 1px solid #d7dee4;
+            border-radius: 4px;
+            background: #fbfcfd;
+            color: #17212b;
+            font: 0.85rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            overflow: auto;
+            padding: 0.75rem;
+            white-space: pre-wrap;
+        }
+
+        input {
+            box-sizing: border-box;
+            width: 100%;
+            border: 1px solid #b8c3cc;
+            border-radius: 4px;
+            font: inherit;
+            margin-bottom: 0.5rem;
+            padding: 0.45rem 0.55rem;
+        }
+
+        button {
+            border: 1px solid #b8c3cc;
+            border-radius: 4px;
+            background: white;
+            color: #22313f;
+            cursor: pointer;
+            font: inherit;
+            padding: 0.45rem 0.7rem;
+        }
+
+        .panel-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        #form-panel {
+            min-height: calc(100vh - 6rem);
+        }
+
+        #rdf-output.valid {
+            color: #176b3a;
+        }
+
+        #rdf-output.invalid {
+            color: #9f1d20;
+        }
+
+        shacl-form {
+            display: block;
+        }
+
+        @media (max-width: 1000px) {
+            header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            main {
+                grid-template-columns: 1fr;
+            }
+
+            textarea,
+            pre {
+                min-height: 18rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>SHACL Form Generator</h1>
+        <nav>
+            <a href="./rml/">RML demo</a>
+            <a href="./demo/index.html">Inherited demo</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>Shapes Graph</h2>
+            <input id="shapes-url" type="url" placeholder="Shapes Graph URL">
+            <textarea id="shapes-editor" spellcheck="false" placeholder="Paste SHACL shapes here"></textarea>
+            <div class="panel-actions">
+                <button id="apply-shapes-btn" type="button">Apply shapes</button>
+                <button id="load-shapes-url-btn" type="button">Load URL</button>
+            </div>
+        </section>
+
+        <section id="form-panel" class="panel">
+            <h2>Generated form</h2>
+            <shacl-form
+                id="shacl-form"
+                data-submit-button="Save"
+                data-collapse=""
+                data-values-namespace="http://example.org/"
+                data-show-node-ids
+            ></shacl-form>
+        </section>
+
+        <section class="panel">
+            <h2>Generated Turtle</h2>
+            <pre id="rdf-output"></pre>
+            <div class="panel-actions">
+                <button id="export-btn" type="button">Download .ttl</button>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

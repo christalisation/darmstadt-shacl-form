@@ -11,6 +11,7 @@ import { findPlugin } from './plugin'
 import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE } from './constants'
 import { RokitButton, RokitCollapsible, RokitSelect } from '@ro-kit/ui-widgets'
 import { FormPropertyShape } from './form-shape'
+import { UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE } from './ui-messages'
 
 type AlternativePathAddAction =
     | { kind: 'createAlternativePath', path: string }
@@ -265,7 +266,7 @@ export class ShaclProperty extends HTMLElement {
 
         if (this.canUseAlternativePathAddMenu()) {
             this.refreshAlternativePathAddButtonOptions(addButton)
-            addButton.collapsibleWidth = '340px'
+            addButton.collapsibleWidth = '350px'
             addButton.collapsibleOrientationLeft = ''
             addButton.addEventListener('change', () => {
                 this.handleAlternativePathAddAction(addButton.value)
@@ -292,7 +293,7 @@ export class ShaclProperty extends HTMLElement {
         } else {
             // some instances found, so create an add button that can create, link or reuse instances
             this.refreshAddButtonOptions(addButton)
-            addButton.collapsibleWidth = '340px'
+            addButton.collapsibleWidth = '350px'
             addButton.collapsibleOrientationLeft = ''
             addButton.addEventListener('change', () => {
                 if (addButton.value === 'new') {
@@ -400,7 +401,7 @@ export class ShaclProperty extends HTMLElement {
                 const unavailableItem = document.createElement('li')
                 unavailableItem.classList.add('disabled', 'unavailable')
                 unavailableItem.setAttribute('aria-disabled', 'true')
-                unavailableItem.innerText = 'No branch-specific authoring constraints found'
+                unavailableItem.innerText = UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE
                 unavailableItem.title = `${this.template.getPathLabel(path)} is declared by sh:alternativePath, but the loaded shapes do not provide a branch-specific PropertyShape that can be projected into an editor.`
                 ul.appendChild(unavailableItem)
                 return
@@ -696,7 +697,7 @@ function createUnavailableAlternativePathInstance(label: string, path: string): 
 
     const message = document.createElement('span')
     message.classList.add('unavailable-message')
-    message.innerText = 'No branch-specific authoring constraints found'
+    message.innerText = UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE
     instance.appendChild(message)
 
     return instance

@@ -495,7 +495,7 @@ try {
     assert(result.objectAlternativeAddLabels.some(label => label.includes('Add object value')), `object alternative add menu did not expose scalar object action: ${result.objectAlternativeAddLabels.join(', ')}`)
     assert(result.objectAlternativeAddLabels.some(label => label.includes('Create new objectMap')), `object alternative add menu did not expose objectMap action: ${result.objectAlternativeAddLabels.join(', ')}`)
     assert(!result.objectAlternativeAddLabels.some(label => label.includes('quotedTriplesMap')), `quotedTriplesMap exposed a misleading object add action: ${result.objectAlternativeAddLabels.join(', ')}`)
-    assert(result.objectAlternativeAddText.includes('quotedTriplesMap') && result.objectAlternativeAddText.includes('No authoring definition in the loaded shapes'), `quotedTriplesMap object branch was not shown as unavailable: ${result.objectAlternativeAddText}`)
+    assert(result.objectAlternativeAddText.includes('quotedTriplesMap') && result.objectAlternativeAddText.includes('No branch-specific authoring constraints found'), `quotedTriplesMap object branch was not shown as unavailable: ${result.objectAlternativeAddText}`)
     assert(
         result.childMapText.includes('template') &&
         result.childMapText.includes('constant') &&
@@ -514,7 +514,7 @@ try {
     assert(result.subjectAlternativeAddLabels.some(label => label.includes('Add subject value')), `subject alternative add menu did not expose scalar subject action: ${result.subjectAlternativeAddLabels.join(', ')}`)
     assert(result.subjectAlternativeAddLabels.some(label => label.includes('Create new SubjectMap')), `subject alternative add menu did not expose subjectMap action: ${result.subjectAlternativeAddLabels.join(', ')}`)
     assert(!result.subjectAlternativeAddLabels.some(label => label.includes('quotedTriplesMap')), `quotedTriplesMap exposed a misleading subject add action: ${result.subjectAlternativeAddLabels.join(', ')}`)
-    assert(result.subjectAlternativeAddText.includes('quotedTriplesMap') && result.subjectAlternativeAddText.includes('No authoring definition in the loaded shapes'), `quotedTriplesMap subject branch was not shown as unavailable: ${result.subjectAlternativeAddText}`)
+    assert(result.subjectAlternativeAddText.includes('quotedTriplesMap') && result.subjectAlternativeAddText.includes('No branch-specific authoring constraints found'), `quotedTriplesMap subject branch was not shown as unavailable: ${result.subjectAlternativeAddText}`)
     assert(result.triplesMapTurtle.includes('rml:subject <http://example.org/resource/{id}>'), 'TriplesMap serialization did not use selected rml:subject predicate')
     assert(result.logicalSourceText.includes('rml:source'), 'LogicalSource concrete authoring shape did not expose rml:source')
     assert(result.logicalSourceText.includes('rml:referenceFormulation'), 'LogicalSource did not expose same-focus referenceFormulation from node-level sh:node')

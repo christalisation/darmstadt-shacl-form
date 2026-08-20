@@ -280,7 +280,7 @@ try {
     assert(result.contactAddLabels.some(label => label.includes('Add Email value')), `alternative path add menu did not expose Email action: ${result.contactAddLabels.join(', ')}`)
     assert(result.contactAddLabels.some(label => label.includes('Add Mailbox value')), `alternative path add menu did not expose Mailbox action: ${result.contactAddLabels.join(', ')}`)
     assert(result.contactAddLabels.some(label => label.includes('Create new Child choice')), `alternative path add menu did not expose anonymous sh:or node-valued branch action: ${result.contactAddLabels.join(', ')}`)
-    assert(result.contactMenuText.includes('fax') && result.contactMenuText.includes('No authoring definition in the loaded shapes'), `under-specified alternative path branch was not shown as unavailable: ${result.contactMenuText}`)
+    assert(result.contactMenuText.includes('fax') && result.contactMenuText.includes('No branch-specific authoring constraints found'), `under-specified alternative path branch was not shown as unavailable: ${result.contactMenuText}`)
     assert(!result.contactAddLabels.some(label => label.includes('fax')), `under-specified alternative path branch exposed a misleading add action: ${result.contactAddLabels.join(', ')}`)
     assert(!result.emailBranchActionsAfterReuse.some(label => label.includes('http://data.example/child')), `scalar alternative branch exposed reusable node actions: ${result.emailBranchActionsAfterReuse.join(', ')}`)
     assert(result.childChoiceBranchActionsAfterReuse.some(label => label.includes('http://data.example/child')), `node-valued alternative branch did not expose compatible reusable node: ${result.childChoiceBranchActionsAfterReuse.join(', ')}`)

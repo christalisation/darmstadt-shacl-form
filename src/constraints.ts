@@ -5,6 +5,7 @@ import { ShaclProperty, createPropertyInstance } from "./property"
 import { Config } from './config'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHACL_PREDICATE_NODE_KIND, SHACL_OBJECT_IRI, SHACL_PREDICATE_PROPERTY } from './constants'
 import type { ShaclPropertyTemplate } from './property-template'
+import { UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE } from './ui-messages'
 
 type LogicalNodeOption =
     | { kind: 'nodeShape'; label: string; shape: Term }
@@ -46,7 +47,7 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
         option.innerText = property.template.getPathLabel(path)
         if (!property.template.createTemplateForAlternativePath(path)) {
             option.disabled = true
-            option.title = 'No branch-specific authoring constraints found'
+            option.title = UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE
         }
         select.appendChild(option)
     }
