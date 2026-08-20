@@ -241,7 +241,7 @@ export class ShaclProperty extends HTMLElement {
         else {
             for (const node of template.extendedShapes) {
                 // if this property has no sh:class but sh:node, then use the node shape's sh:targetClass to find protiential instances
-                const targetClasses = template.config.shapeGraph.getFormNodeShape(node)?.targetClasses || []
+                const targetClasses = template.config.formShapes.getNodeShape(node)?.targetClasses || []
                 if (targetClasses.length > 0) {
                     return targetClasses[0] as NamedNode
                 }
@@ -257,7 +257,7 @@ export class ShaclProperty extends HTMLElement {
         }
         // property has node shape(s), so check if value conforms to any targetClass
         for (const node of this.template.extendedShapes) {
-            const targetClasses = this.template.config.shapeGraph.getFormNodeShape(node)?.targetClasses || []
+            const targetClasses = this.template.config.formShapes.getNodeShape(node)?.targetClasses || []
             for (const targetClass of targetClasses) {
                 if (this.template.config.store.countQuads(value, RDF_PREDICATE_TYPE, targetClass, null) > 0) {
                     return true
@@ -516,13 +516,13 @@ export class ShaclProperty extends HTMLElement {
 
     private getNodeAuthoringLabel(template: ShaclPropertyTemplate): string {
         if (template.extendedShapes.length === 1) {
-            const label = template.config.shapeGraph.getFormNodeShape(template.extendedShapes[0])?.label
+            const label = template.config.formShapes.getNodeShape(template.extendedShapes[0])?.label
             if (label) {
                 return label
             }
         }
         if (template.node) {
-            const label = template.config.shapeGraph.getFormNodeShape(template.node)?.label
+            const label = template.config.formShapes.getNodeShape(template.node)?.label
             if (label) {
                 return label
             }
@@ -548,7 +548,7 @@ export class ShaclProperty extends HTMLElement {
             classes.set(directClass.value, directClass)
         }
         for (const shape of this.getReferenceShapeTerms(template)) {
-            const targetClasses = template.config.shapeGraph.getFormNodeShape(shape)?.targetClasses || []
+            const targetClasses = template.config.formShapes.getNodeShape(shape)?.targetClasses || []
             for (const targetClass of targetClasses) {
                 classes.set(targetClass.value, targetClass as NamedNode)
             }

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataFactory, Parser, Store, Term } from 'n3'
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, RDF_PREDICATE_TYPE } from '../src/constants'
-import { ShapeGraphModel } from '../src/shape-graph-model'
-import { getAlternativePredicatePaths, pathToString, ShaclPath } from '../src/shacl'
+import { FormRootSelection, FormShapeCompiler, FormShapeRegistry } from '../src/form-shape'
+import { getAlternativePredicatePaths, pathToString, ShaclPath, ShaclShapeRegistry, ShaclShapeResolver } from '../src/shacl'
 
 const EX = 'http://example.org/'
 const SH = 'http://www.w3.org/ns/shacl#'
@@ -17,34 +17,66 @@ function storeFromTurtle(turtle: string): Store {
     return new Store(parser.parse(`${prelude}\n${turtle}`))
 }
 
-function shapeGraph(turtle: string): ShapeGraphModel {
-    return new ShapeGraphModel(storeFromTurtle(turtle), ['en'])
+type ShapeLayers = {
+    shaclShapes: ShaclShapeRegistry
+    formShapes: FormShapeRegistry
+    rootSelection: FormRootSelection
 }
 
-function propertyShapes(model: ShapeGraphModel, nodeShapeIri = `${EX}Shape`): Term[] {
-    return model.getPropertyShapes(DataFactory.namedNode(nodeShapeIri))
+function createShapeLayers(store: Store): ShapeLayers {
+    const shaclShapes = new ShaclShapeRegistry(store, ['en'])
+    const resolver = new ShaclShapeResolver({
+        resolveNodeShape: id => shaclShapes.getNodeShape(id),
+        resolvePropertyShape: id => shaclShapes.getPropertyShape(id),
+    })
+    let formShapes!: FormShapeRegistry
+    const compiler = new FormShapeCompiler({
+        languages: ['en'],
+        prefixes: { ex: EX },
+        resolveNodeShape: id => shaclShapes.getNodeShape(id),
+        findNodeShapeByTargetClass: targetClass => shaclShapes.findNodeShapeByTargetClass(targetClass),
+        findNodeShapesByTargetObjectsOf: predicate => shaclShapes.findNodeShapesByTargetObjectsOf(predicate),
+        findNodeShapesByLogicalBranch: branch => shaclShapes.findNodeShapesByLogicalBranch(branch),
+        findCompatibleNodeShapes: baseShape => formShapes.getCompatibleNodeShapeTerms(baseShape),
+        labelForTerm: term => shaclShapes.getLabel(term),
+        shapeResolver: resolver,
+    })
+    formShapes = new FormShapeRegistry(compiler, shaclShapes)
+    return {
+        shaclShapes,
+        formShapes,
+        rootSelection: new FormRootSelection(store, shaclShapes),
+    }
 }
 
-function propertyPath(model: ShapeGraphModel, nodeShapeIri = `${EX}Shape`): ShaclPath {
-    const path = model.getPath(propertyShapes(model, nodeShapeIri)[0])
+function shapeLayers(turtle: string): ShapeLayers {
+    return createShapeLayers(storeFromTurtle(turtle))
+}
+
+function propertyShapes(layers: ShapeLayers, nodeShapeIri = `${EX}Shape`): Term[] {
+    return layers.shaclShapes.getPropertyShapes(DataFactory.namedNode(nodeShapeIri))
+}
+
+function propertyPath(layers: ShapeLayers, nodeShapeIri = `${EX}Shape`): ShaclPath {
+    const path = layers.shaclShapes.getPath(propertyShapes(layers, nodeShapeIri)[0])
     expect(path).toBeDefined()
     return path!
 }
 
-describe('ShapeGraphModel', () => {
+describe('SHACL and Form Shape registries', () => {
     afterEach(() => {
         vi.restoreAllMocks()
     })
 
     it('returns explicitly requested root node shapes', () => {
         vi.spyOn(console, 'warn').mockImplementation(() => {})
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:BookShape a sh:NodeShape .
             ex:PersonShape a sh:NodeShape .
             ex:UnusedPropertyShape a sh:PropertyShape .
         `)
 
-        const roots = model.findRootNodeShapes({
+        const roots = layers.rootSelection.findRootNodeShapes({
             shapeSubject: `${EX}BookShape ${EX}PersonShape ${EX}UnknownShape`,
         })
 
@@ -74,9 +106,9 @@ describe('ShapeGraphModel', () => {
                 DATA_GRAPH,
             ),
         ])
-        const model = new ShapeGraphModel(store, ['en'])
+        const layers = createShapeLayers(store)
 
-        const roots = model.findRootNodeShapes({ valuesSubject: `${EX}Alice` })
+        const roots = layers.rootSelection.findRootNodeShapes({ valuesSubject: `${EX}Alice` })
 
         expect(roots.map(root => root.value)).toEqual([`${EX}PersonShape`])
     })
@@ -95,9 +127,9 @@ describe('ShapeGraphModel', () => {
                 DATA_GRAPH,
             ),
         ])
-        const model = new ShapeGraphModel(store, ['en'])
+        const layers = createShapeLayers(store)
 
-        const roots = model.findRootNodeShapes({ valuesSubject: `${EX}Book1` })
+        const roots = layers.rootSelection.findRootNodeShapes({ valuesSubject: `${EX}Book1` })
 
         expect(roots.map(root => root.value)).toEqual([`${EX}BookShape`])
     })
@@ -115,36 +147,36 @@ describe('ShapeGraphModel', () => {
                 sh:group ex:MainGroup ;
                 sh:in ( ex:Draft ex:Published ) .
         `)
-        const model = new ShapeGraphModel(store, ['en'])
-        const [propertyShape] = propertyShapes(model)
+        const layers = createShapeLayers(store)
+        const [propertyShape] = propertyShapes(layers)
 
-        expect(model.getTargetClasses(DataFactory.namedNode(`${EX}Shape`)).map(term => term.value)).toEqual([`${EX}Book`])
-        expect(model.getGroup(propertyShape)?.value).toBe(`${EX}MainGroup`)
-        expect(model.getLabel(propertyShape)).toBe('Title')
+        expect(layers.shaclShapes.getTargetClasses(DataFactory.namedNode(`${EX}Shape`)).map(term => term.value)).toEqual([`${EX}Book`])
+        expect(layers.shaclShapes.getGroup(propertyShape)?.value).toBe(`${EX}MainGroup`)
+        expect(layers.shaclShapes.getLabel(propertyShape)).toBe('Title')
 
         const listNode = store.getObjects(propertyShape, `${SH}in`, null)[0]
-        expect(model.getList(listNode).map(term => term.value)).toEqual([
+        expect(layers.shaclShapes.getList(listNode).map(term => term.value)).toEqual([
             `${EX}Draft`,
             `${EX}Published`,
         ])
     })
 
     it('parses a simple predicate path', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:Shape a sh:NodeShape ;
                 sh:property [
                     sh:path ex:title ;
                 ] .
         `)
 
-        expect(propertyPath(model)).toEqual({
+        expect(propertyPath(layers)).toEqual({
             kind: 'predicate',
             predicate: DataFactory.namedNode(`${EX}title`),
         })
     })
 
     it('parses alternative paths', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:Shape a sh:NodeShape ;
                 sh:property [
                     sh:path [
@@ -153,7 +185,7 @@ describe('ShapeGraphModel', () => {
                 ] .
         `)
 
-        const path = propertyPath(model)
+        const path = propertyPath(layers)
 
         expect(path.kind).toBe('alternative')
         expect(pathToString(path)).toBe(`${EX}email | ${EX}mbox`)
@@ -164,7 +196,7 @@ describe('ShapeGraphModel', () => {
     })
 
     it('parses sequence, inverse and quantified paths', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:Shape a sh:NodeShape ;
                 sh:property [
                     sh:path (
@@ -175,14 +207,14 @@ describe('ShapeGraphModel', () => {
                 ] .
         `)
 
-        const path = propertyPath(model)
+        const path = propertyPath(layers)
 
         expect(path.kind).toBe('sequence')
         expect(pathToString(path)).toBe(`${EX}author / ^${EX}createdBy / ${EX}parent*`)
     })
 
     it('keeps alternative path branches available as templates but not visible duplicates', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:Shape a sh:NodeShape ;
                 sh:property [
                     sh:path [ sh:alternativePath ( ex:subjectMap ex:subject ) ] ;
@@ -204,10 +236,10 @@ describe('ShapeGraphModel', () => {
             ex:SubjectMapShape a sh:NodeShape .
         `)
 
-        const allLabels = model.getPropertyShapes(DataFactory.namedNode(`${EX}Shape`))
-            .map(shape => pathToString(model.getPath(shape)!))
-        const renderedLabels = model.getRenderablePropertyShapes(DataFactory.namedNode(`${EX}Shape`))
-            .map(shape => pathToString(model.getPath(shape)!))
+        const allLabels = layers.shaclShapes.getPropertyShapes(DataFactory.namedNode(`${EX}Shape`))
+            .map(shape => pathToString(layers.shaclShapes.getPath(shape)!))
+        const renderedLabels = layers.formShapes.getRenderablePropertyShapeTerms(DataFactory.namedNode(`${EX}Shape`))
+            .map(shape => pathToString(layers.shaclShapes.getPath(shape)!))
 
         expect(allLabels).toEqual([
             `${EX}subjectMap | ${EX}subject`,
@@ -222,7 +254,7 @@ describe('ShapeGraphModel', () => {
     })
 
     it('detects renderable node-shape content through sh:and inheritance', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:StructuralShape a sh:NodeShape ;
                 sh:and ( ex:InheritedShape ) .
 
@@ -235,12 +267,12 @@ describe('ShapeGraphModel', () => {
                 sh:nodeKind sh:IRI .
         `)
 
-        expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}StructuralShape`))).toBe(true)
-        expect(model.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}ValueShape`))).toBe(false)
+        expect(layers.formShapes.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}StructuralShape`))).toBe(true)
+        expect(layers.formShapes.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}ValueShape`))).toBe(false)
     })
 
     it('keeps all NodeShapes available as generic root choices', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:DirectShape a sh:NodeShape ;
                 sh:property [ sh:path ex:direct ] .
 
@@ -259,7 +291,7 @@ describe('ShapeGraphModel', () => {
                 sh:path ex:value .
         `)
 
-        expect(model.findRootNodeShapes().map(root => root.value)).toEqual([
+        expect(layers.rootSelection.findRootNodeShapes().map(root => root.value)).toEqual([
             `${EX}DirectShape`,
             `${EX}ComposedShape`,
             `${EX}BaseShape`,
@@ -268,7 +300,7 @@ describe('ShapeGraphModel', () => {
     })
 
     it('keeps anonymous NodeShapes available without treating PropertyShapes as roots', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             [
                 a sh:NodeShape ;
                 sh:name "Anonymous Shape" ;
@@ -279,38 +311,38 @@ describe('ShapeGraphModel', () => {
                 sh:path ex:notARoot .
         `)
 
-        const roots = model.findRootNodeShapes()
+        const roots = layers.rootSelection.findRootNodeShapes()
 
         expect(roots).toHaveLength(1)
         expect(roots[0].termType).toBe('BlankNode')
-        expect(model.getFormNodeShape(roots[0])?.label).toBe('Anonymous Shape')
+        expect(layers.formShapes.getNodeShape(roots[0])?.label).toBe('Anonymous Shape')
     })
 
     it('keeps explicit root configuration stronger than broad root fallback', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:ValueOnlyShape a sh:NodeShape ;
                 sh:datatype xsd:string ;
                 sh:nodeKind sh:Literal .
         `)
 
-        const roots = model.findRootNodeShapes({ shapeSubject: `${EX}ValueOnlyShape` })
+        const roots = layers.rootSelection.findRootNodeShapes({ shapeSubject: `${EX}ValueOnlyShape` })
 
         expect(roots.map(root => root.value)).toEqual([`${EX}ValueOnlyShape`])
     })
 
     it('keeps targetObjectsOf value-constraint shapes in broad root fallback', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:ChildValueShape a sh:NodeShape ;
                 sh:datatype xsd:string ;
                 sh:nodeKind sh:Literal ;
                 sh:targetObjectsOf ex:child .
         `)
 
-        expect(model.findRootNodeShapes().map(root => root.value)).toEqual([`${EX}ChildValueShape`])
+        expect(layers.rootSelection.findRootNodeShapes().map(root => root.value)).toEqual([`${EX}ChildValueShape`])
     })
 
     it('resolves nested structural and value-only sh:node shapes independently from root choices', () => {
-        const model = shapeGraph(`
+        const layers = shapeLayers(`
             ex:ParentShape a sh:NodeShape ;
                 sh:property [
                     sh:path ex:structuralChild ;
@@ -329,11 +361,11 @@ describe('ShapeGraphModel', () => {
                 sh:nodeKind sh:Literal .
         `)
 
-        const parent = model.getFormNodeShape(DataFactory.namedNode(`${EX}ParentShape`))
+        const parent = layers.formShapes.getNodeShape(DataFactory.namedNode(`${EX}ParentShape`))
         const structural = parent?.properties.find(property => property.writablePath?.value === `${EX}structuralChild`)
         const valueOnly = parent?.properties.find(property => property.writablePath?.value === `${EX}valueChild`)
 
-        expect(model.findRootNodeShapes().map(root => root.value)).toContain(`${EX}ValueChildShape`)
+        expect(layers.rootSelection.findRootNodeShapes().map(root => root.value)).toContain(`${EX}ValueChildShape`)
         expect(structural?.nestedNodeShapes.map(shape => shape.value)).toEqual([`${EX}StructuralChildShape`])
         expect(valueOnly?.nestedNodeShapes).toEqual([])
         expect(valueOnly?.datatype?.value).toBe('http://www.w3.org/2001/XMLSchema#string')

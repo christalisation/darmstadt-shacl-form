@@ -2,7 +2,7 @@ import { ShaclNode } from './node'
 import { Config } from '../config'
 import { BlankNode, DataFactory, NamedNode, Store } from 'n3'
 import { PREFIX_SHACL } from '../constants'
-import type { NodeShapeTerm } from '../shape-graph-model'
+import type { NodeShapeTerm } from '../shacl'
 
 /**
  * Registry of rendered/authored SHACL nodes in the DOM-backed form layer.
@@ -25,7 +25,7 @@ export class NodeRegistry {
         this.rootNodes = [];
         this.committedRootNodes = [];
         this.allNodesById.clear();
-        const rootSubjects = this.config.shapeGraph.findRootNodeShapes({
+        const rootSubjects = this.config.rootSelection.findRootNodeShapes({
             shapeSubject: this.config.attributes.shapeSubject,
             valuesSubject: this.config.attributes.valuesSubject,
         });
@@ -37,7 +37,7 @@ export class NodeRegistry {
     }
 
     public createRootNode(subject: NodeShapeTerm, valueSubject?: NamedNode | BlankNode): ShaclNode {
-        const label = this.config.shapeGraph.getLabel(subject);
+        const label = this.config.shaclShapes.getLabel(subject);
         return new ShaclNode(subject, this, valueSubject, undefined, undefined, label || subject.value);
     }
 
@@ -164,7 +164,7 @@ export class NodeRegistry {
     }
 
     private identifierBase(shapeSubject: NodeShapeTerm): string {
-        const label = this.config.shapeGraph.getFormNodeShape(shapeSubject)?.label || shapeSubject.value
+        const label = this.config.formShapes.getNodeShape(shapeSubject)?.label || shapeSubject.value
         const local = label.split(/[\/#]/).filter(Boolean).pop() || label
         return local
             .trim()

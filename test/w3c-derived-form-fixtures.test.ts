@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { DataFactory, Parser, Store } from 'n3'
 import { Validator } from 'shacl-engine'
 import { RdfReader } from '../src/rdf'
-import { ShaclParser } from '../src/shacl'
-import { ShapeGraphModel } from '../src/shape-graph-model'
+import { ShaclParser, ShaclShapeRegistry, ShaclShapeResolver } from '../src/shacl'
+import { FormShapeCompiler, FormShapeRegistry } from '../src/form-shape'
 import { ShaclPropertyTemplate } from '../src/dom-form/property-template'
 import { Config } from '../src/config'
 import { ShaclNode } from '../src/dom-form/node'
@@ -22,9 +22,27 @@ function storeFromTurtle(turtle: string): Store {
     return new Store(parser.parse(`${prelude}\n${turtle}`))
 }
 
-function shapeGraph(turtle: string): { store: Store, model: ShapeGraphModel } {
+function shapeLayers(turtle: string): { store: Store, shaclShapes: ShaclShapeRegistry, formShapes: FormShapeRegistry } {
     const store = storeFromTurtle(turtle)
-    return { store, model: new ShapeGraphModel(store, ['en'], { ex: EX }) }
+    const shaclShapes = new ShaclShapeRegistry(store, ['en'])
+    const resolver = new ShaclShapeResolver({
+        resolveNodeShape: id => shaclShapes.getNodeShape(id),
+        resolvePropertyShape: id => shaclShapes.getPropertyShape(id),
+    })
+    let formShapes!: FormShapeRegistry
+    const compiler = new FormShapeCompiler({
+        languages: ['en'],
+        prefixes: { ex: EX },
+        resolveNodeShape: id => shaclShapes.getNodeShape(id),
+        findNodeShapeByTargetClass: targetClass => shaclShapes.findNodeShapeByTargetClass(targetClass),
+        findNodeShapesByTargetObjectsOf: predicate => shaclShapes.findNodeShapesByTargetObjectsOf(predicate),
+        findNodeShapesByLogicalBranch: branch => shaclShapes.findNodeShapesByLogicalBranch(branch),
+        findCompatibleNodeShapes: baseShape => formShapes.getCompatibleNodeShapeTerms(baseShape),
+        labelForTerm: term => shaclShapes.getLabel(term),
+        shapeResolver: resolver,
+    })
+    formShapes = new FormShapeRegistry(compiler, shaclShapes)
+    return { store, shaclShapes, formShapes }
 }
 
 async function validate(shapes: Store, data: Store): Promise<any> {
@@ -37,7 +55,7 @@ describe('W3C-derived form fixtures', () => {
         //
         // VERBATIM SHACL SUBGRAPH:
         // A property shape constrains ex:age with sh:maxExclusive 10.
-        const { store, model } = shapeGraph(`
+        const { store, shaclShapes, formShapes } = shapeLayers(`
             ex:PersonShape a sh:NodeShape ;
                 sh:targetNode ex:Alice ;
                 sh:property [
@@ -53,13 +71,13 @@ describe('W3C-derived form fixtures', () => {
         const semanticProperty = semanticShape.propertyShapes[0]
         expect(semanticProperty.constraints.some(constraint => constraint.kind === 'maxExclusive')).toBe(true)
 
-        const formProperty = model.getFormNodeShape(DataFactory.namedNode(`${EX}PersonShape`))?.properties[0]
+        const formProperty = formShapes.getNodeShape(DataFactory.namedNode(`${EX}PersonShape`))?.properties[0]
         expect(formProperty?.maxExclusive).toBe(10)
 
         const template = ShaclPropertyTemplate.fromFormPropertyShape(
             formProperty!,
             {} as ShaclNode,
-            { store, shapeGraph: model, languages: ['en'], prefixes: { ex: EX } } as unknown as Config
+            { store, shaclShapes, formShapes, languages: ['en'], prefixes: { ex: EX } } as unknown as Config
         )
         expect(template.maxExclusive).toBe(10)
 
@@ -80,7 +98,7 @@ describe('W3C-derived form fixtures', () => {
         // A second property shape for ex:givenName is added so both predicates
         // can be edited by the generic form. This does not add ex-ante equals
         // enforcement to the UI; final SHACL validation remains authoritative.
-        const { store, model } = shapeGraph(`
+        const { store, formShapes } = shapeLayers(`
             ex:PersonShape a sh:NodeShape ;
                 sh:targetNode ex:Alice ;
                 sh:property [
@@ -101,7 +119,7 @@ describe('W3C-derived form fixtures', () => {
             property: DataFactory.namedNode(`${EX}givenName`),
         })
 
-        const formShape = model.getFormNodeShape(DataFactory.namedNode(`${EX}PersonShape`))
+        const formShape = formShapes.getNodeShape(DataFactory.namedNode(`${EX}PersonShape`))
         expect(formShape?.properties.map(property => property.writablePath?.value)).toEqual([
             `${EX}firstName`,
             `${EX}givenName`,
@@ -125,7 +143,7 @@ describe('W3C-derived form fixtures', () => {
         //
         // VERBATIM SHACL SUBGRAPH:
         // A property shape requires ex:gender to include the literal "male".
-        const { store, model } = shapeGraph(`
+        const { store, shaclShapes, formShapes } = shapeLayers(`
             ex:PersonShape a sh:NodeShape ;
                 sh:targetNode ex:Bob ;
                 sh:property [
@@ -142,13 +160,13 @@ describe('W3C-derived form fixtures', () => {
             value: DataFactory.literal('male'),
         })
 
-        const formProperty = model.getFormNodeShape(DataFactory.namedNode(`${EX}PersonShape`))?.properties[0]
+        const formProperty = formShapes.getNodeShape(DataFactory.namedNode(`${EX}PersonShape`))?.properties[0]
         expect(formProperty?.hasValue).toEqual(DataFactory.literal('male'))
 
         const template = ShaclPropertyTemplate.fromFormPropertyShape(
             formProperty!,
             {} as ShaclNode,
-            { store, shapeGraph: model, languages: ['en'], prefixes: { ex: EX } } as unknown as Config
+            { store, shaclShapes, formShapes, languages: ['en'], prefixes: { ex: EX } } as unknown as Config
         )
         expect(template.hasValue).toEqual(DataFactory.literal('male'))
 

@@ -6,6 +6,7 @@ import { Config } from '../config'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHACL_PREDICATE_NODE_KIND, SHACL_OBJECT_IRI, SHACL_PREDICATE_PROPERTY } from '../constants'
 import type { ShaclPropertyTemplate } from './property-template'
 import { UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE } from './ui-messages'
+import type { FormNodeShape } from '../form-shape'
 
 type LogicalNodeOption =
     | { kind: 'nodeShape'; label: string; shape: Term }
@@ -146,7 +147,7 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
         if (context instanceof ShaclNode) {
             const selectedOption = nodeOptions[index]
             if (selectedOption?.kind === 'nodeShape') {
-                const formShape = config.shapeGraph.getFormNodeShape(selectedOption.shape)
+                const formShape = config.formShapes.getNodeShape(selectedOption.shape)
                 for (const formProperty of formShape?.properties || []) {
                     const prop = new ShaclProperty(formProperty.id as NamedNode | BlankNode, context, config, undefined, formProperty)
                     prop.style.display = 'block';
@@ -155,14 +156,14 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
                 }
             } else if (selectedOption?.kind === 'anonymousProperties') {
                 for (const propertySubject of selectedOption.properties) {
-                    const formProperty = config.shapeGraph.getFormPropertyShape(propertySubject)
+                    const formProperty = config.formShapes.getPropertyShape(propertySubject)
                     const prop = new ShaclProperty(propertySubject as NamedNode | BlankNode, context, config, undefined, formProperty)
                     prop.style.display = 'block';
                     prop.classList.add('w-100');
                     contentContainer.appendChild(prop)
                 }
             } else if (selectedOption?.kind === 'propertyShape') {
-                const formProperty = config.shapeGraph.getFormPropertyShape(selectedOption.property)
+                const formProperty = config.formShapes.getPropertyShape(selectedOption.property)
                 const prop = new ShaclProperty(selectedOption.property as NamedNode | BlankNode, context, config, undefined, formProperty)
                 prop.style.display = 'block';
                 prop.classList.add('w-100');
@@ -190,12 +191,12 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
 }
 
 function createNodeLogicalOption(option: Term, index: number, config: Config): LogicalNodeOption | undefined {
-    const nodeShape = config.shapeGraph.getFormNodeShape(option)
+    const nodeShape = config.formShapes.getNodeShape(option)
     if (nodeShape?.properties.length) {
         return { kind: 'nodeShape', label: nodeShape.label, shape: option }
     }
 
-    const propertyShape = config.shapeGraph.getFormPropertyShape(option)
+    const propertyShape = config.formShapes.getPropertyShape(option)
     if (propertyShape?.path) {
         return { kind: 'propertyShape', label: propertyShape.label, property: option }
     }
@@ -203,7 +204,7 @@ function createNodeLogicalOption(option: Term, index: number, config: Config): L
     const properties = config.store.getObjects(option, SHACL_PREDICATE_PROPERTY, null)
     if (properties.length) {
         const labels = properties
-            .map(property => config.shapeGraph.getFormPropertyShape(property)?.label)
+            .map(property => config.formShapes.getPropertyShape(property)?.label)
             .filter((label): label is string => Boolean(label))
         return {
             kind: 'anonymousProperties',
@@ -215,14 +216,14 @@ function createNodeLogicalOption(option: Term, index: number, config: Config): L
 
 function createPropertyLogicalOption(option: Term, index: number, parentTemplate: ShaclPropertyTemplate, config: Config): LogicalPropertyOption | undefined {
     const label = labelForPropertyLogicalOption(option, index, parentTemplate, config)
-    const directNodeShape = config.shapeGraph.getFormNodeShape(option)
+    const directNodeShape = config.formShapes.getNodeShape(option)
     if (directNodeShape && directNodeShape.properties.length === 0 && !hasFormValueConstraints(directNodeShape)) {
         return { kind: 'emptyNodeShape', label }
     }
 
     const nodeTargets = config.store.getObjects(option, `${PREFIX_SHACL}node`, null)
     if (nodeTargets.length === 1) {
-        const nodeShape = config.shapeGraph.getFormNodeShape(nodeTargets[0])
+        const nodeShape = config.formShapes.getNodeShape(nodeTargets[0])
         if (nodeShape && nodeShape.properties.length === 0 && !hasFormValueConstraints(nodeShape)) {
             return { kind: 'emptyNodeShape', label }
         }
@@ -240,20 +241,20 @@ function createPropertyLogicalOption(option: Term, index: number, parentTemplate
         return undefined
     }
     template.label = label
-    if (template.extendedShapes.length || hasTemplateValueConstraints(template) || config.shapeGraph.getFormPropertyShape(option)?.path || config.store.countQuads(option, `${PREFIX_SHACL}path`, null, null) > 0) {
+    if (template.extendedShapes.length || hasTemplateValueConstraints(template) || config.formShapes.getPropertyShape(option)?.path || config.store.countQuads(option, `${PREFIX_SHACL}path`, null, null) > 0) {
         return { kind: 'template', label, template }
     }
 }
 
 function labelForPropertyLogicalOption(option: Term, index: number, parentTemplate: ShaclPropertyTemplate, config: Config): string {
-    const explicitLabel = config.shapeGraph.getLabel(option)
+    const explicitLabel = config.shaclShapes.getLabel(option)
     if (explicitLabel) {
         return explicitLabel
     }
 
     const nodeTargets = config.store.getObjects(option, `${PREFIX_SHACL}node`, null)
     if (nodeTargets.length === 1) {
-        const nodeLabel = config.shapeGraph.getFormNodeShape(nodeTargets[0])?.label
+        const nodeLabel = config.formShapes.getNodeShape(nodeTargets[0])?.label
         if (nodeLabel) {
             return nodeLabel
         }
@@ -275,7 +276,7 @@ function labelForPropertyLogicalOption(option: Term, index: number, parentTempla
     return `Alternative ${index + 1}`
 }
 
-function hasFormValueConstraints(nodeShape: NonNullable<ReturnType<Config['shapeGraph']['getFormNodeShape']>>): boolean {
+function hasFormValueConstraints(nodeShape: FormNodeShape): boolean {
     const constraints = nodeShape.valueConstraints
     return Boolean(
         constraints.datatype ||

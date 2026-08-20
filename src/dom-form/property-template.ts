@@ -140,7 +140,7 @@ export class ShaclPropertyTemplate {
         this.id = formShape?.id || quads[0]?.subject
         this.parent = parent
         this.config = config
-        const compiledShape = formShape || (this.id ? config.shapeGraph.getFormPropertyShape(this.id) : undefined)
+        const compiledShape = formShape || (this.id ? config.formShapes.getPropertyShape(this.id) : undefined)
         if (compiledShape) {
             this.applyFormPropertyShape(compiledShape)
             this.mergeLegacyCompatibilityExtensions(quads)
@@ -241,7 +241,7 @@ export class ShaclPropertyTemplate {
         }
         // register structural node shapes, or absorb value-shape constraints
         if (this.node) {
-            if (this.config.shapeGraph.hasRenderableNodeShapeContent(this.node)) {
+            if (this.config.formShapes.hasRenderableNodeShapeContent(this.node)) {
                 this.addExtendedShape(this.node)
             } else {
                 this.mergeValueNodeShapeConstraints(this.node)
@@ -281,7 +281,7 @@ export class ShaclPropertyTemplate {
     }
 
     setPath(term: Term) {
-        const path = this.id ? this.config.shapeGraph.getPath(this.id) : undefined
+        const path = this.id ? this.config.shaclShapes.getPath(this.id) : undefined
         this.pathExpression = path
 
         if (!path) {
@@ -332,7 +332,7 @@ export class ShaclPropertyTemplate {
     }
 
     createTemplateForLogicalOption(option: Term, fallbackLabel = 'Alternative'): ShaclPropertyTemplate | undefined {
-        const nodeShape = this.config.shapeGraph.getFormNodeShape(option)
+        const nodeShape = this.config.formShapes.getNodeShape(option)
         const nodeShapeReference = toNodeShapeReference(option)
         if (nodeShape && nodeShape.properties.length > 0 && nodeShapeReference) {
             const template = this.cloneForLogicalOption()
@@ -352,7 +352,7 @@ export class ShaclPropertyTemplate {
             return template
         }
 
-        const propertyShape = this.config.shapeGraph.getFormPropertyShape(option)
+        const propertyShape = this.config.formShapes.getPropertyShape(option)
         if (propertyShape) {
             const template = this.cloneForLogicalOption()
             template.applyFormPropertyShape(propertyShape)
@@ -402,7 +402,7 @@ export class ShaclPropertyTemplate {
             return
         }
         if (this.node) {
-            const nodeLabel = this.config.shapeGraph.getFormNodeShape(this.node)?.label
+            const nodeLabel = this.config.formShapes.getNodeShape(this.node)?.label
             if (nodeLabel) {
                 this.label = nodeLabel
                 return
@@ -456,23 +456,23 @@ export class ShaclPropertyTemplate {
     private findAlternativePathLabel(path: string): string {
         const propertyShape = this.findSiblingPropertyShapeByPath(path)
         if (propertyShape) {
-            const label = this.config.shapeGraph.getLabel(propertyShape)
+            const label = this.config.shaclShapes.getLabel(propertyShape)
             if (label) {
                 return label
             }
         }
 
-        const predicateLabel = this.config.shapeGraph.getLabel(DataFactory.namedNode(path))
+        const predicateLabel = this.config.shaclShapes.getLabel(DataFactory.namedNode(path))
         return predicateLabel || removePrefixes(path, this.config.prefixes)
     }
 
     private findSiblingPropertyShapeByPath(path: string): Term | undefined {
-        for (const propertyShape of this.config.shapeGraph.getPropertyShapes(this.parent.shaclSubject)) {
+        for (const propertyShape of this.config.shaclShapes.getPropertyShapes(this.parent.shaclSubject)) {
             if (this.id?.termType === propertyShape.termType && this.id.value === propertyShape.value) {
                 continue
             }
 
-            const siblingPath = this.config.shapeGraph.getPath(propertyShape)
+            const siblingPath = this.config.shaclShapes.getPath(propertyShape)
             const siblingPredicate = siblingPath ? getPredicatePath(siblingPath) : undefined
             if (siblingPredicate?.value === path) {
                 return propertyShape

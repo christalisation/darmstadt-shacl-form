@@ -38,7 +38,7 @@ export class ShaclNode extends HTMLElement {
         this.config = this.nodeRegistry.config
         this.shaclSubject = shaclSubject
         this.linked = linked || false
-        const formShape = this.config.shapeGraph.getFormNodeShape(shaclSubject)
+        const formShape = this.config.formShapes.getNodeShape(shaclSubject)
         let nodeId: NamedNode | BlankNode | undefined = valueSubject
         if (!nodeId) {
             // if no value subject given, create a stable readable id based on
@@ -95,12 +95,12 @@ export class ShaclNode extends HTMLElement {
                 // TODO: temporary legacy fallback for shapes that cannot yet be
                 // compiled into FormNodeShape. The normal rendering path above
                 // is authoritative for form structure.
-                const renderablePropertyShapes = new Set(this.config.shapeGraph.getRenderablePropertyShapes(shaclSubject).map(shape => shape.id))
+                const renderablePropertyShapes = new Set(this.config.formShapes.getRenderablePropertyShapeTerms(shaclSubject).map(shape => this.termKey(shape)))
                 // now parse other node quads
                 for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
                     switch (quad.predicate.id) {
                         case SHACL_PREDICATE_PROPERTY.id:
-                            if (renderablePropertyShapes.has(quad.object.id)) {
+                            if (renderablePropertyShapes.has(this.termKey(quad.object))) {
                                 this.addPropertyInstance(quad.object, valueSubject)
                             }
                             break;
@@ -173,7 +173,7 @@ export class ShaclNode extends HTMLElement {
     }
 
     addPropertyInstance(shaclSubject: Term | FormPropertyShape, valueSubject: NamedNode | BlankNode | undefined) {
-        const formPropertyShape = this.isFormPropertyShape(shaclSubject) ? shaclSubject : this.config.shapeGraph.getFormPropertyShape(shaclSubject)
+        const formPropertyShape = this.isFormPropertyShape(shaclSubject) ? shaclSubject : this.config.formShapes.getPropertyShape(shaclSubject)
         const propertySubject = formPropertyShape?.id || shaclSubject as Term
         let parentElement: HTMLElement = this
         // check if property belongs to a group
@@ -231,13 +231,13 @@ export class ShaclNode extends HTMLElement {
         }
 
         const optionsReferenceProperties = options.every(option => {
-            const formShape = this.config.shapeGraph.getFormNodeShape(option)
+            const formShape = this.config.formShapes.getNodeShape(option)
             return Boolean(formShape?.properties.length) ||
                 this.config.store.countQuads(option, SHACL_PREDICATE_PROPERTY, null, null) > 0
         })
         if (optionsReferenceProperties) {
             return options.every(option => {
-                const formShape = this.config.shapeGraph.getFormNodeShape(option)
+                const formShape = this.config.formShapes.getNodeShape(option)
                 if (formShape) {
                     return formShape.properties.length > 0
                 }
@@ -250,7 +250,7 @@ export class ShaclNode extends HTMLElement {
     }
 
     private hasRenderablePropertyShape(subject: Term): boolean {
-        return Boolean(this.config.shapeGraph.getFormPropertyShape(subject)) ||
+        return Boolean(this.config.formShapes.getPropertyShape(subject)) ||
             this.config.store.countQuads(subject, `${PREFIX_SHACL}path`, null, null) > 0
     }
 
@@ -322,9 +322,9 @@ export class ShaclNode extends HTMLElement {
 
     private getRdfTypeClasses(): NamedNode[] {
         const targetClasses = this.targetClasses.length ? [...this.targetClasses] : (this.targetClass ? [this.targetClass] : [])
-        const formShape = this.config.shapeGraph.getFormNodeShape(this.shaclSubject)
+        const formShape = this.config.formShapes.getNodeShape(this.shaclSubject)
         for (const composedShape of formShape?.composedNodeShapes || []) {
-            for (const targetClass of this.config.shapeGraph.getFormNodeShape(composedShape)?.targetClasses || []) {
+            for (const targetClass of this.config.formShapes.getNodeShape(composedShape)?.targetClasses || []) {
                 targetClasses.push(DataFactory.namedNode(targetClass.value))
             }
         }
@@ -341,6 +341,10 @@ export class ShaclNode extends HTMLElement {
         } catch {
             return false
         }
+    }
+
+    private termKey(term: Term): string {
+        return `${term.termType}:${term.value}`
     }
 }
 

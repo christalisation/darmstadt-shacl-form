@@ -3,7 +3,8 @@ import { Term } from '@rdfjs/types'
 import { ClassInstanceProvider } from './plugin'
 import { Loader } from './loader'
 import { Theme } from './theme'
-import { ShapeGraphModel } from './shape-graph-model'
+import { ShaclShapeRegistry, ShaclShapeResolver } from './shacl'
+import { FormRootSelection, FormShapeCompiler, FormShapeRegistry } from './form-shape'
 
 export class ElementAttributes {
     shapes: string | null = null
@@ -37,7 +38,9 @@ export class Config {
     prefixes: Prefixes = {}
     editMode = true
     languages: string[]
-    shapeGraph: ShapeGraphModel
+    shaclShapes!: ShaclShapeRegistry
+    formShapes!: FormShapeRegistry
+    rootSelection!: FormRootSelection
 
     lists: Record<string, Term[]> = {}
     groups: Array<string> = []
@@ -57,7 +60,7 @@ export class Config {
             } 
             return lang
         })), ''] // <-- append empty string to accept RDF literals with no language
-        this.shapeGraph = new ShapeGraphModel(this._store, this.languages, this.prefixes)
+        this.rebuildShapeLayers(this._store)
     }
  
     updateAttributes(elem: HTMLElement) {
@@ -103,8 +106,29 @@ export class Config {
 
     set store(store: Store) {
         this._store = store
-        this.shapeGraph = new ShapeGraphModel(store, this.languages, this.prefixes)
-        this.lists = this.shapeGraph.lists
-        this.groups = this.shapeGraph.groupIds
+        this.rebuildShapeLayers(store)
+    }
+
+    private rebuildShapeLayers(store: Store) {
+        this.shaclShapes = new ShaclShapeRegistry(store, this.languages)
+        const resolver = new ShaclShapeResolver({
+            resolveNodeShape: id => this.shaclShapes.getNodeShape(id),
+            resolvePropertyShape: id => this.shaclShapes.getPropertyShape(id),
+        })
+        const compiler = new FormShapeCompiler({
+            languages: this.languages,
+            prefixes: this.prefixes,
+            resolveNodeShape: id => this.shaclShapes.getNodeShape(id),
+            findNodeShapeByTargetClass: targetClass => this.shaclShapes.findNodeShapeByTargetClass(targetClass),
+            findNodeShapesByTargetObjectsOf: predicate => this.shaclShapes.findNodeShapesByTargetObjectsOf(predicate),
+            findNodeShapesByLogicalBranch: branch => this.shaclShapes.findNodeShapesByLogicalBranch(branch),
+            findCompatibleNodeShapes: baseShape => this.formShapes?.getCompatibleNodeShapeTerms(baseShape) || [],
+            labelForTerm: term => this.shaclShapes.getLabel(term),
+            shapeResolver: resolver,
+        })
+        this.formShapes = new FormShapeRegistry(compiler, this.shaclShapes)
+        this.rootSelection = new FormRootSelection(store, this.shaclShapes)
+        this.lists = this.shaclShapes.lists
+        this.groups = this.shaclShapes.propertyGroupIds
     }
 }
