@@ -22,6 +22,10 @@ type AlternativePathBranchOption = {
     template?: ShaclPropertyTemplate
 }
 
+type AddPropertyInstanceOptions = {
+    forceReference?: boolean
+}
+
 export class ShaclProperty extends HTMLElement {
     template: ShaclPropertyTemplate
     addButton: RokitSelect | undefined
@@ -107,7 +111,7 @@ export class ShaclProperty extends HTMLElement {
         }
     }
 
-    addPropertyInstance(value?: Term, selectedPath?: string): HTMLElement {
+    addPropertyInstance(value?: Term, selectedPath?: string, options: AddPropertyInstanceOptions = {}): HTMLElement {
         let instance: HTMLElement
         if (this.template.shaclOr?.length || this.template.shaclXone?.length) {
             const options = this.template.shaclOr?.length ? this.template.shaclOr : this.template.shaclXone as Term[]
@@ -146,10 +150,11 @@ export class ShaclProperty extends HTMLElement {
                     linked = true
                 }
             }
+            const renderAsReference = linked || this.template.parent.linked || Boolean(options.forceReference)
             if (this.template.pathAlternatives?.length && !selectedPath) {
-                instance = createAlternativePathConstraint(this, value, linked || this.template.parent.linked)
+                instance = createAlternativePathConstraint(this, value, renderAsReference)
             } else {
-                instance = createPropertyInstance(effectiveTemplate, value, undefined, linked || this.template.parent.linked)
+                instance = createPropertyInstance(effectiveTemplate, value, undefined, renderAsReference)
             }
         }
         if (this.addButton) {
@@ -481,7 +486,7 @@ export class ShaclProperty extends HTMLElement {
         const term = action.kind === 'linkAlternativePath'
             ? parseTerm(JSON.stringify(action.value))
             : undefined
-        const instance = this.addPropertyInstance(term, action.path)
+        const instance = this.addPropertyInstance(term, action.path, { forceReference: action.kind === 'linkAlternativePath' })
         instance.classList.add('fadeIn')
         this.updateControls()
         setTimeout(() => {
@@ -626,19 +631,19 @@ function parseTerm(value: string): Term {
 
 export function createPropertyInstance(template: ShaclPropertyTemplate, value?: Term, forceRemovable = false, linked = false): HTMLElement {
     let instance: HTMLElement
+    if (linked && value && !(value instanceof Literal)) {
+        instance = createReferenceInstance(template, value)
+        if (template.config.editMode) {
+            appendRemoveButton(instance, template.label, forceRemovable)
+        }
+        instance.dataset.path = template.path
+        return instance
+    }
+
     if (template.shaclOr?.length || template.shaclXone?.length) {
         const options = template.shaclOr?.length ? template.shaclOr : template.shaclXone as Term[]
         instance = createShaclOrConstraint(options, { template }, template.config)
     } else if (template.extendedShapes.length) {
-        if (linked && value) {
-            instance = createReferenceInstance(template, value)
-            if (template.config.editMode) {
-                appendRemoveButton(instance, template.label, forceRemovable)
-            }
-            instance.dataset.path = template.path
-            return instance
-        }
-
         // This is a nested node property:
         // creates a container, a label, and then the ShaclNode without its own H1 title.
 

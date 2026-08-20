@@ -80,6 +80,15 @@ try {
             return form
         }
 
+        async function createMultiRootForm(dataset = {}) {
+            const form = document.createElement('shacl-form')
+            Object.assign(form.dataset, dataset)
+            form.dataset.shapes = shapes
+            document.body.appendChild(form)
+            await waitForLoad(form)
+            return form
+        }
+
         const expectedPaths = {
             parent: 'http://w3id.org/rml/parent',
             subject: 'http://w3id.org/rml/subject',
@@ -105,6 +114,35 @@ try {
             addButton.dispatchEvent(new Event('change', { bubbles: true }))
             await new Promise(resolve => setTimeout(resolve, 100))
             return property.querySelector(`:scope > .property-instance[data-path="${CSS.escape(expectedPath)}"], :scope > .shacl-or-constraint[data-path="${CSS.escape(expectedPath)}"]`)
+        }
+
+        async function triggerAlternativeReuseAction(property, label, nodeId) {
+            const expectedPath = expectedPaths[label]
+            const addButton = property?.querySelector(':scope > .add-button')
+            const item = expectedPath && addButton
+                ? [...addButton.querySelectorAll('li[data-value][data-path]')]
+                    .find(item => item.dataset.path === expectedPath && item.textContent.includes(nodeId))
+                : undefined
+            if (!item) {
+                throw new Error(`Reuse action not found for ${label} -> ${nodeId}: ${addButton?.textContent || ''}`)
+            }
+
+            addButton.value = item.dataset.value
+            addButton.dispatchEvent(new Event('change', { bubbles: true }))
+            await new Promise(resolve => setTimeout(resolve, 100))
+            return property.querySelector(`:scope > .property-instance[data-path="${CSS.escape(expectedPath)}"]`)
+        }
+
+        async function selectRootShape(form, label) {
+            const selector = form.shadowRoot.querySelector('.root-selector-container select')
+            const option = selector ? [...selector.options].find(option => option.textContent.trim() === label) : undefined
+            if (!selector || !option) {
+                throw new Error(`Root option not found: ${label}`)
+            }
+            selector.value = option.value
+            selector.dispatchEvent(new Event('change', { bubbles: true }))
+            await new Promise(resolve => setTimeout(resolve, 250))
+            return form.shadowRoot.querySelector('shacl-node')
         }
 
         async function selectAlternativeByLabel(root, label) {
@@ -389,6 +427,31 @@ try {
         const refObjectMapNodeIds = [...refObjectMapInstance.querySelectorAll('shacl-node')]
             .map(node => node.dataset.nodeId)
 
+        const reuseForm = await createMultiRootForm({
+            valuesNamespace: 'http://example.org/',
+            showNodeIds: '',
+        })
+        const reusableObjectMapRoot = await selectRootShape(reuseForm, 'ObjectMap')
+        if (logicalOptionLabels(reusableObjectMapRoot).some(label => label.includes('ObjectMap'))) {
+            await selectLogicalOptionByLabel(reusableObjectMapRoot, 'ObjectMap')
+        }
+        await fillAlternativeEditor(reusableObjectMapRoot, 'template/constant/reference/functionExecution', 'reference', '$.Reusable')
+        const reusableObjectMapId = reusableObjectMapRoot.dataset.nodeId
+        reuseForm.shadowRoot.querySelector('.commit-root-button')?.click()
+        await new Promise(resolve => setTimeout(resolve, 400))
+
+        const reuseTriplesMapRoot = await selectRootShape(reuseForm, 'TriplesMap')
+        const reusePomProperty = findProperty(reuseTriplesMapRoot, 'predicateObjectMap')
+        const reusePomNode = await addNestedValue(reusePomProperty)
+        const reuseObjectAlternative = findProperty(reusePomNode, 'object/objectMap/quotedTriplesMap')
+        const reuseMenuText = addMenuText(reuseObjectAlternative)
+        const reusedObjectMapInstance = await triggerAlternativeReuseAction(reuseObjectAlternative, 'objectMap', reusableObjectMapId)
+        const reusedObjectMapText = visibleText(reusedObjectMapInstance)
+        const reusedObjectMapReferenceValue = reusedObjectMapInstance?.querySelector('.reference-editor')?.value
+        const reusedObjectMapNestedNodeCount = reusedObjectMapInstance?.querySelectorAll('shacl-node').length || 0
+        const reusedObjectMapLogicalConstraintCount = visibleLogicalConstraintCount(reusedObjectMapInstance)
+        const reuseTurtle = reuseForm.serialize()
+
         return {
             predicateObjectMapText,
             predicateAlternativeAddLabels,
@@ -429,6 +492,13 @@ try {
             starMapScalarEditorCount,
             refObjectMapText,
             refObjectMapNodeIds,
+            reusableObjectMapId,
+            reuseMenuText,
+            reusedObjectMapText,
+            reusedObjectMapReferenceValue,
+            reusedObjectMapNestedNodeCount,
+            reusedObjectMapLogicalConstraintCount,
+            reuseTurtle,
             rootOptions,
         }
     }, shapesWithOntology)
@@ -540,6 +610,12 @@ try {
     assert(result.refObjectMapText.includes('parentTriplesMap'), `RefObjectMap did not expose parentTriplesMap:\n${result.refObjectMapText}`)
     assert(result.refObjectMapNodeIds.length === 1, `RefObjectMap sh:and members were materialized as extra nested nodes: ${result.refObjectMapNodeIds.join(', ')}`)
     assert(result.refObjectMapNodeIds[0] === 'http://example.org/refobjectmap-1', `First authored RefObjectMap did not use suffix -1: ${result.refObjectMapNodeIds[0]}`)
+    assert(result.reuseMenuText.includes(result.reusableObjectMapId), `objectMap branch did not offer committed ObjectMap for reuse:\n${result.reuseMenuText}`)
+    assert(result.reusedObjectMapReferenceValue === result.reusableObjectMapId, `alternativePath reuse did not render a direct reference editor: ${result.reusedObjectMapReferenceValue}`)
+    assert(result.reusedObjectMapText.includes(result.reusableObjectMapId), `alternativePath reuse did not display the selected RDF node: ${result.reusedObjectMapText}`)
+    assert(result.reusedObjectMapNestedNodeCount === 0, 'alternativePath reuse rendered a duplicate nested node instead of a reference')
+    assert(result.reusedObjectMapLogicalConstraintCount === 0 && !result.reusedObjectMapText.includes('Select alternative'), 'alternativePath reuse reopened the inner sh:or selector')
+    assert(result.reuseTurtle.includes(`rml:objectMap <${result.reusableObjectMapId}>`), `alternativePath reuse did not serialize the selected RDF node:\n${result.reuseTurtle}`)
     assert(result.acceptanceTurtle.includes('<http://example.org/TM-images>'), 'Acceptance Turtle did not use explicit TriplesMap IRI')
     assert(result.acceptanceTurtle.includes('rml:logicalSource <http://example.org/rml-logical-source-1>'), 'Acceptance Turtle did not link TriplesMap to LogicalSource')
     assert(result.acceptanceTurtle.includes('rml:source <http://example.org/rml-source-1>'), 'Acceptance Turtle did not link LogicalSource to Source')
