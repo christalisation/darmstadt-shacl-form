@@ -74,6 +74,7 @@
     "scripts": {
         "dev": "vite serve . --host",
         "build": "tsc && npm run build-default && npm run build-bootstrap && npm run build-material && npm run build-leaflet && npm run build-mapbox",
+        "build:site": "vite build -c ./vite.site.config.ts",
         "preview": "vite preview",
         "test": "vitest run",
         "build-default": "vite build  -c ./vite.form-default.config.ts",
