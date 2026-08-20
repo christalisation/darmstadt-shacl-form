@@ -73,18 +73,16 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
 }
 
 export function createShaclOrConstraint(options: Term[], context: ShaclNode | ShaclProperty | { template: ShaclPropertyTemplate }, config: Config): HTMLElement {
-    // 1. LE CONTENEUR GLOBAL
-    // Wrapper vertical simple qui prend toute la largeur
+    // Only render a logical selector when every branch has meaningful
+    // authoring content. Constraint-only logic remains validation-only.
     const wrapper = document.createElement('div')
     wrapper.classList.add('shacl-or-constraint', 'w-100', 'd-flex', 'flex-column') 
     wrapper.style.gap = '0.5rem'; 
     wrapper.style.marginBottom = '1rem';
 
-    // 2. PRÉPARATION DES DÉFINITIONS
     const nodeOptions: LogicalNodeOption[] = []
     const propertyOptions: LogicalPropertyOption[] = []
     
-    // Structure simple pour alimenter notre select natif
     const selectOptions: { label: string, value: string }[] = []
 
     if (context instanceof ShaclNode) {
@@ -113,7 +111,6 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
         return createValidationOnlyLogicalConstraint()
     }
 
-    // 3. CONSTRUCTION MANUELLE DU SÉLECTEUR (Plus de RokitSelect, plus de label inutile)
     const selectContainer = document.createElement('div');
     selectContainer.classList.add('w-100'); 
     
@@ -125,7 +122,6 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
     placeholder.innerText = 'Select alternative'
     select.appendChild(placeholder)
     
-    // Remplissage des options
     for (const opt of selectOptions) {
         const optionElement = document.createElement('option');
         optionElement.value = opt.value;
@@ -136,14 +132,11 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
     selectContainer.appendChild(select);
     wrapper.appendChild(selectContainer);
 
-    // 4. CRÉATION DU CONTENEUR DE CONTENU
     const contentContainer = document.createElement('div')
-    // Flex vertical pour le contenu aussi, afin d'éviter les superpositions
     contentContainer.classList.add('shacl-or-content', 'w-100', 'd-flex', 'flex-column')
     contentContainer.style.gap = '10px';
     wrapper.appendChild(contentContainer)
 
-    // 5. FONCTION DE MISE À JOUR
     const updateContent = () => {
         contentContainer.replaceChildren()
         
@@ -156,7 +149,6 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
                 const formShape = config.shapeGraph.getFormNodeShape(selectedOption.shape)
                 for (const formProperty of formShape?.properties || []) {
                     const prop = new ShaclProperty(formProperty.id as NamedNode | BlankNode, context, config, undefined, formProperty)
-                    // On force l'affichage bloc et la pleine largeur
                     prop.style.display = 'block';
                     prop.classList.add('w-100');
                     contentContainer.appendChild(prop)
@@ -180,7 +172,6 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
             const selectedOption = propertyOptions[index]
             if (selectedOption?.kind === 'template') {
                 const instance = createPropertyInstance(selectedOption.template, undefined, true)
-                // Idem pour les propriétés simples
                 instance.style.display = 'block';
                 instance.classList.add('w-100');
                 contentContainer.appendChild(instance)
@@ -190,7 +181,6 @@ export function createShaclOrConstraint(options: Term[], context: ShaclNode | Sh
         }
     }
 
-    // 6. ÉVÉNEMENT CHANGE
     select.addEventListener('change', (ev) => {
         ev.stopPropagation()
         updateContent()
@@ -338,9 +328,9 @@ function createValidationOnlyLogicalConstraint(): HTMLElement {
 }
 
 export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term, config: Config): Quad[] {
-    // TODO: temporary legacy runtime resolver. This inspects branch SHACL
+    // TODO: temporary legacy DOM-form resolver. This inspects branch SHACL
     // quads to decide which already-existing value should be displayed.
-    // It should move to RDF binding / Form Data once runtime graph state is
+    // It should move to RDF binding / Form Data once authored graph state is
     // no longer owned by the DOM.
     if (value instanceof Literal) {
         const valueType = value.datatype
@@ -383,7 +373,7 @@ export function resolveShaclOrConstraintOnProperty(subjects: Term[], value: Term
 }
 
 export function resolveShaclOrConstraintOnNode(subjects: Term[], value: Term, config: Config): Term[] {
-    // TODO: temporary legacy runtime resolver. FormLogicalAlternative is now
+    // TODO: temporary legacy DOM-form resolver. FormLogicalAlternative is now
     // the source of branch structure; this raw query only preserves existing
     // branch matching for previously loaded data.
     for (const subject of subjects) {

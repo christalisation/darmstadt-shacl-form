@@ -7,7 +7,7 @@ import { Term } from '@rdfjs/types'
 
 import { Plugin, PluginOptions } from '../plugin'
 import { Editor, fieldFactory } from '../theme'
-import { ShaclPropertyTemplate } from '../runtime/property-template'
+import { ShaclPropertyTemplate } from '../dom-form/property-template'
 import { Geometry, geometryToWkt, wktToGeometry, worldBounds } from './map-util'
 
 const css = `

@@ -1,6 +1,6 @@
 import { Term } from '@rdfjs/types'
 import { Plugin, PluginOptions } from '../plugin'
-import { ShaclPropertyTemplate } from '../runtime/property-template'
+import { ShaclPropertyTemplate } from '../dom-form/property-template'
 import { Editor, fieldFactory } from '../theme'
 import { Map, NavigationControl, FullscreenControl, LngLatBounds, LngLatLike } from 'mapbox-gl'
 import MapboxDraw from '@mapbox/mapbox-gl-draw'

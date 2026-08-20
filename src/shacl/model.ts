@@ -2,6 +2,12 @@ import { Literal, NamedNode, Term } from '@rdfjs/types'
 import { ShaclConstraint } from './constraint'
 import { ShaclPath } from './path'
 
+/**
+ * Immutable semantic records for the SHACL shapes graph.
+ *
+ * These interfaces describe what the SHACL graph says, before any
+ * form-generation policy or DOM rendering choices are applied.
+ */
 export interface ShaclNodeShape {
     id: Term
     targets: ShaclTarget[]

@@ -1,5 +1,12 @@
 import { Literal, NamedNode, Term } from '@rdfjs/types'
 
+/**
+ * Supported SHACL Core constraints as semantic data.
+ *
+ * The union is intentionally compact: constraints are parsed once here and
+ * later projected into form behavior only where the application has a
+ * deterministic authoring interpretation.
+ */
 export type ShaclConstraint =
     | { kind: 'datatype', datatype: NamedNode }
     | { kind: 'nodeKind', nodeKind: NamedNode }

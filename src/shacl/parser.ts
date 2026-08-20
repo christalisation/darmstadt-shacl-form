@@ -5,6 +5,13 @@ import { ShaclNodeShape, ShaclPropertyShape, ShaclShapeMetadata, ShaclTarget } f
 import { ShaclPathParser } from './path-parser'
 import { FOAF_VOCAB, RDFS_VOCAB, SH, SKOS_VOCAB } from './vocabulary'
 
+/**
+ * Reads a SHACL shapes graph into the SHACL Semantic Model.
+ *
+ * This parser only interprets RDF terms as SHACL semantics; it does not decide
+ * which shapes are roots, which controls should render, or how RDF data is
+ * authored.
+ */
 export class ShaclParser {
     constructor(
         private readonly rdf: RdfReader,
@@ -50,6 +57,7 @@ export class ShaclParser {
             ...this.rdf.getObjects(id, SH.description).map(term => this.requireLiteral(term, 'sh:description')),
             ...this.rdf.getObjects(id, RDFS_VOCAB.comment).map(term => this.requireLiteral(term, 'rdfs:comment')),
         ]
+        // sh:message is validation-message metadata, not normal help text.
         const messages = [
             ...this.rdf.getObjects(id, SH.message).map(term => this.requireLiteral(term, 'sh:message')),
         ]

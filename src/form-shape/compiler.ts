@@ -24,6 +24,14 @@ export interface FormShapeCompilerOptions {
     findCompatibleNodeShapes?: (baseShape: Term) => Term[]
 }
 
+/**
+ * Projects the SHACL Semantic Model into the Form Shape Model.
+ *
+ * The compiler keeps SHACL validation semantics separate from form-generation
+ * policy: it exposes only the subset that this renderer can author
+ * deterministically, while preserving logical and path structure for validation
+ * and compatibility layers.
+ */
 export class FormShapeCompiler {
     constructor(private readonly options: FormShapeCompilerOptions) {}
 
@@ -89,6 +97,9 @@ export class FormShapeCompiler {
         }
 
         for (const targetShape of this.findValueNodeShapesByTargetObjectsOf(property)) {
+            // sh:targetObjectsOf(p) means objects reached through predicate p
+            // will be focus nodes for the target shape during validation, so it
+            // can inform value-node authoring without becoming a root policy.
             if (this.hasRenderableNodeShapeContent(targetShape)) {
                 property.nestedNodeShapes.push(targetShape)
             } else {
@@ -106,6 +117,8 @@ export class FormShapeCompiler {
             property.pathAlternativeLabels[alternative.value] = this.findAlternativePathLabel(alternative, siblings)
             const branch = this.findAlternativePathBranch(alternative, siblings)
             if (branch) {
+                // Branch-specific PropertyShapes carry the authoring semantics
+                // for a predicate inside sh:alternativePath.
                 property.pathAlternativeBranches[alternative.value] = this.compilePropertyShape(branch, [], sourceShapes)
                 continue
             }
@@ -114,6 +127,9 @@ export class FormShapeCompiler {
             if (targetDerivedBranch) {
                 const compiledBranch = this.compilePropertyShape(targetDerivedBranch, [], sourceShapes)
                 if (this.hasAuthoringProjection(compiledBranch)) {
+                    // A target-derived branch is only projectable when it
+                    // yields concrete form/value semantics; otherwise the path
+                    // remains known but unavailable for authoring.
                     property.pathAlternativeBranches[alternative.value] = compiledBranch
                 }
             }
@@ -247,6 +263,8 @@ export class FormShapeCompiler {
             return
         }
         const effectiveShape = this.options.shapeResolver?.resolveEffectiveNodeShape(nodeShape) || nodeShape
+        // Value-only NodeShapes constrain the property value; they should not
+        // create empty nested forms.
         for (const constraint of effectiveShape.constraints) {
             this.applyConstraint(property, constraint)
         }
@@ -403,6 +421,8 @@ export class FormShapeCompiler {
         }
 
         return properties.filter(property =>
+            // Branch-specific properties are retained in pathAlternativeBranches
+            // but hidden as separate siblings to avoid duplicate controls.
             !property.writablePath || !pathsCoveredByAlternative.has(property.writablePath.value)
         )
     }

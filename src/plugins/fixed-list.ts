@@ -1,7 +1,7 @@
 import { Plugin, PluginOptions } from '../plugin'
 import { Term } from '@rdfjs/types'
 
-import { ShaclPropertyTemplate } from '../runtime/property-template'
+import { ShaclPropertyTemplate } from '../dom-form/property-template'
 import { InputListEntry } from '../theme'
 
 export class FixedListPlugin extends Plugin {

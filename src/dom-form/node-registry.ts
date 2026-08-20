@@ -5,12 +5,12 @@ import { PREFIX_SHACL } from '../constants'
 import type { NodeShapeTerm } from '../shape-graph-model'
 
 /**
- * Runtime collection of rendered SHACL nodes.
+ * Registry of rendered/authored SHACL nodes in the DOM-backed form layer.
  *
- * This class tracks the DOM nodes
- * that represent the current form state.
+ * This tracks authored/root/nested nodes for reuse, identity allocation and
+ * serialization. It is not yet a general RDF graph-state model.
  **/
-export class ShaclNodeCollection {
+export class NodeRegistry {
     public rootNodes: ShaclNode[] = []
     public committedRootNodes: ShaclNode[] = []
     private allNodesById: Map<string, ShaclNode> = new Map() // the key string will be node.nodeId.id
@@ -185,3 +185,5 @@ export class ShaclNodeCollection {
     }
 
 }
+
+export { NodeRegistry as ShaclNodeCollection }

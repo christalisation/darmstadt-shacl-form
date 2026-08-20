@@ -1,5 +1,5 @@
 import { Term } from '@rdfjs/types'
-import { ShaclPropertyTemplate } from "../runtime/property-template"
+import { ShaclPropertyTemplate } from "../dom-form/property-template"
 import { Editor, InputListEntry, Theme } from "../theme"
 import { PREFIX_SHACL, PREFIX_XSD } from '../constants'
 import { Literal, NamedNode } from 'n3'

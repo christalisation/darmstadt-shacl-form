@@ -26,6 +26,12 @@ type AddPropertyInstanceOptions = {
     forceReference?: boolean
 }
 
+/**
+ * DOM custom element for one form property.
+ *
+ * The element adapts FormPropertyShape-derived templates to the current
+ * editor/theme system and serializes authored DOM state back to RDF.
+ */
 export class ShaclProperty extends HTMLElement {
     template: ShaclPropertyTemplate
     addButton: RokitSelect | undefined
@@ -407,6 +413,8 @@ export class ShaclProperty extends HTMLElement {
                 unavailableItem.classList.add('disabled', 'unavailable')
                 unavailableItem.setAttribute('aria-disabled', 'true')
                 unavailableItem.innerText = UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE
+                // The path exists semantically, but without branch-specific
+                // projection we must not invent a scalar editor for it.
                 unavailableItem.title = `${this.template.getPathLabel(path)} is declared by sh:alternativePath, but the loaded shapes do not provide a branch-specific PropertyShape that can be projected into an editor.`
                 ul.appendChild(unavailableItem)
                 return
@@ -483,6 +491,9 @@ export class ShaclProperty extends HTMLElement {
             return
         }
 
+        // The add menu records whether the user requested creation or an
+        // explicit RDF reference so alternativePath selection and logical
+        // value-shape selection remain separate decisions.
         const term = action.kind === 'linkAlternativePath'
             ? parseTerm(JSON.stringify(action.value))
             : undefined
@@ -556,12 +567,12 @@ export class ShaclProperty extends HTMLElement {
     private findReusableNodes(template = this.template): ShaclNode[] {
         const nodes = new Map<string, ShaclNode>()
         for (const clazz of this.getCandidateReferenceClasses(template)) {
-            for (const node of this.template.parent.nodeCollection.findNodesByClass(clazz)) {
+            for (const node of this.template.parent.nodeRegistry.findNodesByClass(clazz)) {
                 nodes.set(node.nodeId.id, node)
             }
         }
         for (const shape of this.getReferenceShapeTerms(template)) {
-            for (const node of this.template.parent.nodeCollection.findNodesByShape(shape)) {
+            for (const node of this.template.parent.nodeRegistry.findNodesByShape(shape)) {
                 nodes.set(node.nodeId.id, node)
             }
         }
@@ -664,7 +675,7 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
 
         for (const node of template.extendedShapes) {
             // pass the property label to the nested node.
-            const shaclNodeElement = new ShaclNode(node, template.parent.nodeCollection, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked);
+            const shaclNodeElement = new ShaclNode(node, template.parent.nodeRegistry, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked);
             shaclNodeElement.classList.add('editor'); // Treat the node as the editor
             instance.appendChild(shaclNodeElement);
         }

@@ -5,9 +5,15 @@ import { ShaclProperty } from './property'
 import { createShaclGroup } from './group'
 import { createShaclOrConstraint, resolveShaclOrConstraintOnNode } from './constraints'
 import { Config } from '../config'
-import { ShaclNodeCollection } from './node-collection'
+import { NodeRegistry } from './node-registry'
 import { FormPropertyShape } from '../form-shape'
 
+/**
+ * DOM custom element for a rendered NodeShape instance.
+ *
+ * Form structure is read from FormNodeShape where available; user-entered RDF
+ * data is still owned by DOM/editor state until the future Form Data Model.
+ */
 export class ShaclNode extends HTMLElement {
     parent: ShaclNode | undefined
     parentPropertyLabel?: string; // label of the parent property,
@@ -16,17 +22,20 @@ export class ShaclNode extends HTMLElement {
     targetClass: NamedNode | undefined
     targetClasses: NamedNode[] = []
     owlImports: NamedNode[] = []
-    config: Config // taken from the ShaclNodeCollection
+    config: Config
     linked: boolean
-    nodeCollection: ShaclNodeCollection
+    nodeRegistry: NodeRegistry
+    /** Historical alias for code that still reaches into rendered nodes. */
+    nodeCollection: NodeRegistry
 
-    constructor(shaclSubject: NamedNode | BlankNode, nodeCollection: ShaclNodeCollection, valueSubject: NamedNode | BlankNode | undefined, parent?: ShaclNode, nodeKind?: NamedNode, label?: string, linked?: boolean) {
+    constructor(shaclSubject: NamedNode | BlankNode, nodeRegistry: NodeRegistry, valueSubject: NamedNode | BlankNode | undefined, parent?: ShaclNode, nodeKind?: NamedNode, label?: string, linked?: boolean) {
         super()
 
         this.parent = parent
         this.parentPropertyLabel = label
-        this.nodeCollection = nodeCollection
-        this.config = this.nodeCollection.config
+        this.nodeRegistry = nodeRegistry
+        this.nodeCollection = this.nodeRegistry
+        this.config = this.nodeRegistry.config
         this.shaclSubject = shaclSubject
         this.linked = linked || false
         const formShape = this.config.shapeGraph.getFormNodeShape(shaclSubject)
@@ -37,7 +46,7 @@ export class ShaclNode extends HTMLElement {
             if (!nodeKind) {
                 nodeKind = formShape?.valueConstraints.nodeKind as NamedNode | undefined
             }
-            nodeId = this.nodeCollection.createNodeId(shaclSubject, nodeKind)
+            nodeId = this.nodeRegistry.createNodeId(shaclSubject, nodeKind)
         }
         this.nodeId = nodeId
 
@@ -116,7 +125,7 @@ export class ShaclNode extends HTMLElement {
                 this.prepend(header)
             }
         }
-        this.nodeCollection.registerNode(this)  // add this node to the ShaclNodeCollection
+        this.nodeRegistry.registerNode(this)
     }
 
     toRDF(graph: Store, subject?: NamedNode | BlankNode, serializedNodes = new Set<string>()): (NamedNode | BlankNode) {
@@ -128,7 +137,7 @@ export class ShaclNode extends HTMLElement {
             return subject
         }
         if (this.linked) {
-            const originalNode = this.nodeCollection.findNodeById(subject)
+            const originalNode = this.nodeRegistry.findNodeById(subject)
             if (originalNode && originalNode !== this) {
                 originalNode.toRDF(graph, subject, serializedNodes)
             }
@@ -202,6 +211,7 @@ export class ShaclNode extends HTMLElement {
     tryResolveOptions(options: Term[], valueSubject: NamedNode | BlankNode | undefined) {
         let resolved = false
         if (valueSubject) {
+            // Existing RDF data can determine an already-authored logical branch.
             const resolvedPropertySubjects = resolveShaclOrConstraintOnNode(options, valueSubject, this.config)
             if (resolvedPropertySubjects.length) {
                 for (const propertySubject of resolvedPropertySubjects) {
@@ -282,7 +292,7 @@ export class ShaclNode extends HTMLElement {
                 return
             }
             const nodeId = DataFactory.namedNode(value)
-            if (!this.nodeCollection.updateNodeId(this, nodeId)) {
+            if (!this.nodeRegistry.updateNodeId(this, nodeId)) {
                 input.setCustomValidity('This IRI is already used in the form or loaded graph.')
                 input.reportValidity()
                 input.value = currentValue

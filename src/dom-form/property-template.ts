@@ -79,6 +79,14 @@ const valueNodeConstraintPredicates = new Set<string>([
     `${PREFIX_SHACL}hasValue`,
 ])
 
+/**
+ * DOM-form rendering adapter for a FormPropertyShape.
+ *
+ * Themes and ShaclProperty still consume this historical template object. New
+ * form semantics should arrive through FormPropertyShape; raw SHACL quad
+ * parsing remains only as a compatibility fallback and for non-core
+ * presentation extensions.
+ */
 export class ShaclPropertyTemplate {
     id: Term | undefined
     parent: ShaclNode
@@ -119,7 +127,9 @@ export class ShaclPropertyTemplate {
     owlImports: NamedNode[] = []
 
     config: Config
+    /** Structural node shapes rendered as nested resource forms. */
     extendedShapes: Array<NamedNode | BlankNode>  = []
+    /** All node-shape constraints relevant to this property value, including value-only shapes. */
     valueNodeShapes: Array<NamedNode | BlankNode>  = []
 
     static fromFormPropertyShape(shape: FormPropertyShape, parent: ShaclNode, config: Config): ShaclPropertyTemplate {

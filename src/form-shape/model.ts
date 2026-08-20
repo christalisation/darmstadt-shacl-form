@@ -1,6 +1,12 @@
 import { Literal, NamedNode, Term } from '@rdfjs/types'
 import { ShaclPath } from '../shacl'
 
+/**
+ * Form-oriented projection of supported SHACL semantics.
+ *
+ * These records describe definitions that can guide form construction. They do
+ * not store runtime RDF data and do not represent DOM state.
+ */
 export interface FormValueConstraints {
     datatype?: NamedNode
     nodeKind?: NamedNode
@@ -54,8 +60,11 @@ export interface FormPropertyShape {
     nodeKind?: NamedNode
     class?: NamedNode
     nodeShape?: Term
+    /** Structural value shapes that can be rendered as nested forms. */
     nestedNodeShapes: Term[]
+    /** Concrete authoring choices compatible with a referenced/base shape. */
     compatibleNodeShapes: Term[]
+    /** All node-shape constraints relevant to this value, including value-only shapes. */
     valueNodeShapes: Term[]
     shaclIn?: Term[]
     languageIn?: Term[]

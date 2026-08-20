@@ -1,5 +1,5 @@
-import { ShaclNode } from './runtime/node'
-import { ShaclNodeCollection } from './runtime/node-collection'
+import { ShaclNode } from './dom-form/node'
+import { NodeRegistry } from './dom-form/node-registry'
 import { Config } from './config'
 import { ClassInstanceProvider, Plugin, listPlugins, registerPlugin } from './plugin'
 import { Store, NamedNode, DataFactory, Quad, BlankNode } from 'n3'
@@ -15,7 +15,9 @@ export class ShaclForm extends HTMLElement {
 
     config: Config
     // shape: ShaclNode | null = null
-    nodeCollection: ShaclNodeCollection
+    nodeRegistry: NodeRegistry
+    /** Historical alias for external code that inspected the previous field. */
+    nodeCollection: NodeRegistry
     form: HTMLFormElement
     initDebounceTimeout: ReturnType<typeof setTimeout> | undefined
 
@@ -31,7 +33,8 @@ export class ShaclForm extends HTMLElement {
         this.attachShadow({ mode: 'open' })
         this.form = document.createElement('form')
         this.config = new Config(theme, this.form)
-        this.nodeCollection = new ShaclNodeCollection(this.config)
+        this.nodeRegistry = new NodeRegistry(this.config)
+        this.nodeCollection = this.nodeRegistry
         this.form.addEventListener('change', ev => {
             ev.stopPropagation()
             if (this.config.editMode) {
@@ -73,9 +76,9 @@ export class ShaclForm extends HTMLElement {
                 this.config.renderedNodes.clear()
                 this.activeRootNode = undefined
                 // find root shacl shape
-                this.nodeCollection.build()
+                this.nodeRegistry.build()
                 
-                if (this.nodeCollection.rootNodes.length) {
+                if (this.nodeRegistry.rootNodes.length) {
                     // remove all previous css classes to have a defined state
                     this.form.classList.forEach(value => { this.form.classList.remove(value) })
                     this.form.classList.toggle('mode-edit', this.config.editMode)
@@ -103,13 +106,13 @@ export class ShaclForm extends HTMLElement {
                     this.shadowRoot!.adoptedStyleSheets = styles
 
                     // Multiple root nodes support: 
-                    if (this.nodeCollection.rootNodes.length > 1) {
+                    if (this.nodeRegistry.rootNodes.length > 1) {
                         // more than one root node, create the selector UI 
                         this.createNavigationUI()
                         this.showRootSelector()
                     } else {
                         // only one root node, display it directly
-                        const rootNode = this.nodeCollection.rootNodes[0]
+                        const rootNode = this.nodeRegistry.rootNodes[0]
                         this.activeRootNode = rootNode
                         this.form.appendChild(rootNode)
                         this.updateCommitRootButton(rootNode)
@@ -342,7 +345,7 @@ export class ShaclForm extends HTMLElement {
     }
 
     private createNavigationUI() {
-        const options = this.nodeCollection.rootNodes.map((node, index) => {
+        const options = this.nodeRegistry.rootNodes.map((node, index) => {
             const label = findLabel(this.config.store.getQuads(node.shaclSubject, null, null, null), this.config.languages) || node.shaclSubject.value;
             return { label, value: index.toString() };
         });
@@ -353,7 +356,7 @@ export class ShaclForm extends HTMLElement {
         selector.addEventListener('change', () => {
             const selectedIndex = parseInt(selector.value, 10);
             if (!isNaN(selectedIndex)) {
-                const selectedNode = this.nodeCollection.rootNodes[selectedIndex];
+                const selectedNode = this.nodeRegistry.rootNodes[selectedIndex];
                 this.setActiveNode(selectedNode);
             }
         });
@@ -425,7 +428,7 @@ export class ShaclForm extends HTMLElement {
 
         const breadcrumbItems: { label: string, action: () => void }[] = [];
         // add root selector link only if there are multiple root shapes
-        if (this.nodeCollection.rootNodes.length > 1) {
+        if (this.nodeRegistry.rootNodes.length > 1) {
             breadcrumbItems.push({
                 label: 'Select Shape',
                 action: () => this.showRootSelector()
@@ -493,16 +496,16 @@ export class ShaclForm extends HTMLElement {
             return;
         }
 
-        this.nodeCollection.commitRootNode(rootNode);
+        this.nodeRegistry.commitRootNode(rootNode);
         this.refreshReusablePropertyOptions();
-        const replacement = this.nodeCollection.replaceRootNode(rootNode);
+        const replacement = this.nodeRegistry.replaceRootNode(rootNode);
         this.setActiveNode(replacement);
         const updatedReport = await this.validate(true);
         this.dispatchChange(updatedReport);
     }
 
     private getSerializableRootNodes(includeEmptyActiveRootNode = false): ShaclNode[] {
-        return this.nodeCollection.getSerializableRootNodes(this.activeRootNode, includeEmptyActiveRootNode)
+        return this.nodeRegistry.getSerializableRootNodes(this.activeRootNode, includeEmptyActiveRootNode)
     }
 
     private getTopLevelNode(node: ShaclNode): ShaclNode {
@@ -603,9 +606,6 @@ export class ShaclForm extends HTMLElement {
             (property as HTMLElement & { refreshReusableOptions?: () => void }).refreshReusableOptions?.()
         }
     }
-
-    // private findRootShaclShapeSubject(): NamedNode | undefined 
-    // is now moved into class ShaclNodeCollection.
 
     private removeFromDataGraph(subject: NamedNode | BlankNode) {
         this.config.attributes.valuesSubject

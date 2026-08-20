@@ -2,8 +2,8 @@ import { Literal, NamedNode, Prefixes, Quad, Store } from 'n3'
 import { DATA_GRAPH, PREFIX_FOAF, PREFIX_RDFS, PREFIX_SHACL, PREFIX_SKOS, REFERENCE_GRAPH, RDFS_PREDICATE_SUBCLASS_OF, RDF_PREDICATE_TYPE, SHAPES_GRAPH, SKOS_PREDICATE_BROADER, SKOS_PREDICATE_NARROWER } from './constants'
 import { Term } from '@rdfjs/types'
 import { InputListEntry } from './theme'
-import { ShaclPropertyTemplate } from './runtime/property-template'
-import { ShaclNode } from './runtime/node'
+import { ShaclPropertyTemplate } from './dom-form/property-template'
+import { ShaclNode } from './dom-form/node'
 
 export { extractLists } from './rdf/reader'
 

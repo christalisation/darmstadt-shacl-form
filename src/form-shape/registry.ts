@@ -3,6 +3,13 @@ import { ShaclNodeShape } from '../shacl'
 import { FormShapeCompiler } from './compiler'
 import { FormNodeShape } from './model'
 
+/**
+ * Lazy cache of compiled FormNodeShapes.
+ *
+ * The registry contains every compilable NodeShape; root-selection policy must
+ * not remove shapes from this cache because nested/logical resolution depends
+ * on the full set.
+ */
 export class FormShapeRegistry {
     private readonly cache = new Map<string, FormNodeShape>()
 
