@@ -19,18 +19,26 @@ const shapes = `
       sh:minCount 1
     ] ;
     sh:property [
-      sh:path [ sh:alternativePath ( ex:email ex:mbox ) ] ;
-      sh:name "Contact path" ;
-      sh:maxCount 1
-    ] ;
+	      sh:path [ sh:alternativePath ( ex:email ex:mbox ex:childChoice ex:fax ) ] ;
+	      sh:name "Contact path" ;
+	      sh:maxCount 1
+	    ] ;
     sh:property [
       sh:path ex:email ;
       sh:name "Email"
     ] ;
-    sh:property [
-      sh:path ex:mbox ;
-      sh:name "Mailbox"
-    ] ;
+	    sh:property [
+	      sh:path ex:mbox ;
+	      sh:name "Mailbox"
+	    ] ;
+	    sh:property [
+	      sh:path ex:childChoice ;
+	      sh:name "Child choice" ;
+	      sh:or (
+	        [ sh:node ex:ChildShape ]
+	        [ sh:node ex:SecondShape ]
+	      )
+	    ] ;
     sh:property [
       sh:path ex:child ;
       sh:name "Child" ;
@@ -132,6 +140,37 @@ try {
             return form
         }
 
+        async function addAlternativePathValue(property, path) {
+            const addButton = property?.querySelector(':scope > .add-button')
+            const item = addButton
+                ? [...addButton.querySelectorAll('li[data-value][data-path]')]
+                    .find(item => item.dataset.path === path)
+                : undefined
+            if (!addButton || !item) {
+                throw new Error(`Alternative add action not found for ${path}`)
+            }
+            addButton.value = item.dataset.value
+            addButton.dispatchEvent(new Event('change', { bubbles: true }))
+            await new Promise(resolve => setTimeout(resolve, 100))
+            return [...property.children]
+                .find(child => child.classList.contains('property-instance') && child.dataset.path === path)
+        }
+
+        function addMenuActionLabels(property) {
+            return [...property?.querySelectorAll(':scope > .add-button li[data-value]') || []]
+                .map(item => item.textContent.trim())
+        }
+
+        function addMenuActionLabelsForPath(property, path) {
+            return [...property?.querySelectorAll(':scope > .add-button li[data-value][data-path]') || []]
+                .filter(item => item.dataset.path === path)
+                .map(item => item.textContent.trim())
+        }
+
+        function addMenuText(property) {
+            return property?.querySelector(':scope > .add-button')?.textContent || ''
+        }
+
         const simple = await createForm({
             shapeSubject: 'http://example.org/SimpleShape',
             valuesNamespace: 'http://data.example/',
@@ -145,21 +184,17 @@ try {
         const customizedRootId = root?.dataset.nodeId
         const titleLabel = root?.querySelector('shacl-property label')?.textContent
         const nestedControl = [...root?.querySelectorAll('shacl-property') || []]
-            .find(property => property.textContent.includes('Child') && property.querySelector('.add-button'))
+            .find(property => property.template?.label === 'Child')
         const logicalChoiceOptions = [...root?.querySelectorAll('shacl-property') || []]
             .find(property => property.template?.label === 'Choice')
             ?.querySelector(':scope > .shacl-or-constraint > div > select')
         const logicalChoiceLabels = logicalChoiceOptions
             ? [...logicalChoiceOptions.options].map(option => option.textContent)
             : []
-        const alternative = root?.querySelector('.alternative-path-constraint select')
-        alternative.value = '1'
-        alternative.dispatchEvent(new Event('change', { bubbles: true }))
-        const selectedAlternativeInstance = root?.querySelector('.property-instance[data-path="http://example.org/mbox"]')
-        const selectedAlternativeLabel = selectedAlternativeInstance?.querySelector('label')?.textContent
-        const selectedAlternativeEditor = selectedAlternativeInstance?.querySelector('.editor')
-        selectedAlternativeEditor.value = 'mailto:a@example.org'
-        selectedAlternativeEditor.dispatchEvent(new Event('change', { bubbles: true }))
+        const contactProperty = [...root?.querySelectorAll('shacl-property') || []]
+            .find(property => property.template?.label === 'Contact path')
+        const contactAddLabels = addMenuActionLabels(contactProperty)
+        const contactMenuText = addMenuText(contactProperty)
         nestedControl?.addPropertyInstance()
         await new Promise(resolve => setTimeout(resolve, 250))
         const nestedNodeAfterClick = nestedControl?.querySelector('shacl-node')
@@ -169,6 +204,18 @@ try {
         const childEditor = nestedNodeAfterClick?.querySelector('shacl-property .property-instance .editor')
         childEditor.value = 'Child value'
         childEditor.dispatchEvent(new Event('change', { bubbles: true }))
+        root.nodeCollection.commitRootNode(root)
+        contactProperty?.refreshReusableOptions()
+        const emailBranchActionsAfterReuse = addMenuActionLabelsForPath(contactProperty, 'http://example.org/email')
+        const childChoiceBranchActionsAfterReuse = addMenuActionLabelsForPath(contactProperty, 'http://example.org/childChoice')
+        const selectedAlternativeInstance = await addAlternativePathValue(contactProperty, 'http://example.org/mbox')
+        const selectedAlternativeLabel = selectedAlternativeInstance?.querySelector('label')?.textContent
+        const selectedAlternativeEditor = selectedAlternativeInstance?.querySelector('.editor')
+        if (!selectedAlternativeEditor) {
+            throw new Error(`Selected mbox alternative did not create an editor: ${contactProperty?.innerHTML}`)
+        }
+        selectedAlternativeEditor.value = 'mailto:a@example.org'
+        selectedAlternativeEditor.dispatchEvent(new Event('change', { bubbles: true }))
 
         const multi = await createForm()
         const selector = multi.shadowRoot.querySelector('.root-selector-container select')
@@ -205,7 +252,10 @@ try {
             blankNodeDisplayLabel,
             blankNodeDisplayValue,
             blankNodeHasIriEditor,
-            hasAlternative: Boolean(alternative),
+            contactAddLabels,
+            contactMenuText,
+            emailBranchActionsAfterReuse,
+            childChoiceBranchActionsAfterReuse,
             selectedAlternativeLabel,
             rootOptions,
             invalidConforms: invalidReport.conforms,
@@ -227,7 +277,13 @@ try {
     assert(result.nestedIdLabel === 'IRI:', 'nested BlankNodeOrIRI NamedNode identifier label is not IRI')
     assert(result.blankNodeDisplayLabel === 'Blank node:' && result.blankNodeDisplayValue.startsWith('_:'), 'generated blank node did not use non-editable Blank node label')
     assert(result.blankNodeHasIriEditor === false, 'generated blank node displayed an editable IRI editor')
-    assert(result.hasAlternative, 'alternative path selector did not render')
+    assert(result.contactAddLabels.some(label => label.includes('Add Email value')), `alternative path add menu did not expose Email action: ${result.contactAddLabels.join(', ')}`)
+    assert(result.contactAddLabels.some(label => label.includes('Add Mailbox value')), `alternative path add menu did not expose Mailbox action: ${result.contactAddLabels.join(', ')}`)
+    assert(result.contactAddLabels.some(label => label.includes('Create new Child choice')), `alternative path add menu did not expose anonymous sh:or node-valued branch action: ${result.contactAddLabels.join(', ')}`)
+    assert(result.contactMenuText.includes('fax') && result.contactMenuText.includes('No authoring definition in the loaded shapes'), `under-specified alternative path branch was not shown as unavailable: ${result.contactMenuText}`)
+    assert(!result.contactAddLabels.some(label => label.includes('fax')), `under-specified alternative path branch exposed a misleading add action: ${result.contactAddLabels.join(', ')}`)
+    assert(!result.emailBranchActionsAfterReuse.some(label => label.includes('http://data.example/child')), `scalar alternative branch exposed reusable node actions: ${result.emailBranchActionsAfterReuse.join(', ')}`)
+    assert(result.childChoiceBranchActionsAfterReuse.some(label => label.includes('http://data.example/child')), `node-valued alternative branch did not expose compatible reusable node: ${result.childChoiceBranchActionsAfterReuse.join(', ')}`)
     assert(result.selectedAlternativeLabel === 'Mailbox', 'alternative path selection did not update the visible label')
     assert(result.rootOptions.includes('Simple') && result.rootOptions.includes('Second'), 'multiple-root selector did not render expected options')
     assert(result.invalidConforms === false, 'SHACL validation did not catch missing required value')

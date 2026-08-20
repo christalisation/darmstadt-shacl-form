@@ -48,6 +48,21 @@ function compilerFor(store: Store): {
         findNodeShapeByTargetClass: targetClass => store.getSubjects(DataFactory.namedNode('http://www.w3.org/ns/shacl#targetClass'), targetClass, null)[0],
         findNodeShapesByTargetObjectsOf: predicate => store.getSubjects(DataFactory.namedNode('http://www.w3.org/ns/shacl#targetObjectsOf'), predicate, null)
             .filter(subject => store.countQuads(subject, DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), DataFactory.namedNode('http://www.w3.org/ns/shacl#NodeShape'), null) > 0),
+        findNodeShapesByLogicalBranch: branch => {
+            const nodeShapeType = DataFactory.namedNode('http://www.w3.org/ns/shacl#NodeShape')
+            const rdfType = DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+            const shNode = DataFactory.namedNode('http://www.w3.org/ns/shacl#node')
+            const shapes = []
+            if (store.countQuads(branch, rdfType, nodeShapeType, null) > 0) {
+                shapes.push(branch)
+            }
+            for (const nodeTarget of store.getObjects(branch, shNode, null)) {
+                if (store.countQuads(nodeTarget, rdfType, nodeShapeType, null) > 0) {
+                    shapes.push(nodeTarget)
+                }
+            }
+            return [...new Map(shapes.map(shape => [`${shape.termType}:${shape.value}`, shape])).values()]
+        },
         findCompatibleNodeShapes: baseShape => {
             const base = resolveNodeShape(baseShape)
             if (!base) return []
@@ -205,6 +220,81 @@ describe('FormShapeCompiler', () => {
             [`${EX}email`]: 'Email',
             [`${EX}mbox`]: 'Mailbox',
         })
+    })
+
+    it('keeps under-specified alternative paths visible without projecting unsafe branch templates', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:property [
+                    sh:path [ sh:alternativePath ( ex:first ex:derived ex:missing ) ] ;
+                    sh:name "Choice"
+                ] ;
+                sh:property [
+                    sh:path ex:first ;
+                    sh:name "First" ;
+                    sh:datatype xsd:string
+                ] .
+
+            ex:DerivedShape a sh:NodeShape ;
+                sh:targetObjectsOf ex:derived ;
+                sh:property [
+                    sh:path ex:nested ;
+                    sh:name "Nested"
+                ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}Shape`)
+        const property = shape.properties[0]
+
+        expect(property.pathAlternatives?.map(path => path.value)).toEqual([
+            `${EX}first`,
+            `${EX}derived`,
+            `${EX}missing`,
+        ])
+        expect(property.pathAlternativeLabels[`${EX}missing`]).toBe('missing')
+        expect(property.pathAlternativeBranches[`${EX}first`]?.label).toBe('First')
+        expect(property.pathAlternativeBranches[`${EX}derived`]?.nestedNodeShapes.map(shape => shape.value)).toEqual([`${EX}DerivedShape`])
+        expect(property.pathAlternativeBranches[`${EX}missing`]).toBeUndefined()
+    })
+
+    it('projects node-valued alternative branches with anonymous sh:or node wrappers', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:property [
+                    sh:path [ sh:alternativePath ( ex:literal ex:nodeValue ex:missing ) ] ;
+                    sh:name "Choice"
+                ] ;
+                sh:property [
+                    sh:path ex:literal ;
+                    sh:name "Literal" ;
+                    sh:datatype xsd:string
+                ] ;
+                sh:property [
+                    sh:path ex:nodeValue ;
+                    sh:name "Node value" ;
+                    sh:or (
+                        [ sh:node ex:ShapeA ]
+                        [ sh:node ex:ShapeB ]
+                    )
+                ] .
+
+            ex:ShapeA a sh:NodeShape ;
+                sh:targetClass ex:ClassA ;
+                sh:property [ sh:path ex:a ; sh:name "A" ] .
+
+            ex:ShapeB a sh:NodeShape ;
+                sh:targetClass ex:ClassB ;
+                sh:property [ sh:path ex:b ; sh:name "B" ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}Shape`)
+        const property = shape.properties[0]
+        const nodeBranch = property.pathAlternativeBranches[`${EX}nodeValue`]
+
+        expect(property.pathAlternativeBranches[`${EX}literal`]?.label).toBe('Literal')
+        expect(nodeBranch?.logicalAlternatives[0].shapes).toHaveLength(2)
+        expect(nodeBranch?.valueNodeShapes.map(shape => shape.value)).toEqual([`${EX}ShapeA`, `${EX}ShapeB`])
+        expect(property.pathAlternativeBranches[`${EX}missing`]).toBeUndefined()
     })
 
     it('includes effective properties from sh:and composition', () => {

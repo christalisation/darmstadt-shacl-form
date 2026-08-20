@@ -80,16 +80,46 @@ try {
             return form
         }
 
-        function selectAlternativeByLabel(root, label) {
-            const expectedPaths = {
-                parent: 'http://w3id.org/rml/parent',
-                subject: 'http://w3id.org/rml/subject',
-                subjectMap: 'http://w3id.org/rml/subjectMap',
-                predicate: 'http://w3id.org/rml/predicate',
-                objectMap: 'http://w3id.org/rml/objectMap',
-                reference: 'http://w3id.org/rml/reference',
-                template: 'http://w3id.org/rml/template',
+        const expectedPaths = {
+            parent: 'http://w3id.org/rml/parent',
+            subject: 'http://w3id.org/rml/subject',
+            subjectMap: 'http://w3id.org/rml/subjectMap',
+            predicate: 'http://w3id.org/rml/predicate',
+            objectMap: 'http://w3id.org/rml/objectMap',
+            reference: 'http://w3id.org/rml/reference',
+            template: 'http://w3id.org/rml/template',
+        }
+
+        async function triggerAlternativeAddAction(property, label) {
+            const expectedPath = expectedPaths[label]
+            const addButton = property?.querySelector(':scope > .add-button')
+            const item = expectedPath && addButton
+                ? [...addButton.querySelectorAll('li[data-value][data-path]')]
+                    .find(item => item.dataset.path === expectedPath)
+                : undefined
+            if (!item) {
+                return undefined
             }
+
+            addButton.value = item.dataset.value
+            addButton.dispatchEvent(new Event('change', { bubbles: true }))
+            await new Promise(resolve => setTimeout(resolve, 100))
+            return property.querySelector(`:scope > .property-instance[data-path="${CSS.escape(expectedPath)}"], :scope > .shacl-or-constraint[data-path="${CSS.escape(expectedPath)}"]`)
+        }
+
+        async function selectAlternativeByLabel(root, label) {
+            const expectedPath = expectedPaths[label]
+            for (const property of root.querySelectorAll('shacl-property')) {
+                const instance = await triggerAlternativeAddAction(property, label)
+                if (instance) {
+                    return {
+                        label: instance.querySelector('label')?.textContent,
+                        editor: instance.querySelector('.editor'),
+                        path: instance.dataset.path,
+                    }
+                }
+            }
+
             const alternatives = [...root.querySelectorAll('.alternative-path-constraint')]
             for (const alternative of alternatives) {
                 const select = alternative.querySelector('select')
@@ -99,7 +129,7 @@ try {
                 }
                 select.value = option.value
                 select.dispatchEvent(new Event('change', { bubbles: true }))
-                const instance = root.querySelector(`.property-instance[data-path="${CSS.escape(expectedPaths[label])}"]`)
+                const instance = root.querySelector(`.property-instance[data-path="${CSS.escape(expectedPath)}"]`)
                 return {
                     label: instance?.querySelector('label')?.textContent,
                     editor: instance?.querySelector('.editor'),
@@ -110,6 +140,11 @@ try {
         }
 
         async function selectAlternativeInProperty(property, label) {
+            const addedInstance = await triggerAlternativeAddAction(property, label)
+            if (addedInstance) {
+                return addedInstance
+            }
+
             const select = property?.querySelector('.alternative-path-constraint select')
             const option = select ? [...select.options].find(option => option.textContent.trim() === label) : undefined
             if (!select || !option) {
@@ -119,6 +154,15 @@ try {
             select.dispatchEvent(new Event('change', { bubbles: true }))
             await new Promise(resolve => setTimeout(resolve, 100))
             return property.querySelector(`.property-instance[data-path], .shacl-or-constraint[data-path]`)
+        }
+
+        function addMenuActionLabels(property) {
+            return [...property?.querySelectorAll(':scope > .add-button li[data-value]') || []]
+                .map(item => item.textContent.trim())
+        }
+
+        function addMenuText(property) {
+            return property?.querySelector(':scope > .add-button')?.textContent || ''
         }
 
         async function selectFirstLogicalOption(container) {
@@ -215,13 +259,17 @@ try {
 
         const predicateObjectMap = await createForm('http://w3id.org/rml/shapes/RMLPredicateObjectMapShape')
         const predicateObjectMapText = predicateObjectMap.shadowRoot.textContent
+        const predicateObjectMapRoot = predicateObjectMap.shadowRoot.querySelector('shacl-node')
+        const predicateAlternativeAddLabels = addMenuActionLabels(findProperty(predicateObjectMapRoot, 'predicate/predicateMap'))
+        const objectAlternativeAddLabels = addMenuActionLabels(findProperty(predicateObjectMapRoot, 'object/objectMap/quotedTriplesMap'))
+        const objectAlternativeAddText = addMenuText(findProperty(predicateObjectMapRoot, 'object/objectMap/quotedTriplesMap'))
 
         const childMap = await createForm('http://w3id.org/rml/shapes/RMLChildMapShape', {
             valuesNamespace: 'http://example.org/data/',
         })
         const childMapText = childMap.shadowRoot.textContent
         const childMapRoot = childMap.shadowRoot.querySelector('shacl-node')
-        const childMapTemplate = selectAlternativeByLabel(childMapRoot, 'template')
+        const childMapTemplate = await selectAlternativeByLabel(childMapRoot, 'template')
         childMapTemplate.editor.value = '{child_id}'
         childMapTemplate.editor.dispatchEvent(new Event('change', { bubbles: true }))
         const childMapTurtle = childMap.serialize()
@@ -230,7 +278,7 @@ try {
             valuesNamespace: 'http://example.org/data/',
         })
         const joinRoot = join.shadowRoot.querySelector('shacl-node')
-        const joinParent = selectAlternativeByLabel(joinRoot, 'parent')
+        const joinParent = await selectAlternativeByLabel(joinRoot, 'parent')
         joinParent.editor.value = 'parent_id'
         joinParent.editor.dispatchEvent(new Event('change', { bubbles: true }))
         const joinTurtle = join.serialize()
@@ -239,7 +287,9 @@ try {
             valuesNamespace: 'http://example.org/data/',
         })
         const triplesMapRoot = triplesMap.shadowRoot.querySelector('shacl-node')
-        const triplesMapSubject = selectAlternativeByLabel(triplesMapRoot, 'subject')
+        const subjectAlternativeAddLabels = addMenuActionLabels(findProperty(triplesMapRoot, 'subjectMap/subject/quotedTriplesMap'))
+        const subjectAlternativeAddText = addMenuText(findProperty(triplesMapRoot, 'subjectMap/subject/quotedTriplesMap'))
+        const triplesMapSubject = await selectAlternativeByLabel(triplesMapRoot, 'subject')
         triplesMapSubject.editor.value = 'http://example.org/resource/{id}'
         triplesMapSubject.editor.dispatchEvent(new Event('change', { bubbles: true }))
         const logicalSourceProperty = [...triplesMap.shadowRoot.querySelectorAll('shacl-property')]
@@ -341,6 +391,9 @@ try {
 
         return {
             predicateObjectMapText,
+            predicateAlternativeAddLabels,
+            objectAlternativeAddLabels,
+            objectAlternativeAddText,
             childMapText,
             childMapTemplateLabel: childMapTemplate.label,
             childMapTemplatePath: childMapTemplate.path,
@@ -350,6 +403,8 @@ try {
             joinTurtle,
             triplesMapSubjectLabel: triplesMapSubject.label,
             triplesMapSubjectPath: triplesMapSubject.path,
+            subjectAlternativeAddLabels,
+            subjectAlternativeAddText,
             logicalSourceText,
             sourceText,
             triplesMapTurtle,
@@ -432,10 +487,22 @@ try {
     const triplesMapDemoResult = await checkRmlDemoRootIri('TriplesMap', 'http://example.org/TM-images')
     const joinDemoResult = await checkRmlDemoRootIri('Join', 'http://example.org/Join-images')
 
-    assert(result.predicateObjectMapText.includes('graph/graphMap'), 'PredicateObjectMap is missing graph/graphMap')
-    assert(result.predicateObjectMapText.includes('predicate/predicateMap'), 'PredicateObjectMap is missing predicate/predicateMap')
-    assert(result.predicateObjectMapText.includes('object/objectMap/quotedTriplesMap'), 'PredicateObjectMap is missing object/objectMap/quotedTriplesMap')
-    assert(result.childMapText.includes('template/constant/reference/functionExecution'), 'ChildMap did not render inherited ExpressionMap structure')
+    assert(result.predicateObjectMapText.includes('graph') && result.predicateObjectMapText.includes('graphMap'), `PredicateObjectMap is missing graph/graphMap actions:\n${result.predicateObjectMapText}`)
+    assert(result.predicateObjectMapText.includes('predicate') && result.predicateObjectMapText.includes('predicateMap'), 'PredicateObjectMap is missing predicate/predicateMap actions')
+    assert(result.predicateObjectMapText.includes('object') && result.predicateObjectMapText.includes('objectMap') && result.predicateObjectMapText.includes('quotedTriplesMap'), 'PredicateObjectMap is missing object/objectMap/quotedTriplesMap actions')
+    assert(result.predicateAlternativeAddLabels.some(label => label.includes('Add predicate value')), `predicate/predicateMap add menu did not expose scalar predicate action: ${result.predicateAlternativeAddLabels.join(', ')}`)
+    assert(result.predicateAlternativeAddLabels.some(label => label.includes('Create new PredicateMap')), `predicate/predicateMap add menu did not expose node-valued predicateMap action: ${result.predicateAlternativeAddLabels.join(', ')}`)
+    assert(result.objectAlternativeAddLabels.some(label => label.includes('Add object value')), `object alternative add menu did not expose scalar object action: ${result.objectAlternativeAddLabels.join(', ')}`)
+    assert(result.objectAlternativeAddLabels.some(label => label.includes('Create new objectMap')), `object alternative add menu did not expose objectMap action: ${result.objectAlternativeAddLabels.join(', ')}`)
+    assert(!result.objectAlternativeAddLabels.some(label => label.includes('quotedTriplesMap')), `quotedTriplesMap exposed a misleading object add action: ${result.objectAlternativeAddLabels.join(', ')}`)
+    assert(result.objectAlternativeAddText.includes('quotedTriplesMap') && result.objectAlternativeAddText.includes('No authoring definition in the loaded shapes'), `quotedTriplesMap object branch was not shown as unavailable: ${result.objectAlternativeAddText}`)
+    assert(
+        result.childMapText.includes('template') &&
+        result.childMapText.includes('constant') &&
+        result.childMapText.includes('reference') &&
+        result.childMapText.includes('functionExecution'),
+        `ChildMap did not render inherited ExpressionMap branch actions:\n${result.childMapText}`
+    )
     assert(result.childMapTemplateLabel === 'template', 'ChildMap alternative branch did not use the selected template label')
     assert(result.childMapTemplatePath === 'http://w3id.org/rml/template', 'ChildMap alternative branch did not use rml:template path')
     assert(result.childMapTurtle.includes('rml:template "{child_id}"'), 'ChildMap serialization did not use selected rml:template predicate')
@@ -444,6 +511,10 @@ try {
     assert(result.joinTurtle.includes('rml:parent "parent_id"'), 'Join serialization did not use selected rml:parent predicate')
     assert(result.triplesMapSubjectLabel === 'subject', 'TriplesMap alternative branch did not use the selected subject label')
     assert(result.triplesMapSubjectPath === 'http://w3id.org/rml/subject', 'TriplesMap alternative branch did not use rml:subject path')
+    assert(result.subjectAlternativeAddLabels.some(label => label.includes('Add subject value')), `subject alternative add menu did not expose scalar subject action: ${result.subjectAlternativeAddLabels.join(', ')}`)
+    assert(result.subjectAlternativeAddLabels.some(label => label.includes('Create new SubjectMap')), `subject alternative add menu did not expose subjectMap action: ${result.subjectAlternativeAddLabels.join(', ')}`)
+    assert(!result.subjectAlternativeAddLabels.some(label => label.includes('quotedTriplesMap')), `quotedTriplesMap exposed a misleading subject add action: ${result.subjectAlternativeAddLabels.join(', ')}`)
+    assert(result.subjectAlternativeAddText.includes('quotedTriplesMap') && result.subjectAlternativeAddText.includes('No authoring definition in the loaded shapes'), `quotedTriplesMap subject branch was not shown as unavailable: ${result.subjectAlternativeAddText}`)
     assert(result.triplesMapTurtle.includes('rml:subject <http://example.org/resource/{id}>'), 'TriplesMap serialization did not use selected rml:subject predicate')
     assert(result.logicalSourceText.includes('rml:source'), 'LogicalSource concrete authoring shape did not expose rml:source')
     assert(result.logicalSourceText.includes('rml:referenceFormulation'), 'LogicalSource did not expose same-focus referenceFormulation from node-level sh:node')

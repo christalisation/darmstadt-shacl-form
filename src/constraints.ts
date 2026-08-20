@@ -44,6 +44,10 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
         const option = document.createElement('option')
         option.value = i.toString()
         option.innerText = property.template.getPathLabel(path)
+        if (!property.template.createTemplateForAlternativePath(path)) {
+            option.disabled = true
+            option.title = 'No branch-specific authoring constraints found'
+        }
         select.appendChild(option)
     }
 
@@ -55,6 +59,9 @@ export function createAlternativePathConstraint(property: ShaclProperty, value?:
 
         const selectedPath = property.template.pathAlternatives![parseInt(select.value)]
         const effectiveTemplate = property.template.createTemplateForAlternativePath(selectedPath)
+        if (!effectiveTemplate) {
+            return
+        }
         const instance = createPropertyInstance(effectiveTemplate, value, true, linked)
         wrapper.replaceWith(instance)
         instance.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }))

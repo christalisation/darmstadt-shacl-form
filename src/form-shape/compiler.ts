@@ -18,6 +18,7 @@ export interface FormShapeCompilerOptions {
     resolveNodeShape: (id: Term) => ShaclNodeShape | undefined
     findNodeShapeByTargetClass?: (targetClass: NamedNode) => Term | undefined
     findNodeShapesByTargetObjectsOf?: (predicate: NamedNode) => Term[]
+    findNodeShapesByLogicalBranch?: (branch: Term) => Term[]
     labelForTerm?: (term: Term) => string | undefined
     shapeResolver?: ShaclShapeResolver
     findCompatibleNodeShapes?: (baseShape: Term) => Term[]
@@ -65,6 +66,7 @@ export class FormShapeCompiler {
             defaultValue: shape.metadata.defaultValue,
             nestedNodeShapes: [],
             compatibleNodeShapes: [],
+            valueNodeShapes: [],
             logicalAlternatives: [],
             sourceShapes: sourceShapes.length ? [...sourceShapes] : [shape.id],
         }
@@ -94,12 +96,26 @@ export class FormShapeCompiler {
             }
         }
         property.nestedNodeShapes = this.uniqueTerms(property.nestedNodeShapes)
+        property.valueNodeShapes = this.uniqueTerms([
+            ...property.nestedNodeShapes,
+            ...property.compatibleNodeShapes,
+            ...this.findValueNodeShapesByLogicalAlternatives(property),
+        ])
 
         for (const alternative of property.pathAlternatives || []) {
             property.pathAlternativeLabels[alternative.value] = this.findAlternativePathLabel(alternative, siblings)
             const branch = this.findAlternativePathBranch(alternative, siblings)
             if (branch) {
                 property.pathAlternativeBranches[alternative.value] = this.compilePropertyShape(branch, [], sourceShapes)
+                continue
+            }
+
+            const targetDerivedBranch = this.createTargetObjectsOfAlternativeBranch(alternative, shape)
+            if (targetDerivedBranch) {
+                const compiledBranch = this.compilePropertyShape(targetDerivedBranch, [], sourceShapes)
+                if (this.hasAuthoringProjection(compiledBranch)) {
+                    property.pathAlternativeBranches[alternative.value] = compiledBranch
+                }
             }
         }
 
@@ -251,6 +267,16 @@ export class FormShapeCompiler {
             .filter(shape => !locallyDeclared.has(this.termKey(shape)))
     }
 
+    private findValueNodeShapesByLogicalAlternatives(property: FormPropertyShape): Term[] {
+        const shapes: Term[] = []
+        for (const alternative of property.logicalAlternatives) {
+            for (const branch of alternative.shapes) {
+                shapes.push(...this.options.findNodeShapesByLogicalBranch?.(branch) || [])
+            }
+        }
+        return shapes.filter(shape => this.hasRenderableNodeShapeContent(shape))
+    }
+
     private composedValueNodeShapeTerms(property: FormPropertyShape): Term[] {
         if (!property.nodeShape) {
             return []
@@ -328,6 +354,46 @@ export class FormShapeCompiler {
         }
     }
 
+    private createTargetObjectsOfAlternativeBranch(path: NamedNode, parent: ShaclPropertyShape): ShaclPropertyShape | undefined {
+        if (!this.options.findNodeShapesByTargetObjectsOf?.(path).length) {
+            return undefined
+        }
+
+        return {
+            id: DataFactory.blankNode(`targetObjectsOf-${this.stableId(`${parent.id.termType}:${parent.id.value}:${path.value}`)}`),
+            path: { kind: 'predicate', predicate: path },
+            constraints: [],
+            metadata: {
+                names: [],
+                labels: [],
+                descriptions: [],
+                messages: [],
+            },
+        }
+    }
+
+    private hasAuthoringProjection(property: FormPropertyShape): boolean {
+        return Boolean(
+            property.nestedNodeShapes.length ||
+            property.compatibleNodeShapes.length ||
+            property.nodeShape ||
+            property.logicalAlternatives.length ||
+            property.datatype ||
+            property.nodeKind ||
+            property.class ||
+            property.minLength !== undefined ||
+            property.maxLength !== undefined ||
+            property.minInclusive !== undefined ||
+            property.maxInclusive !== undefined ||
+            property.minExclusive !== undefined ||
+            property.maxExclusive !== undefined ||
+            property.pattern !== undefined ||
+            property.shaclIn?.length ||
+            property.languageIn?.length ||
+            property.hasValue
+        )
+    }
+
     private getRenderableProperties(properties: FormPropertyShape[]): FormPropertyShape[] {
         const pathsCoveredByAlternative = new Set<string>()
         for (const property of properties) {
@@ -403,5 +469,13 @@ export class FormShapeCompiler {
 
     private termKey(term: Term): string {
         return `${term.termType}:${term.value}`
+    }
+
+    private stableId(value: string): string {
+        let hash = 0
+        for (let i = 0; i < value.length; i++) {
+            hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0
+        }
+        return Math.abs(hash).toString(36)
     }
 }

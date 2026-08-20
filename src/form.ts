@@ -453,6 +453,7 @@ export class ShaclForm extends HTMLElement {
         const label = findLabel(this.config.store.getQuads(rootNode.shaclSubject, null, null, null), this.config.languages) || 'node';
         const button = this.config.theme.createButton(`Add ${label}`, true);
         button.classList.add('commit-root-button');
+        button.title = `Create another root instance of ${label}.`;
         button.addEventListener('click', (event) => {
             event.preventDefault();
             this.commitActiveRootNode().catch(error => console.warn(error));

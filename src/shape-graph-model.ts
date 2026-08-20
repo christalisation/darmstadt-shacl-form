@@ -46,6 +46,7 @@ export class ShapeGraphModel {
             resolveNodeShape: id => this.parseNodeShapeIfPresent(id),
             findNodeShapeByTargetClass: targetClass => this.findNodeShapeByTargetClass(targetClass),
             findNodeShapesByTargetObjectsOf: predicate => this.findNodeShapesByTargetObjectsOf(predicate),
+            findNodeShapesByLogicalBranch: branch => this.findNodeShapesByLogicalBranch(branch),
             findCompatibleNodeShapes: baseShape => this.getCompatibleFormNodeShapeTerms(baseShape),
             labelForTerm: term => this.getLabel(term),
             shapeResolver: resolver,
@@ -285,6 +286,7 @@ export class ShapeGraphModel {
                 resolveNodeShape: id => this.parseNodeShapeIfPresent(id),
                 findNodeShapeByTargetClass: targetClass => this.findNodeShapeByTargetClass(targetClass),
                 findNodeShapesByTargetObjectsOf: predicate => this.findNodeShapesByTargetObjectsOf(predicate),
+                findNodeShapesByLogicalBranch: branch => this.findNodeShapesByLogicalBranch(branch),
                 findCompatibleNodeShapes: baseShape => this.getCompatibleFormNodeShapeTerms(baseShape),
                 labelForTerm: term => this.getLabel(term),
             }).compilePropertyShape(semanticProperty)
@@ -365,6 +367,19 @@ export class ShapeGraphModel {
                 target.predicate.value === predicate.value
             )
         })
+    }
+
+    private findNodeShapesByLogicalBranch(branch: RdfTerm): RdfTerm[] {
+        const nodeShapes: RdfTerm[] = []
+        if (this.isNodeShape(branch)) {
+            nodeShapes.push(branch)
+        }
+        for (const nodeTarget of this.store.getObjects(branch, SHACL_PREDICATE_NODE, null)) {
+            if (this.isNodeShape(nodeTarget)) {
+                nodeShapes.push(nodeTarget)
+            }
+        }
+        return [...new Map(nodeShapes.map(shape => [this.termKey(shape), shape])).values()]
     }
 
     private parsePropertyShapeIfPresent(propertyShape: RdfTerm): ShaclPropertyShape | undefined {

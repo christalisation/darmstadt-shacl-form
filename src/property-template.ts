@@ -120,6 +120,7 @@ export class ShaclPropertyTemplate {
 
     config: Config
     extendedShapes: Array<NamedNode | BlankNode>  = []
+    valueNodeShapes: Array<NamedNode | BlankNode>  = []
 
     static fromFormPropertyShape(shape: FormPropertyShape, parent: ShaclNode, config: Config): ShaclPropertyTemplate {
         return new ShaclPropertyTemplate(config.store.getQuads(shape.id, null, null, null), parent, config, shape)
@@ -180,6 +181,11 @@ export class ShaclPropertyTemplate {
             ? shape.compatibleNodeShapes
             : shape.nestedNodeShapes
         this.extendedShapes = nestedNodeShapes
+            .flatMap(node => {
+                const reference = toNodeShapeReference(node)
+                return reference ? [reference] : []
+            })
+        this.valueNodeShapes = shape.valueNodeShapes
             .flatMap(node => {
                 const reference = toNodeShapeReference(node)
                 return reference ? [reference] : []
@@ -249,6 +255,9 @@ export class ShaclPropertyTemplate {
         if (!this.extendedShapes.some(shape => shape.termType === node.termType && shape.value === node.value)) {
             this.extendedShapes.push(node)
         }
+        if (!this.valueNodeShapes.some(shape => shape.termType === node.termType && shape.value === node.value)) {
+            this.valueNodeShapes.push(node)
+        }
     }
 
     private mergeValueNodeShapeConstraints(node: NamedNode | BlankNode): void {
@@ -293,7 +302,12 @@ export class ShaclPropertyTemplate {
         return this.pathAlternativeLabels[path] || removePrefixes(path, this.config.prefixes)
     }
 
-    createTemplateForAlternativePath(path: string): ShaclPropertyTemplate {
+    /**
+     * Authoring projection for a concrete branch of sh:alternativePath.
+     * Returns undefined when the loaded shapes graph does not provide a
+     * branch-specific FormPropertyShape for the requested path.
+     */
+    createTemplateForAlternativePath(path: string): ShaclPropertyTemplate | undefined {
         const branchShape = this.pathAlternativeBranches[path]
         if (branchShape) {
             const template = new ShaclPropertyTemplate(this.config.store.getQuads(branchShape.id, null, null, null), this.parent, this.config, branchShape)
@@ -304,20 +318,7 @@ export class ShaclPropertyTemplate {
             return template
         }
 
-        const propertyShape = this.findSiblingPropertyShapeByPath(path)
-        if (propertyShape) {
-            const formPropertyShape = this.config.shapeGraph.getFormPropertyShape(propertyShape)
-            const template = new ShaclPropertyTemplate(this.config.store.getQuads(propertyShape, null, null, null), this.parent, this.config, formPropertyShape)
-            template.minCount = this.minCount
-            template.maxCount = this.maxCount
-            return template
-        }
-
-        const template = this.clone()
-        template.path = path
-        template.pathAlternatives = undefined
-        template.pathAlternativeLabels = {}
-        return template
+        return undefined
     }
 
     createTemplateForLogicalOption(option: Term, fallbackLabel = 'Alternative'): ShaclPropertyTemplate | undefined {
@@ -379,6 +380,7 @@ export class ShaclPropertyTemplate {
         template.pathAlternativeLabels = {}
         template.pathAlternativeBranches = {}
         template.extendedShapes = []
+        template.valueNodeShapes = []
         template.shaclAnd = undefined
         template.shaclOr = undefined
         template.shaclXone = undefined
@@ -472,6 +474,7 @@ export class ShaclPropertyTemplate {
         const copy = Object.assign(Object.create(Object.getPrototypeOf(this)), this) as ShaclPropertyTemplate
         // arrays are not cloned but referenced, so create them manually
         copy.extendedShapes = [ ...this.extendedShapes ]
+        copy.valueNodeShapes = [ ...this.valueNodeShapes ]
         copy.owlImports = [ ...this.owlImports ]
         if (this.languageIn) {
             copy.languageIn = [ ...this.languageIn ]

@@ -56,6 +56,7 @@ export interface FormPropertyShape {
     nodeShape?: Term
     nestedNodeShapes: Term[]
     compatibleNodeShapes: Term[]
+    valueNodeShapes: Term[]
     shaclIn?: Term[]
     languageIn?: Term[]
     defaultValue?: Term

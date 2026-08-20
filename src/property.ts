@@ -12,6 +12,15 @@ import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE } from './constants'
 import { RokitButton, RokitCollapsible, RokitSelect } from '@ro-kit/ui-widgets'
 import { FormPropertyShape } from './form-shape'
 
+type AlternativePathAddAction =
+    | { kind: 'createAlternativePath', path: string }
+    | { kind: 'linkAlternativePath', path: string, value: Term }
+
+type AlternativePathBranchOption = {
+    path: string
+    template?: ShaclPropertyTemplate
+}
+
 export class ShaclProperty extends HTMLElement {
     template: ShaclPropertyTemplate
     addButton: RokitSelect | undefined
@@ -114,10 +123,23 @@ export class ShaclProperty extends HTMLElement {
                 appendRemoveButton(instance, '')
             }
         } else {
+            const effectiveTemplate = selectedPath ? this.template.createTemplateForAlternativePath(selectedPath) : this.template
+            if (!effectiveTemplate) {
+                instance = createUnavailableAlternativePathInstance(this.template.getPathLabel(selectedPath!), selectedPath!)
+                if (this.template.config.editMode) {
+                    appendRemoveButton(instance, this.template.getPathLabel(selectedPath!), true)
+                }
+                if (this.addButton) {
+                    this.container.insertBefore(instance, this.addButton)
+                } else {
+                    this.container.appendChild(instance)
+                }
+                return instance
+            }
             // check if value is part of the data graph. if not, create a linked resource
             let linked = false
             if (value && !(value instanceof Literal)) {
-                const clazz = this.getRdfClassToLinkOrCreate()
+                const clazz = this.getRdfClassToLinkOrCreate(effectiveTemplate)
                 if (clazz && this.template.config.store.countQuads(value, RDF_PREDICATE_TYPE, clazz, DATA_GRAPH) === 0) {
                     // value is not in data graph, so must be a link in the shapes graph
                     linked = true
@@ -126,7 +148,6 @@ export class ShaclProperty extends HTMLElement {
             if (this.template.pathAlternatives?.length && !selectedPath) {
                 instance = createAlternativePathConstraint(this, value, linked || this.template.parent.linked)
             } else {
-                const effectiveTemplate = selectedPath ? this.template.createTemplateForAlternativePath(selectedPath) : this.template
                 instance = createPropertyInstance(effectiveTemplate, value, undefined, linked || this.template.parent.linked)
             }
         }
@@ -140,7 +161,7 @@ export class ShaclProperty extends HTMLElement {
 
     updateControls() {
         let instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > .alternative-path-constraint, :scope > shacl-node").length
-        if (instanceCount === 0 && !this.template.extendedShapes.length) {
+        if (instanceCount === 0 && !this.template.extendedShapes.length && !this.canUseAlternativePathAddMenu()) {
             this.addPropertyInstance()
             instanceCount = this.querySelectorAll(":scope > .property-instance, :scope > .shacl-or-constraint, :scope > .alternative-path-constraint, :scope > shacl-node").length
         }
@@ -201,14 +222,14 @@ export class ShaclProperty extends HTMLElement {
         return false
     }
 
-    getRdfClassToLinkOrCreate() {
-        if (this.template.class && this.template.node) {
-            return this.template.class
+    getRdfClassToLinkOrCreate(template = this.template) {
+        if (template.class && template.node) {
+            return template.class
         }
         else {
-            for (const node of this.template.extendedShapes) {
+            for (const node of template.extendedShapes) {
                 // if this property has no sh:class but sh:node, then use the node shape's sh:targetClass to find protiential instances
-                const targetClasses = this.template.config.shapeGraph.getFormNodeShape(node)?.targetClasses || []
+                const targetClasses = template.config.shapeGraph.getFormNodeShape(node)?.targetClasses || []
                 if (targetClasses.length > 0) {
                     return targetClasses[0] as NamedNode
                 }
@@ -242,6 +263,17 @@ export class ShaclProperty extends HTMLElement {
         addButton.autoGrowLabelWidth = true
         addButton.classList.add('add-button')
 
+        if (this.canUseAlternativePathAddMenu()) {
+            this.refreshAlternativePathAddButtonOptions(addButton)
+            addButton.collapsibleWidth = '340px'
+            addButton.collapsibleOrientationLeft = ''
+            addButton.addEventListener('change', () => {
+                this.handleAlternativePathAddAction(addButton.value)
+                addButton.value = ''
+            })
+            return addButton
+        }
+
         const supportsReferences = this.template.extendedShapes.length > 0 || Boolean(this.getRdfClassToLinkOrCreate())
         if (!supportsReferences) {
             // no class instances found, so create an add button that creates a new instance
@@ -260,7 +292,7 @@ export class ShaclProperty extends HTMLElement {
         } else {
             // some instances found, so create an add button that can create, link or reuse instances
             this.refreshAddButtonOptions(addButton)
-            addButton.collapsibleWidth = '250px'
+            addButton.collapsibleWidth = '340px'
             addButton.collapsibleOrientationLeft = ''
             addButton.addEventListener('change', () => {
                 if (addButton.value === 'new') {
@@ -278,8 +310,15 @@ export class ShaclProperty extends HTMLElement {
     }
 
     public refreshReusableOptions() {
+        if (!this.addButton) {
+            return
+        }
+        if (this.canUseAlternativePathAddMenu()) {
+            this.refreshAlternativePathAddButtonOptions(this.addButton)
+            return
+        }
         const supportsReferences = this.template.extendedShapes.length > 0 || Boolean(this.getRdfClassToLinkOrCreate())
-        if (this.addButton && supportsReferences) {
+        if (supportsReferences) {
             this.refreshAddButtonOptions(this.addButton)
         }
     }
@@ -291,13 +330,15 @@ export class ShaclProperty extends HTMLElement {
         if (clazz) {
             instances = findInstancesOf(clazz, this.template)
         }
-        const reusableNodes = this.findReusableNodes(clazz)
+        const reusableNodes = this.findReusableNodes(this.template)
 
         const ul = document.createElement('ul')
+        ul.classList.add('reuse-menu')
         const newItem = document.createElement('li')
         newItem.innerHTML = '&#xFF0B; Create new ' + this.template.label + '...'
         newItem.dataset.value = 'new'
         newItem.classList.add('large')
+        newItem.title = 'Create a new value for this property.'
         ul.appendChild(newItem)
 
         if (instances.length) {
@@ -323,7 +364,7 @@ export class ShaclProperty extends HTMLElement {
             ul.appendChild(header)
             for (const node of reusableNodes) {
                 const li = document.createElement('li')
-                li.innerText = this.getReusableNodeLabel(node)
+                li.innerText = node.nodeId.id
                 li.dataset.value = JSON.stringify(node.nodeId)
                 ul.appendChild(li)
             }
@@ -332,14 +373,188 @@ export class ShaclProperty extends HTMLElement {
         addButton.replaceChildren(ul)
     }
 
-    private findReusableNodes(clazz?: NamedNode): ShaclNode[] {
+    private canUseAlternativePathAddMenu(): boolean {
+        const alternatives = this.template.pathAlternatives
+        if (!alternatives?.length) {
+            return false
+        }
+        return true
+    }
+
+    private refreshAlternativePathAddButtonOptions(addButton: RokitSelect) {
+        const ul = document.createElement('ul')
+        ul.classList.add('reuse-menu')
+
+        const branches = this.getAlternativePathBranchOptions()
+        branches.forEach(({ path, template }, index) => {
+            if (index > 0) {
+                ul.appendChild(createMenuDivider())
+            }
+
+            const header = document.createElement('li')
+            header.classList.add('header')
+            header.innerText = this.template.getPathLabel(path)
+            ul.appendChild(header)
+
+            if (!template) {
+                const unavailableItem = document.createElement('li')
+                unavailableItem.classList.add('disabled', 'unavailable')
+                unavailableItem.setAttribute('aria-disabled', 'true')
+                unavailableItem.innerText = 'No branch-specific authoring constraints found'
+                unavailableItem.title = `${this.template.getPathLabel(path)} is declared by sh:alternativePath, but the loaded shapes do not provide a branch-specific PropertyShape that can be projected into an editor.`
+                ul.appendChild(unavailableItem)
+                return
+            }
+
+            const createItem = document.createElement('li')
+            createItem.dataset.value = encodeAlternativePathAddAction({ kind: 'createAlternativePath', path })
+            createItem.dataset.path = path
+            createItem.classList.add('large')
+
+            if (this.isNodeValuedTemplate(template)) {
+                const nodeLabel = this.getNodeAuthoringLabel(template)
+                createItem.innerHTML = '&#xFF0B; Create new ' + nodeLabel + '...'
+                createItem.title = `Create a new ${nodeLabel} value using ${template.label}.`
+            } else {
+                createItem.innerHTML = '&#xFF0B; Add ' + template.label + ' value'
+                createItem.title = `Add a value using ${template.label}.`
+            }
+            ul.appendChild(createItem)
+
+            if (!this.isNodeValuedTemplate(template)) {
+                return
+            }
+
+            const instances = this.findLinkableInstances(template)
+            const reusableNodes = this.findReusableNodes(template)
+
+            if (instances.length) {
+                ul.appendChild(createMenuDivider())
+                const linkHeader = document.createElement('li')
+                linkHeader.classList.add('header')
+                linkHeader.innerText = 'Or link existing:'
+                ul.appendChild(linkHeader)
+                for (const instance of instances) {
+                    const value = normalizeInputListTerm(instance.value)
+                    const li = document.createElement('li')
+                    li.innerText = instance.label ? instance.label : value.value
+                    li.dataset.value = encodeAlternativePathAddAction({ kind: 'linkAlternativePath', path, value })
+                    li.dataset.path = path
+                    ul.appendChild(li)
+                }
+            }
+
+            if (reusableNodes.length) {
+                ul.appendChild(createMenuDivider())
+                const reuseHeader = document.createElement('li')
+                reuseHeader.classList.add('header')
+                reuseHeader.innerText = 'Or reuse from this form:'
+                ul.appendChild(reuseHeader)
+                for (const node of reusableNodes) {
+                    const li = document.createElement('li')
+                    li.innerText = node.nodeId.id
+                    li.dataset.value = encodeAlternativePathAddAction({ kind: 'linkAlternativePath', path, value: node.nodeId })
+                    li.dataset.path = path
+                    ul.appendChild(li)
+                }
+            }
+        })
+
+        addButton.replaceChildren(ul)
+    }
+
+    private getAlternativePathBranchOptions(): AlternativePathBranchOption[] {
+        return (this.template.pathAlternatives || [])
+            .map(path => ({
+                path,
+                template: this.template.createTemplateForAlternativePath(path),
+            }))
+    }
+
+    private handleAlternativePathAddAction(value: string): void {
+        const action = parseAlternativePathAddAction(value)
+        if (!action) {
+            return
+        }
+
+        const term = action.kind === 'linkAlternativePath'
+            ? parseTerm(JSON.stringify(action.value))
+            : undefined
+        const instance = this.addPropertyInstance(term, action.path)
+        instance.classList.add('fadeIn')
+        this.updateControls()
+        setTimeout(() => {
+            focusFirstInputElement(instance)
+            instance.classList.remove('fadeIn')
+        }, 200)
+    }
+
+    private isNodeValuedTemplate(template: ShaclPropertyTemplate): boolean {
+        return Boolean(
+            template.extendedShapes.length ||
+            template.valueNodeShapes.length ||
+            this.getCandidateReferenceClasses(template).length
+        )
+    }
+
+    private getNodeAuthoringLabel(template: ShaclPropertyTemplate): string {
+        if (template.extendedShapes.length === 1) {
+            const label = template.config.shapeGraph.getFormNodeShape(template.extendedShapes[0])?.label
+            if (label) {
+                return label
+            }
+        }
+        if (template.node) {
+            const label = template.config.shapeGraph.getFormNodeShape(template.node)?.label
+            if (label) {
+                return label
+            }
+        }
+        return template.label
+    }
+
+    private findLinkableInstances(template: ShaclPropertyTemplate): InputListEntry[] {
+        const entries = new Map<string, InputListEntry>()
+        for (const clazz of this.getCandidateReferenceClasses(template)) {
+            for (const instance of findInstancesOf(clazz, template)) {
+                const term = normalizeInputListTerm(instance.value)
+                entries.set(`${term.termType}:${term.value}`, instance)
+            }
+        }
+        return Array.from(entries.values())
+    }
+
+    private getCandidateReferenceClasses(template: ShaclPropertyTemplate): NamedNode[] {
+        const classes = new Map<string, NamedNode>()
+        const directClass = this.getRdfClassToLinkOrCreate(template)
+        if (directClass) {
+            classes.set(directClass.value, directClass)
+        }
+        for (const shape of this.getReferenceShapeTerms(template)) {
+            const targetClasses = template.config.shapeGraph.getFormNodeShape(shape)?.targetClasses || []
+            for (const targetClass of targetClasses) {
+                classes.set(targetClass.value, targetClass as NamedNode)
+            }
+        }
+        return Array.from(classes.values())
+    }
+
+    private getReferenceShapeTerms(template: ShaclPropertyTemplate): Array<NamedNode | BlankNode> {
+        const shapes = new Map<string, NamedNode | BlankNode>()
+        for (const shape of template.valueNodeShapes) {
+            shapes.set(termKey(shape), shape)
+        }
+        return Array.from(shapes.values())
+    }
+
+    private findReusableNodes(template = this.template): ShaclNode[] {
         const nodes = new Map<string, ShaclNode>()
-        if (clazz) {
+        for (const clazz of this.getCandidateReferenceClasses(template)) {
             for (const node of this.template.parent.nodeCollection.findNodesByClass(clazz)) {
                 nodes.set(node.nodeId.id, node)
             }
         }
-        for (const shape of this.template.extendedShapes) {
+        for (const shape of this.getReferenceShapeTerms(template)) {
             for (const node of this.template.parent.nodeCollection.findNodesByShape(shape)) {
                 nodes.set(node.nodeId.id, node)
             }
@@ -358,32 +573,42 @@ export class ShaclProperty extends HTMLElement {
         return false
     }
 
-    private getReusableNodeLabel(node: ShaclNode): string {
-        const shapeLabel = this.template.config.shapeGraph.getFormNodeShape(node.shaclSubject)?.label || this.shortNodeId(node)
-        const valueLabel = this.findFirstEditorValue(node)
-        return valueLabel ? `${shapeLabel}: ${valueLabel}` : `${shapeLabel} (${this.shortNodeId(node)})`
-    }
-
-    private findFirstEditorValue(node: ShaclNode): string | undefined {
-        for (const editor of node.querySelectorAll<Editor>(':scope shacl-property > .property-instance > .editor')) {
-            if (editor.value) {
-                return editor.value
-            }
-        }
-        return undefined
-    }
-
-    private shortNodeId(node: ShaclNode): string {
-        const value = node.nodeId.value
-        const lastSegment = value.split(/[\/#]/).filter(Boolean).pop() || value
-        return lastSegment.length > 12 ? `${lastSegment.slice(0, 8)}...` : lastSegment
-    }
 }
 
 function createMenuDivider(): HTMLLIElement {
     const divider = document.createElement('li')
     divider.classList.add('divider')
     return divider
+}
+
+function encodeAlternativePathAddAction(action: AlternativePathAddAction): string {
+    return JSON.stringify(action)
+}
+
+function parseAlternativePathAddAction(value: string): AlternativePathAddAction | undefined {
+    if (!value) {
+        return undefined
+    }
+    try {
+        const action = JSON.parse(value) as AlternativePathAddAction
+        if (
+            (action.kind === 'createAlternativePath' && action.path) ||
+            (action.kind === 'linkAlternativePath' && action.path && action.value)
+        ) {
+            return action
+        }
+    } catch (_) {
+        // This is a legacy add-menu value such as "new"; ignore it here.
+    }
+    return undefined
+}
+
+function normalizeInputListTerm(value: Term | string): Term {
+    return typeof value === 'string' ? DataFactory.namedNode(value) : value
+}
+
+function termKey(term: Term): string {
+    return `${term.termType}:${term.value}`
 }
 
 function parseTerm(value: string): Term {
@@ -457,6 +682,23 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
         appendRemoveButton(instance, template.label, forceRemovable)
     }
     instance.dataset.path = template.path
+    return instance
+}
+
+function createUnavailableAlternativePathInstance(label: string, path: string): HTMLElement {
+    const instance = document.createElement('div')
+    instance.classList.add('property-instance', 'unavailable-alternative-path')
+    instance.dataset.path = path
+
+    const labelElem = document.createElement('label')
+    labelElem.innerText = label
+    instance.appendChild(labelElem)
+
+    const message = document.createElement('span')
+    message.classList.add('unavailable-message')
+    message.innerText = 'No branch-specific authoring constraints found'
+    instance.appendChild(message)
+
     return instance
 }
 
