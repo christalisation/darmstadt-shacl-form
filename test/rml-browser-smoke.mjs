@@ -37,7 +37,7 @@ try {
     const page = await browser.newPage()
     const notFoundUrls = []
     page.on('response', response => {
-        if (response.status() === 404) {
+        if (response.status() === 404 && !response.url().endsWith('/favicon.ico')) {
             notFoundUrls.push(response.url())
         }
     })

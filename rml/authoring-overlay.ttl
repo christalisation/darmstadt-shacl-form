@@ -1,8 +1,7 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 
-# Thesis authoring profile bridges. These same-focus sh:node constraints
-# improve the demo authoring path without claiming that every RML graph must
-# use these concrete specialisations.
+# RML Authoring adaptation: 
+# bridge shape to allow access to rml:source property during authoring and avoid duplicate shape definitions.
 <http://w3id.org/rml/shapes/RMLLogicalSourceShape>
     sh:node <http://w3id.org/rml/shapes/RMLAbstractLogicalSourceShape> .
 
