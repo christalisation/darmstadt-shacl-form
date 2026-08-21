@@ -21,6 +21,18 @@ function storeFromTurtle(turtle: string): Store {
     return new Store(parser.parse(`${prelude}\n${turtle}`))
 }
 
+function rmlStore(): Store {
+    const turtle = [
+        'rml/core-authoring.ttl',
+        'rml/io.ttl',
+        'rml/authoring-overlay.ttl',
+    ]
+        .map(path => readFileSync(path, 'utf8'))
+        .join('\n\n')
+
+    return new Store(new Parser().parse(turtle))
+}
+
 function compilerFor(store: Store): {
     compile: (iri: string) => ReturnType<FormShapeCompiler['compileNodeShape']>,
 } {
@@ -498,7 +510,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('compiles RML PredicateObjectMap effective properties from all sh:and branches', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLPredicateObjectMapShape')
         const labels = shape.properties.map(property => property.label)
@@ -510,7 +522,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('derives RML PredicateObjectMap as the value shape of TriplesMap predicateObjectMap', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLTriplesMapShape')
         const property = shape.properties.find(property => property.writablePath?.value === `${RML}predicateObjectMap`)
@@ -520,7 +532,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('preserves RML objectMap branch-local logical value-shape choices', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLPredicateObjectMapShape')
         const property = shape.properties.find(property => property.label === 'object/objectMap/quotedTriplesMap')
@@ -531,7 +543,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('compiles RML RefObjectMap sh:and members as same-focus properties', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLRefObjectMapShape')
         const joinCondition = shape.properties.find(property => property.label === 'joinCondition')
@@ -544,7 +556,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('compiles RML ChildMap effective properties even without direct sh:property', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLChildMapShape')
         const labels = shape.properties.map(property => property.label)
@@ -554,7 +566,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('uses the RML logical-source shape explicitly referenced by sh:node', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLTriplesMapPropertiesShape')
         const logicalSource = shape.properties.find(property => property.label === 'logicalSource')
@@ -565,7 +577,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('includes same-focus properties from node-level sh:node composition in RML LogicalSource', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLLogicalSourceShape')
         const labels = shape.properties.map(property => property.label)
@@ -580,7 +592,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('projects direct RML Join alternative branches as branch-specific templates', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLJoinShape')
         const parentAlternative = shape.properties.find(property => property.label === 'parentMap/parent')
@@ -592,7 +604,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('projects composed RML ChildMap alternative branches as branch-specific templates', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLChildMapShape')
         const expressionAlternative = shape.properties.find(property => property.label === 'template/constant/reference/functionExecution')
@@ -604,7 +616,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('projects composed RML TriplesMap alternative branches as branch-specific templates', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const shape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLTriplesMapShape')
         const subjectAlternative = shape.properties.find(property => property.label === 'subjectMap/subject/quotedTriplesMap')
@@ -617,7 +629,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('represents RML value-only NodeShapes as focus-node value constraints', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const childShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLchildShape')
         const strategyAppendShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLStrategyAppendShape')
@@ -629,7 +641,7 @@ describe('FormShapeCompiler', () => {
     })
 
     it('includes RML-IO source shapes required by the combined demo fixture', () => {
-        const store = new Store(new Parser().parse(readFileSync('rml/rml-core-io.ttl', 'utf8')))
+        const store = rmlStore()
 
         const sourceShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLSourceShape')
         const relativePathSourceShape = compilerFor(store).compile('http://w3id.org/rml/shapes/RMLRelativePathSourceShape')
