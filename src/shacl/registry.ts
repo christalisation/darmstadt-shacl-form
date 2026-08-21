@@ -50,16 +50,20 @@ export class ShaclShapeRegistry {
     getNodeShapeSubjects(): NodeShapeTerm[] {
         return this.store.getQuads(null, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null)
             .map(quad => quad.subject)
-            .filter((subject): subject is NodeShapeTerm => subject.termType === 'NamedNode' || subject.termType === 'BlankNode')
+            .filter((subject): subject is NodeShapeTerm =>
+                this.isNodeShapeTerm(subject) &&
+                !this.isPropertyShape(subject)
+            )
     }
 
     isNodeShape(term: Term): term is NodeShapeTerm {
-        return (term.termType === 'NamedNode' || term.termType === 'BlankNode') &&
+        return this.isNodeShapeTerm(term) &&
+            !this.isPropertyShape(term) &&
             this.store.countQuads(term, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null) > 0
     }
 
     getNodeShape(id: Term): ShaclNodeShape | undefined {
-        if (!this.isNodeShape(id)) {
+        if (!this.canResolveNodeShape(id)) {
             return undefined
         }
 
@@ -146,26 +150,21 @@ export class ShaclShapeRegistry {
 
     findNodeShapeByTargetClass(targetClass: NamedNode): Term | undefined {
         return this.store.getSubjects(SHACL_PREDICATE_TARGET_CLASS, targetClass, null)
-            .find(subject => this.isNodeShape(subject))
+            .find(subject => this.canResolveNodeShape(subject))
     }
 
     findNodeShapesByTargetObjectsOf(predicate: NamedNode): Term[] {
-        return this.getNodeShapeSubjects().filter(subject => {
-            const shape = this.getNodeShape(subject)
-            return shape?.targets.some(target =>
-                target.kind === 'objectsOf' &&
-                target.predicate.value === predicate.value
-            )
-        })
+        return this.store.getSubjects(`${PREFIX_SHACL}targetObjectsOf`, predicate, null)
+            .filter(subject => this.canResolveNodeShape(subject))
     }
 
     findNodeShapesByLogicalBranch(branch: Term): Term[] {
         const nodeShapes: Term[] = []
-        if (this.isNodeShape(branch)) {
+        if (this.canResolveNodeShape(branch)) {
             nodeShapes.push(branch)
         }
         for (const nodeTarget of this.store.getObjects(branch, SHACL_PREDICATE_NODE, null)) {
-            if (this.isNodeShape(nodeTarget)) {
+            if (this.canResolveNodeShape(nodeTarget)) {
                 nodeShapes.push(nodeTarget)
             }
         }
@@ -217,6 +216,23 @@ export class ShaclShapeRegistry {
 
     private uniqueTerms<T extends Term>(terms: T[]): T[] {
         return [...new Map(terms.map(term => [this.termKey(term), term])).values()]
+    }
+
+    private canResolveNodeShape(term: Term): term is NodeShapeTerm {
+        return this.isNodeShapeTerm(term) &&
+            !this.isPropertyShape(term) &&
+            (
+                this.store.countQuads(term, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, null) > 0 ||
+                this.store.countQuads(term, null, null, null) > 0
+            )
+    }
+
+    private isNodeShapeTerm(term: Term): term is NodeShapeTerm {
+        return term.termType === 'NamedNode' || term.termType === 'BlankNode'
+    }
+
+    private isPropertyShape(term: Term): boolean {
+        return this.store.countQuads(term, `${PREFIX_SHACL}path`, null, null) > 0
     }
 
     termKey(term: Term): string {

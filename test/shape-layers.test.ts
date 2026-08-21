@@ -271,6 +271,36 @@ describe('SHACL and Form Shape registries', () => {
         expect(layers.formShapes.hasRenderableNodeShapeContent(DataFactory.namedNode(`${EX}ValueShape`))).toBe(false)
     })
 
+    it('resolves implicit anonymous NodeShapes inside sh:and without making them roots', () => {
+        // Based on W3C SHACL Core node/and-001: sh:and list members are shapes
+        // even when anonymous branches omit explicit rdf:type sh:NodeShape.
+        const layers = shapeLayers(`
+            ex:Rectangle a sh:NodeShape ;
+                sh:and (
+                    [
+                        sh:property [
+                            sh:path ex:width ;
+                            sh:minCount 1 ;
+                        ]
+                    ]
+                    [
+                        sh:property [
+                            sh:path ex:height ;
+                            sh:minCount 1 ;
+                        ]
+                    ]
+                ) .
+        `)
+
+        const rectangle = layers.formShapes.getNodeShape(DataFactory.namedNode(`${EX}Rectangle`))
+        const properties = new Map(rectangle?.properties.map(property => [property.writablePath?.value, property]))
+
+        expect([...properties.keys()]).toEqual([`${EX}width`, `${EX}height`])
+        expect(properties.get(`${EX}width`)?.minCount).toBe(1)
+        expect(properties.get(`${EX}height`)?.minCount).toBe(1)
+        expect(layers.rootSelection.findRootNodeShapes().map(root => root.value)).toEqual([`${EX}Rectangle`])
+    })
+
     it('keeps all NodeShapes available as generic root choices', () => {
         const layers = shapeLayers(`
             ex:DirectShape a sh:NodeShape ;
