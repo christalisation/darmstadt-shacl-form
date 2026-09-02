@@ -9,6 +9,8 @@ demonstration use case is authoring non-trivial
 [RML](https://rml.io/) mapping graphs from SHACL shapes while keeping the core
 form generator vocabulary-independent.
 
+Research log, evaluation data, and the rationale behind design decisions made here: [christalisation/recherche-RML](https://github.com/christalisation/recherche-RML)
+
 ## Public Demos
 
 The intended static deployment exposes two entry points:
