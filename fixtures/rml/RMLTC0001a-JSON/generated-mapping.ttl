@@ -1,0 +1,49 @@
+@prefix brick: <https://brickschema.org/schema/Brick#>.
+@prefix csvw: <http://www.w3.org/ns/csvw#>.
+@prefix dc: <http://purl.org/dc/elements/1.1/>.
+@prefix dcam: <http://purl.org/dc/dcam/>.
+@prefix dcat: <http://www.w3.org/ns/dcat#>.
+@prefix dcmitype: <http://purl.org/dc/dcmitype/>.
+@prefix dcterms: <http://purl.org/dc/terms/>.
+@prefix doap: <http://usefulinc.com/ns/doap#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix geo: <http://www.opengis.net/ont/geosparql#>.
+@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
+@prefix org: <http://www.w3.org/ns/org#>.
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
+@prefix prof: <http://www.w3.org/ns/dx/prof/>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix qb: <http://purl.org/linked-data/cube#>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix rml: <http://w3id.org/rml/>.
+@prefix schema: <https://schema.org/>.
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix skos: <http://www.w3.org/2004/02/skos/core#>.
+@prefix sosa: <http://www.w3.org/ns/sosa/>.
+@prefix ssn: <http://www.w3.org/ns/ssn/>.
+@prefix time: <http://www.w3.org/2006/time#>.
+@prefix vann: <http://purl.org/vocab/vann/>.
+@prefix void: <http://rdfs.org/ns/void#>.
+@prefix wgs: <https://www.w3.org/2003/01/geo/wgs84_pos#>.
+@prefix xml: <http://www.w3.org/XML/1998/namespace>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+
+<http://example.org/rml-source-2> rml:root rml:MappingDirectory;
+    rml:path "student.json";
+    a rml:Source, rml:RelativePathSource.
+<http://example.org/rml-logical-source-2> a rml:LogicalSource, rml:AbstractLogicalSource, rml:Iterable;
+    rml:source <http://example.org/rml-source-2>;
+    rml:referenceFormulation rml:JSONPath;
+    rml:iterator "$.students[*]".
+<http://example.org/triplesmap-1> a rml:TriplesMap, rml:NonAssertedTriplesMap;
+    rml:logicalSource <http://example.org/rml-logical-source-2>;
+    rml:predicateObjectMap <http://example.org/predicateobjectmap-2>;
+    rml:subjectMap <http://example.org/subjectmap-2>.
+<http://example.org/predicateobjectmap-2> a rml:PredicateObjectMap;
+    rml:predicate foaf:name;
+    rml:objectMap <http://example.org/objectmap-2>.
+<http://example.org/objectmap-2> a rml:ObjectMap;
+    rml:reference "$.Name".
+<http://example.org/subjectmap-2> a rml:SubjectMap;
+    rml:template "http://example.com/{$.Name}".

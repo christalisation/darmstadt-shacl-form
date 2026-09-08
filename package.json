@@ -81,7 +81,8 @@
         "build-bootstrap": "vite build -c ./vite.form-bootstrap.config.ts",
         "build-material": "vite build -c ./vite.form-material.config.ts",
         "build-leaflet": "vite build -c ./vite.plugin-leaflet.config.ts",
-        "build-mapbox": "vite build -c ./vite.plugin-mapbox.config.ts"
+        "build-mapbox": "vite build -c ./vite.plugin-mapbox.config.ts",
+        "verify:rml": "node scripts/verify-rml.mjs"
     },
     "devDependencies": {
         "@open-wc/testing": "^4.0.0",
