@@ -82,7 +82,9 @@
         "build-material": "vite build -c ./vite.form-material.config.ts",
         "build-leaflet": "vite build -c ./vite.plugin-leaflet.config.ts",
         "build-mapbox": "vite build -c ./vite.plugin-mapbox.config.ts",
-        "verify:rml": "node scripts/verify-rml.mjs"
+        "verify:rml": "node scripts/verify-rml.mjs",
+        "storybook": "storybook dev -p 6006",
+        "build-storybook": "storybook build"
     },
     "devDependencies": {
         "@open-wc/testing": "^4.0.0",
@@ -100,7 +102,10 @@
         "typescript": "^5.9.2",
         "vite": "^7.1.5",
         "vite-plugin-dts": "^4.5.4",
-        "vitest": "^3.2.4"
+        "vitest": "^3.2.4",
+        "storybook": "^10.6.0",
+        "@storybook/web-components-vite": "^10.6.0",
+        "@storybook/addon-docs": "^10.6.0"
     },
     "dependencies": {
         "@mapbox/mapbox-gl-draw": "^1.5.0",

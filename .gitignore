@@ -6,3 +6,6 @@ out-tsc/
 thesis-audit/
 .tools/
 verification-results/
+
+*storybook.log
+storybook-static
