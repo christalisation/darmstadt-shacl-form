@@ -6,6 +6,19 @@ const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 const port = 5175
 const origin = `http://127.0.0.1:${port}`
 const coreIoShapes = readFileSync('rml/rml-core-io.ttl', 'utf8')
+// TODO: modify test: rml-core-io.ttl no longer used.
+// Instead:
+// function rmlStore(): Store {
+//     const turtle = [
+//         'rml/core-authoring.ttl',
+//         'rml/io.ttl',
+//         'rml/authoring-overlay.ttl',
+//     ]
+//         .map(path => readFileSync(path, 'utf8'))
+//         .join('\n\n')
+
+//     return new Store(new Parser().parse(turtle))
+// }
 const authoringOverlay = readFileSync('rml/authoring-overlay.ttl', 'utf8')
 const shapesWithOntology = `${coreIoShapes}
 
