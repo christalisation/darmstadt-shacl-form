@@ -52,9 +52,18 @@ export interface ShaclCoreStoryArgs {
     shapesContent: string
 }
 
+// Attributes match index.html's <shacl-form> (the generic demo, same
+// DefaultTheme as these stories) so the rendered form looks and behaves the
+// same way — see stories/demo-chrome.css / .storybook/preview.ts for the
+// surrounding page-level chrome.
 export function renderShaclForm(args: ShaclCoreStoryArgs) {
     return html`
-        <shacl-form data-shapes=${args.shapesContent}></shacl-form>
+        <shacl-form
+            data-shapes=${args.shapesContent}
+            data-collapse=""
+            data-values-namespace="http://example.org/"
+            data-show-node-ids
+        ></shacl-form>
     `
 }
 

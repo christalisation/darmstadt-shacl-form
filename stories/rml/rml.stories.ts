@@ -51,6 +51,7 @@ const meta: Meta<RmlStoryArgs> = {
         <shacl-form
             data-shapes=${rmlShapesGraph}
             data-values=${args.valuesContent}
+            data-collapse=""
             data-values-namespace="http://example.org/"
             data-show-node-ids
             data-ignore-owl-imports

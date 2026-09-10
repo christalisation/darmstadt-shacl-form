@@ -1,0 +1,34 @@
+/* Page-level chrome reproducing the visual context of the real demos
+ * (index.html, rml/index.html) around <shacl-form> — NOT a redesign.
+ * Copied verbatim from the ":root" / "body" / ".panel" / "shacl-form"
+ * rules shared by both demo pages (their toolbar/multi-panel grid is
+ * demo-specific app chrome, deliberately not reproduced here — only the
+ * card container that actually affects the form's own appearance).
+ */
+:root {
+    color: #1f2933;
+    background: #f5f7f9;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+    margin: 0;
+}
+
+.sb-demo-main {
+    display: grid;
+    grid-template-columns: minmax(22rem, 60rem);
+    justify-content: center;
+    padding: 1rem;
+}
+
+.panel {
+    background: white;
+    border: 1px solid #d7dee4;
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+shacl-form {
+    display: block;
+}
