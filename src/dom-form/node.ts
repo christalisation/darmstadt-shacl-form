@@ -146,7 +146,7 @@ export class ShaclNode extends HTMLElement {
 
         serializedNodes.add(serializationKey)
         // Output triples for the concrete node once; linked references delegate to the original node above.
-        for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property')) {
+        for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property, :scope > .shacl-or-constraint > .shacl-or-content > shacl-property')) {
             (shape as ShaclNode | ShaclProperty).toRDF(graph, subject, serializedNodes)
         }
         const targetClasses = this.getRdfTypeClasses()
@@ -164,7 +164,7 @@ export class ShaclNode extends HTMLElement {
         if (this.linked) {
             return true
         }
-        for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property')) {
+        for (const shape of this.querySelectorAll(':scope > shacl-node, :scope > .shacl-group > shacl-node, :scope > shacl-property, :scope > .shacl-group > shacl-property, :scope > .shacl-or-constraint > .shacl-or-content > shacl-property')) {
             if ((shape as ShaclNode | ShaclProperty).hasSerializableValue()) {
                 return true
             }
