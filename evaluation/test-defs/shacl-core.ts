@@ -38,6 +38,16 @@ export const shaclCoreTestDefs: ShaclCoreTestDef[] = [
         sourceUrl: 'https://w3c.github.io/data-shapes/data-shapes-test-suite/tests/core/node/and-001.ttl',
     },
     {
+        id: 'core-property-node-001',
+        category: 'C2',
+        w3cTestId: 'core/property/node-001',
+        shapesFile: 'evaluation/fixtures/shacl/core-property-node-001.ttl',
+        dataFile: 'evaluation/fixtures/shacl/core-property-node-001.ttl',
+        expectedConformance: false,
+        expectedRenderOutcome: 'normal',
+        sourceUrl: 'https://w3c.github.io/data-shapes/data-shapes-test-suite/tests/core/property/node-001.ttl',
+    },
+    {
         id: 'core-path-path-alternative-001',
         category: 'C2',
         w3cTestId: 'core/path/path-alternative-001',

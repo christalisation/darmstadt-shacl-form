@@ -1,7 +1,7 @@
 // Adapts SHACL test definitions into Storybook stories and shared render helpers. Category files stay separate because Storybook's title is set once per file.
 import type { StoryObj } from '@storybook/web-components-vite'
-import { html } from 'lit'
 import type { ShaclCoreTestDef, ShaclRenderOutcome } from '../../test-defs/shacl-core'
+import { renderShaclDemoPage } from './demo-page'
 
 // Vite keys these raw fixture imports by project-root-relative path.
 const shaclFixtureText = import.meta.glob('/evaluation/fixtures/shacl/*.ttl', {
@@ -36,16 +36,8 @@ export interface ShaclCoreStoryArgs {
     shapesContent: string
 }
 
-// Keep the form attributes aligned with the default demo.
 export function renderShaclForm(args: ShaclCoreStoryArgs) {
-    return html`
-        <shacl-form
-            data-shapes=${args.shapesContent}
-            data-collapse=""
-            data-values-namespace="http://example.org/"
-            data-show-node-ids
-        ></shacl-form>
-    `
+    return renderShaclDemoPage(args)
 }
 
 export function buildShaclStoryObj(def: ShaclCoreTestDef): StoryObj<ShaclCoreStoryArgs> {

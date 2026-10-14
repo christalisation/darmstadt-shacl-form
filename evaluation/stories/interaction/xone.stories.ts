@@ -1,12 +1,12 @@
 // Characterizes core/node/xone-001: branch fields render, but their values currently reach neither validation nor serialized RDF.
 import type { Meta, StoryObj } from '@storybook/web-components-vite'
-import { html } from 'lit'
 import { userEvent, within, expect } from 'storybook/test'
 import { DataFactory } from 'n3'
 import {
     findQuads, getInnerEditableInput, getShaclForm, getShaclFormRoot,
     loadFixture, parseQuads, violationsForFocusNode, waitForFormReady,
 } from './_shared'
+import { renderShaclDemoPage } from '../shacl-core/demo-page'
 
 const SHAPES_CONTENT = loadFixture('evaluation/fixtures/shacl/core-node-xone-001.ttl')
 const NS = 'http://datashapes.org/sh/tests/core/node/xone-001.test#'
@@ -21,18 +21,12 @@ interface Args {
 
 const meta: Meta<Args> = {
     title: 'SHACL Core/interaction/xone-001',
-    render: args => html`
-        <shacl-form
-            data-shapes=${args.shapesContent}
-            data-collapse=""
-            data-values-namespace="http://example.org/"
-            data-show-node-ids
-        ></shacl-form>
-    `,
+    render: renderShaclDemoPage,
     args: {
         shapesContent: SHAPES_CONTENT,
     },
     parameters: {
+        fullDemoPage: true,
         docs: {
             description: {
                 component: 'Real userEvent authoring workflows for the official W3C `core/node/xone-001` fixture (node-level sh:xone between a fullName branch and a firstName+lastName branch). Surfaces a significant output-layer finding — see file header — rather than asserting the originally expected "silently accepts both branches" behaviour, which turned out not to be what actually happens.',
@@ -94,6 +88,7 @@ export const ValidFullNameBranch: StoryObj<Args> = {
             const quads = parseQuads(turtle)
             await expect(findQuads(quads, { predicate: FULL_NAME_PREDICATE }).length,
                 'fullName is not expected to appear in the output — node-level sh:xone branch content is not currently wired into toRDF()').toBe(0)
+            await expect(canvasElement.querySelector('#rdf-output')?.textContent).toBe(turtle)
         })
     },
 }

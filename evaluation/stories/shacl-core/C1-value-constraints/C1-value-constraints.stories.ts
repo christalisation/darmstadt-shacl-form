@@ -6,6 +6,7 @@ const meta: Meta<ShaclCoreStoryArgs> = {
     title: 'SHACL Core/C1-value-constraints',
     render: renderShaclForm,
     tags: ['autodocs'],
+    parameters: { fullDemoPage: true },
 }
 export default meta
 

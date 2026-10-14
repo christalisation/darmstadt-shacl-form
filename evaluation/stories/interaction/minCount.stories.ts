@@ -1,12 +1,12 @@
 // Interaction coverage for core/property/minCount-001, complementing its static C1 story.
 import type { Meta, StoryObj } from '@storybook/web-components-vite'
-import { html } from 'lit'
 import { userEvent, within, expect } from 'storybook/test'
 import { DataFactory } from 'n3'
 import {
     findQuads, getControlByLabel, getInnerEditableInput, getShaclForm, getShaclFormRoot,
     loadFixture, parseQuads, violationsForFocusNode, waitForFormReady,
 } from './_shared'
+import { renderShaclDemoPage } from '../shacl-core/demo-page'
 
 const SHAPES_CONTENT = loadFixture('evaluation/fixtures/shacl/core-property-minCount-001.ttl')
 const FIRST_NAME_PREDICATE = DataFactory.namedNode('http://datashapes.org/sh/tests/core/property/minCount-001.test#firstName')
@@ -17,18 +17,12 @@ interface Args {
 
 const meta: Meta<Args> = {
     title: 'SHACL Core/interaction/minCount-001',
-    render: args => html`
-        <shacl-form
-            data-shapes=${args.shapesContent}
-            data-collapse=""
-            data-values-namespace="http://example.org/"
-            data-show-node-ids
-        ></shacl-form>
-    `,
+    render: renderShaclDemoPage,
     args: {
         shapesContent: SHAPES_CONTENT,
     },
     parameters: {
+        fullDemoPage: true,
         docs: {
             description: {
                 component: 'Real userEvent authoring workflows for the official W3C `core/property/minCount-001` fixture (`sh:minCount 1` on a string property), complementing the static SHACL Core/C1-value-constraints story.',
@@ -64,6 +58,7 @@ export const ValidAuthoring: StoryObj<Args> = {
             const matches = findQuads(quads, { predicate: FIRST_NAME_PREDICATE })
             await expect(matches.length, `expected exactly one ex:firstName triple:\n${turtle}`).toBe(1)
             await expect(matches[0].object.value).toBe('John')
+            await expect(canvasElement.querySelector('#rdf-output')?.textContent).toContain('John')
         })
     },
 }
@@ -104,6 +99,7 @@ export const InvalidAuthoring: StoryObj<Args> = {
             const ownViolations = violationsForFocusNode(report, focusNodeId)
             await expect(ownViolations.length, 'expected our own authored node to have a SHACL violation (missing firstName)').toBeGreaterThan(0)
             await expect(ownViolations.some(v => v.constraintComponent?.value === 'http://www.w3.org/ns/shacl#MinCountConstraintComponent')).toBe(true)
+            await expect(canvasElement.querySelector('#rdf-output')?.textContent).toBe(form.serialize())
         })
     },
 }

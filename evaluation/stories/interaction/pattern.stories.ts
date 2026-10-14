@@ -1,12 +1,12 @@
 // Characterizes the mismatch between SHACL substring matching and browser full-value HTML pattern validation. Results are scoped to the node authored by each story because fixtures contain their own example instances.
 import type { Meta, StoryObj } from '@storybook/web-components-vite'
-import { html } from 'lit'
 import { userEvent, expect } from 'storybook/test'
 import { DataFactory } from 'n3'
 import {
     findQuads, getControlByLabel, getInnerEditableInput, getShaclForm, getShaclFormRoot,
     loadFixture, parseQuads, violationsForFocusNode, waitForFormReady,
 } from './_shared'
+import { renderShaclDemoPage } from '../shacl-core/demo-page'
 
 const SHAPES_CONTENT = loadFixture('evaluation/fixtures/shacl/core-property-pattern-001.ttl')
 const PROPERTY_PREDICATE = DataFactory.namedNode('http://datashapes.org/sh/tests/core/property/pattern-001.test#property')
@@ -17,18 +17,12 @@ interface Args {
 
 const meta: Meta<Args> = {
     title: 'SHACL Core/interaction/pattern-001',
-    render: args => html`
-        <shacl-form
-            data-shapes=${args.shapesContent}
-            data-collapse=""
-            data-values-namespace="http://example.org/"
-            data-show-node-ids
-        ></shacl-form>
-    `,
+    render: renderShaclDemoPage,
     args: {
         shapesContent: SHAPES_CONTENT,
     },
     parameters: {
+        fullDemoPage: true,
         docs: {
             description: {
                 component: 'Real userEvent authoring workflows for the official W3C `core/property/pattern-001` fixture (`sh:pattern "Joh"`). Documents a real semantic mismatch: SHACL sh:pattern is a substring search, but the native HTML `pattern` attribute it is mapped to requires a full-value match — see file header.',
@@ -76,6 +70,7 @@ export const ValidPerShaclSubstringMatch: StoryObj<Args> = {
             const matches = findQuads(quads, { predicate: PROPERTY_PREDICATE })
             await expect(matches.length, `expected exactly one ex:property triple:\n${turtle}`).toBe(1)
             await expect(matches[0].object.value).toBe('John')
+            await expect(canvasElement.querySelector('#rdf-output')?.textContent).toBe(turtle)
         })
     },
 }
@@ -114,6 +109,7 @@ export const InvalidPerShacl: StoryObj<Args> = {
             const matches = findQuads(quads, { predicate: PROPERTY_PREDICATE })
             await expect(matches.length, `expected exactly one ex:property triple:\n${turtle}`).toBe(1)
             await expect(matches[0].object.value).toBe('Maria')
+            await expect(canvasElement.querySelector('#rdf-output')?.textContent).toBe(turtle)
         })
     },
 }

@@ -1,0 +1,152 @@
+:root {
+    color: #1f2933;
+    background: #f5f7f9;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+}
+
+/* These rules mirror the generic demo's three-panel layout. */
+.demo-page header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: #22313f;
+    color: white;
+}
+
+.demo-page h1 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.demo-page nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.demo-page nav a {
+    color: white;
+    text-decoration: none;
+}
+
+.demo-page main {
+    display: grid;
+    grid-template-columns: minmax(18rem, 0.9fr) minmax(22rem, 1.3fr) minmax(18rem, 0.9fr);
+    gap: 1rem;
+    padding: 1rem;
+    align-items: start;
+}
+
+.demo-page section {
+    min-width: 0;
+}
+
+.demo-page .panel {
+    background: white;
+    border: 1px solid #d7dee4;
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.demo-page .panel h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+}
+
+.demo-page textarea,
+.demo-page pre {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: calc(100vh - 15rem);
+    margin: 0;
+    border: 1px solid #d7dee4;
+    border-radius: 4px;
+    background: #fbfcfd;
+    color: #17212b;
+    font: 0.85rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    overflow: auto;
+    padding: 0.75rem;
+    white-space: pre-wrap;
+}
+
+.demo-page input {
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid #b8c3cc;
+    border-radius: 4px;
+    font: inherit;
+    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.55rem;
+}
+
+.demo-page button {
+    border: 1px solid #b8c3cc;
+    border-radius: 4px;
+    background: white;
+    color: #22313f;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.45rem 0.7rem;
+}
+
+.demo-page .panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.demo-page #form-panel {
+    min-height: calc(100vh - 6rem);
+}
+
+.demo-page #rdf-output.valid {
+    color: #176b3a;
+}
+
+.demo-page #rdf-output.invalid {
+    color: #9f1d20;
+}
+
+.demo-page shacl-form,
+.sb-demo-main shacl-form {
+    display: block;
+}
+
+/* Keep the existing compact wrapper for non-benchmark stories such as RML. */
+.sb-demo-main {
+    display: grid;
+    grid-template-columns: minmax(22rem, 60rem);
+    justify-content: center;
+    padding: 1rem;
+}
+
+.sb-demo-main .panel {
+    background: white;
+    border: 1px solid #d7dee4;
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+@media (max-width: 1000px) {
+    .demo-page header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .demo-page main {
+        grid-template-columns: 1fr;
+    }
+
+    .demo-page textarea,
+    .demo-page pre {
+        min-height: 18rem;
+    }
+}

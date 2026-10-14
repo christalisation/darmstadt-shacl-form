@@ -6,6 +6,7 @@ const meta: Meta<ShaclCoreStoryArgs> = {
     title: 'SHACL Core/C4-authoring-guidance',
     render: renderShaclForm,
     tags: ['autodocs'],
+    parameters: { fullDemoPage: true },
 }
 export default meta
 
