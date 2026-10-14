@@ -1,10 +1,4 @@
-// Visual REPLAY demonstration — NOT the regression test.
-//
-// See stories/rml/interaction/refobjectmap-parent-triplesmap-reuse.stories.ts
-// for the automated regression test of this exact workflow (kept unchanged,
-// not replaced). See objectmap-alternative-path-reuse.replay.stories.ts for
-// the shared design notes (step() + built-in Interactions panel, why the
-// add-button is driven via value+change-event rather than a real click).
+// Human-watchable replay of the automated parentTriplesMap reuse regression story.
 import type { Meta, StoryObj } from '@storybook/web-components-vite'
 import { html } from 'lit'
 import { expect } from 'storybook/test'

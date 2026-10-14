@@ -1,10 +1,4 @@
-/* Page-level chrome reproducing the visual context of the real demos
- * (index.html, rml/index.html) around <shacl-form> — NOT a redesign.
- * Copied verbatim from the ":root" / "body" / ".panel" / "shacl-form"
- * rules shared by both demo pages (their toolbar/multi-panel grid is
- * demo-specific app chrome, deliberately not reproduced here — only the
- * card container that actually affects the form's own appearance).
- */
+/* Reuses the demo page and form-card styling around <shacl-form>; toolbar and multi-panel layout are intentionally omitted. */
 :root {
     color: #1f2933;
     background: #f5f7f9;

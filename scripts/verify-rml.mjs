@@ -1,27 +1,8 @@
 #!/usr/bin/env node
-// Standalone RML mapping verification — deliberately NOT part of Storybook.
-//
-// For each entry in test-defs/rml.ts, this script:
-//   1. Executes the reconstructed `generated-mapping.ttl` (authored through
-//      the project's own RML form UI, using the w3id.org/rml/ namespace that
-//      matches the pinned rml/core-authoring.ttl + rml/io.ttl shapes) with
-//      RMLMapper, exactly as done manually for the thesis's Chapter 6
-//      evaluation.
-//   2. Parses both the materialised output and the upstream test case's
-//      expected output.nq into RDF/JS quads.
-//   3. Compares them with graph isomorphism (rdf-isomorphic), NOT string or
-//      N-Quads-line equality, since two valid executions can differ in
-//      blank-node labelling or triple order while representing the same
-//      graph.
-//   4. Writes a pass/fail + diff summary to verification-results/rml.json.
-//
-// Storybook only ever displays the `verification` field already recorded on
-// the test-def; it does not compute it. Re-run this script and update that
-// field by hand after inspecting the results file whenever a mapping or
-// upstream expected output changes.
-//
 // Usage: node scripts/verify-rml.mjs
 
+// RML mapping verification script. 
+// It compares the output of the RMLMapper tool against expected outputs for each mapping definition in evaluation/test-defs/rml.ts.
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -45,6 +26,7 @@ function ensureRmlMapper() {
     if (existsSync(RMLMAPPER_JAR)) {
         return
     }
+    // Download the pinned RMLMapper version on first use.
     console.log(`RMLMapper ${RMLMAPPER_VERSION} jar not found at ${RMLMAPPER_JAR}, downloading...`)
     mkdirSync(dirname(RMLMAPPER_JAR), { recursive: true })
     execFileSync('curl', ['-sL', '-o', RMLMAPPER_JAR, RMLMAPPER_URL], { stdio: 'inherit' })
@@ -52,8 +34,9 @@ function ensureRmlMapper() {
 
 async function loadRmlTestDefs() {
     const bundlePath = join(tmpdir(), `rml-testdefs-${Date.now()}.mjs`)
+    // Bundle the TypeScript definitions so this standalone Node script can load them.
     execFileSync(join(ROOT, 'node_modules/.bin/esbuild'), [
-        join(ROOT, 'test-defs/rml.ts'),
+        join(ROOT, 'evaluation/test-defs/rml.ts'), // where the RML tests are defined
         '--bundle',
         '--format=esm',
         '--platform=node',
@@ -69,6 +52,7 @@ function parseQuads(text, format) {
 }
 
 function runRmlMapper(mappingFile, outFile) {
+    // Run the mapping from its fixture directory so relative input paths resolve.
     const cwd = dirname(mappingFile)
     let stderr = ''
     try {
@@ -100,6 +84,7 @@ async function verifyOne(def) {
         ranAt: new Date().toISOString(),
     }
 
+    // Execute the generated mapping, then parse the actual and expected outputs as RDF/JS quads.
     let actual
     try {
         mkdirSync(RESULTS_DIR, { recursive: true })
@@ -119,6 +104,7 @@ async function verifyOne(def) {
         return { ...record, result: 'fail', reason: 'parse-error', error: error.message }
     }
 
+    // Compare graph meaning rather than serialized line order or blank-node labels.
     const isIsomorphic = isomorphic(actualQuads, expectedQuads)
 
     return {
@@ -142,6 +128,7 @@ async function main() {
         console.log(`  -> ${result.result}${result.reason ? ` (${result.reason})` : ''}`)
     }
 
+    // Storybook displays the separately maintained verification field; this file records each fresh run.
     mkdirSync(RESULTS_DIR, { recursive: true })
     writeFileSync(RESULTS_FILE, JSON.stringify(results, null, 4) + '\n')
 

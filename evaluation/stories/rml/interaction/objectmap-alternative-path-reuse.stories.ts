@@ -1,22 +1,4 @@
-// Interaction regression story — NOT a static fixture catalogue entry.
-//
-// Historical bug this guards against: selecting an existing, already-
-// authored ObjectMap through a predicateObjectMap's
-// object/objectMap/quotedTriplesMap alternativePath "Or link existing:"
-// action incorrectly re-opened the objectMap branch's inner sh:or selector
-// (ObjectMap / RefObjectMap / StarMap) instead of rendering the picked node
-// as a direct RDF reference. This story replays exactly that sequence and
-// asserts the three properties that must hold for the fix to stay fixed.
-//
-// Initial state (an existing compatible ObjectMap already authored) is
-// loaded via `data-values` rather than authored live in this play() function
-// — the interaction under test is the REUSE action itself, not the
-// unrelated multi-step process of authoring a valid ObjectMap from scratch.
-//
-// This story is exercised by the same Storybook test-runner sweep that
-// produces the Stage 2 screenshots (no separate CI pipeline): a failing
-// expect() inside play() fails that run the same way a broken static story
-// would.
+// Regression story for reusing an existing ObjectMap through an alternativePath branch.
 import type { Meta, StoryObj } from '@storybook/web-components-vite'
 import { html } from 'lit'
 import { expect } from 'storybook/test'
@@ -83,9 +65,7 @@ export const ObjectMapReuseThroughAlternativePath: StoryObj<Args> = {
             throw new Error('object/objectMap/quotedTriplesMap alternativePath property not found on PredicateObjectMap')
         }
 
-        // The actual interaction under test: reuse the existing ObjectMap
-        // directly from the alternativePath add-button, WITHOUT first going
-        // through "Create new objectMap..." + the inner sh:or selector.
+        // Reuse the existing ObjectMap directly; do not open the inner sh:or selector.
         const instance = await reuseAlternativePathBranch(objectAlternative, 'objectMap', EXISTING_OBJECTMAP_ID)
 
         // Assertion 1: the selected RDF node is rendered as a direct reference.
@@ -93,30 +73,21 @@ export const ObjectMapReuseThroughAlternativePath: StoryObj<Args> = {
         await expect(referenceEditor, 'reused objectMap should render a .reference-editor pointing at the existing node').not.toBeNull()
         await expect(referenceEditor!.value).toBe(EXISTING_OBJECTMAP_ID)
 
-        // Assertion 2: "Select alternative" (the inner sh:or picker for
-        // ObjectMap/RefObjectMap/StarMap) is NOT reopened.
+        // Assertion 2: "Select alternative" (the inner sh:or picker for ObjectMap/RefObjectMap/StarMap) is NOT reopened.
         const reopenedLogicalSelect = instance.querySelector(':scope > div > select')
         await expect(reopenedLogicalSelect, 'inner sh:or selector must not be reopened for a reused node').toBeNull()
 
         // Assertion 3: no duplicate nested ObjectMap is created.
         await expect(instance.querySelectorAll('shacl-node').length).toBe(0)
 
-        // Assertion 4 (RDF-level, not just DOM): the exact expected quad is
-        // present in the serialized graph.
+        // Assertion 4 (RDF-level, not just DOM): the exact expected quad is present in the serialized graph.
         const turtle = form.serialize()
         const quads = new N3Parser({ format: 'text/turtle' }).parse(turtle)
         const objectMapPredicate = DataFactory.namedNode('http://w3id.org/rml/objectMap')
         const existingObjectMapNode = DataFactory.namedNode(EXISTING_OBJECTMAP_ID)
         const objectMapLinkQuads = quads.filter(quad => quad.predicate.equals(objectMapPredicate))
 
-        // Exactly one rml:objectMap link, pointing at the existing node — not
-        // zero (reuse failed silently) and not two (a duplicate ObjectMap was
-        // also authored). The existing ObjectMap's OWN triples (its
-        // rml:reference etc.) are intentionally not re-emitted here: it was
-        // preloaded via data-values, not committed as its own root, and
-        // toRDF() walks committed/active root subtrees, not the whole
-        // background store — a linked reference is expected to appear only
-        // as this one pointer, not as a re-serialized duplicate resource.
+        // Expect one rml:objectMap link to the reused node. Its preloaded triples are not serialized unless that node is committed as a root.
         await expect(objectMapLinkQuads.length, `expected exactly one rml:objectMap link, found ${objectMapLinkQuads.length}:\n${turtle}`).toBe(1)
         await expect(objectMapLinkQuads[0]?.object.equals(existingObjectMapNode), `rml:objectMap should point at <${EXISTING_OBJECTMAP_ID}>:\n${turtle}`).toBe(true)
     },

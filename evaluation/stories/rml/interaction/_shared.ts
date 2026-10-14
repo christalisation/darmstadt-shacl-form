@@ -1,25 +1,5 @@
-// Shared helpers for the RML interaction (play()) regression stories.
-// Deliberately named without a `.stories.ts` suffix so Storybook's `stories`
-// glob does not try to index it as a stories file.
-//
-// These are a small, typed port of the interaction techniques already
-// proven in test/rml-browser-smoke.mjs (findProperty-by-.template.label,
-// exact-data-path matching for alternativePath reuse items, the RokitSelect
-// add-button's value+change-event protocol) — see the report in the PR
-// description / conversation history for why exact-path matching matters
-// (naive substring matching on button text finds "Create new SubjectMap..."
-// before "Add subject value" for a label of "subject").
-//
-// <shacl-form> is the only shadow boundary that matters here: it attaches an
-// OPEN shadow root (src/form.ts `attachShadow({ mode: 'open' })`), and
-// nested <shacl-node>/<shacl-property> elements do NOT attach their own
-// shadow roots — they are plain light-DOM descendants inside it. RokitSelect
-// (the add-button widget) DOES attach its own open shadow root, but the
-// actual <li> reuse-menu items are light-DOM children slotted into it
-// (see src/dom-form/property.ts refreshAddButtonOptions /
-// refreshAlternativePathAddButtonOptions), so a single
-// `form.shadowRoot.querySelector(...)` reaches everything needed below
-// without piercing a second shadow boundary.
+// Shared RML interaction helpers. Exact predicate-path matching avoids confusing labels such as 'subject' and 'subjectMap'.
+
 import { waitFor } from 'storybook/test'
 
 export const RML_PREDICATE_PATHS: Record<string, string> = {
@@ -35,7 +15,7 @@ export function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-/** Waits for the <shacl-form> custom element to finish its async shapes/values load. */
+// Wait until the form has loaded its shapes and values.
 export async function waitForFormReady(form: HTMLElement): Promise<void> {
     await waitFor(() => {
         if (form.hasAttribute('loading')) {
@@ -52,7 +32,7 @@ function shadow(form: HTMLElement): ShadowRoot {
     return root
 }
 
-/** Selects a NodeShape by its rendered label in the multi-root selector, returning the resulting <shacl-node>. */
+// Select a root by label and return its rendered node.
 export function selectRootShape(form: HTMLElement, label: string): HTMLElement {
     const selector = shadow(form).querySelector<HTMLSelectElement>('.root-selector-container select')
     if (!selector) {
@@ -79,7 +59,7 @@ interface ShaclPropertyElementLike extends HTMLElement {
     addPropertyInstance(): HTMLElement
 }
 
-/** Finds a direct <shacl-property> descendant by its Form Shape label (e.g. "logicalSource", "object/objectMap/quotedTriplesMap"). */
+// Find a property by its Form Shape label.
 export function findProperty(root: Element, label: string): ShaclPropertyElementLike | undefined {
     return [...root.querySelectorAll<ShaclPropertyElementLike>('shacl-property')]
         .find(property => property.template?.label === label)
@@ -93,13 +73,7 @@ function addButtonOf(property: Element): HTMLElement {
     return addButton
 }
 
-/**
- * Picks the "Create new X..." / "Add X value" action for one branch of an
- * sh:alternativePath add-button, matched by the branch's exact predicate IRI
- * (RML_PREDICATE_PATHS), not by substring-matching the visible label — the
- * add-button lists every branch's header text together (e.g. "subjectMap"
- * and "subject" both appear), and "subject" is a substring of "subjectMap".
- */
+// Match the branch by predicate IRI because labels such as "subject" and "subjectMap" overlap.
 export async function createAlternativePathBranch(property: ShaclPropertyElementLike, branchLabel: string): Promise<HTMLElement> {
     const addButton = addButtonOf(property) as HTMLElement & { value: string }
     const expectedPath = RML_PREDICATE_PATHS[branchLabel]
@@ -131,13 +105,7 @@ export function fillEditor(instance: Element, value: string): void {
     editor.dispatchEvent(new Event('change', { bubbles: true }))
 }
 
-/**
- * Triggers the "reuse" (link-existing) action for an sh:alternativePath
- * branch's add-button, matched by exact predicate IRI AND the visible node
- * id text (mirrors src/dom-form/property.ts's
- * refreshAlternativePathAddButtonOptions "Or link existing:" items, which
- * carry both data-path and data-value).
- */
+// Match both the branch predicate and existing node ID to select the intended reuse action.
 export async function reuseAlternativePathBranch(property: ShaclPropertyElementLike, branchLabel: string, existingNodeId: string): Promise<HTMLElement> {
     const addButton = addButtonOf(property) as HTMLElement & { value: string }
     const expectedPath = RML_PREDICATE_PATHS[branchLabel]
@@ -159,12 +127,7 @@ export async function reuseAlternativePathBranch(property: ShaclPropertyElementL
     return instance
 }
 
-/**
- * Triggers the plain (non-alternativePath) "Or link existing:" reuse action
- * on a property's add-button, matched by the visible node id text — mirrors
- * src/dom-form/property.ts's refreshAddButtonOptions, whose <li> items carry
- * only data-value (no data-path).
- */
+// Select a plain reuse action by the existing node ID.
 export async function reuseExistingNode(property: ShaclPropertyElementLike, existingNodeId: string): Promise<HTMLElement> {
     const addButton = addButtonOf(property) as HTMLElement & { value: string }
     const item = [...addButton.querySelectorAll<HTMLLIElement>('li[data-value]')]

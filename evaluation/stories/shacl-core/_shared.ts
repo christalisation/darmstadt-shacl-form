@@ -1,26 +1,10 @@
-// Shared helpers for the four SHACL Core category story files
-// (C1-value-constraints, C2-structural-paths, C3-target-selection,
-// C4-authoring-guidance). Deliberately named without a `.stories.ts` suffix
-// so Storybook's `stories` glob in .storybook/main.ts does not try to index
-// it as a stories file.
-//
-// test-defs/shacl-core.ts remains the single source of truth for content;
-// this module only adapts one test-def into the shape Storybook needs.
-//
-// Why one file per category instead of one file for the whole suite: CSF3's
-// `title` (which drives Storybook's sidebar folder path) is a `Meta`
-// (default export) property only — it cannot vary per named story within a
-// single file. Splitting by category is the only way to get the C1-C4
-// sidebar folders the thesis cross-references, while every category file
-// still just filters the same shared array below rather than hand-authoring
-// content.
+// Adapts SHACL test definitions into Storybook stories and shared render helpers. Category files stay separate because Storybook's title is set once per file.
 import type { StoryObj } from '@storybook/web-components-vite'
 import { html } from 'lit'
 import type { ShaclCoreTestDef, ShaclRenderOutcome } from '../../test-defs/shacl-core'
 
-// Eagerly load every SHACL fixture's raw text at build time (Vite), keyed by
-// project-root-relative path (leading '/'), matching test-def file fields.
-const shaclFixtureText = import.meta.glob('/fixtures/shacl/*.ttl', {
+// Vite keys these raw fixture imports by project-root-relative path.
+const shaclFixtureText = import.meta.glob('/evaluation/fixtures/shacl/*.ttl', {
     eager: true,
     query: '?raw',
     import: 'default',
@@ -52,10 +36,7 @@ export interface ShaclCoreStoryArgs {
     shapesContent: string
 }
 
-// Attributes match index.html's <shacl-form> (the generic demo, same
-// DefaultTheme as these stories) so the rendered form looks and behaves the
-// same way — see stories/demo-chrome.css / .storybook/preview.ts for the
-// surrounding page-level chrome.
+// Keep the form attributes aligned with the default demo.
 export function renderShaclForm(args: ShaclCoreStoryArgs) {
     return html`
         <shacl-form
@@ -97,13 +78,11 @@ export function toExportName(id: string): string {
     return id.replace(/-/g, '_')
 }
 
-// Called by each category file after declaring its literal exports, so a
-// test-def added to/removed from test-defs/shacl-core.ts without a matching
-// export update fails fast instead of silently missing from the sidebar.
+// Fail if a category's test definitions and named story exports drift apart.
 export function assertExportsMatch(categoryDefs: ShaclCoreTestDef[], declaredExportNames: string[]) {
     const expected = categoryDefs.map(def => toExportName(def.id)).sort()
     const declared = [...declaredExportNames].sort()
     if (JSON.stringify(expected) !== JSON.stringify(declared)) {
-        throw new Error(`Story exports out of sync with test-defs/shacl-core.ts.\nExpected: ${expected.join(', ')}\nDeclared: ${declared.join(', ')}`)
+        throw new Error(`Story exports out of sync with evaluation/test-defs/shacl-core.ts.\nExpected: ${expected.join(', ')}\nDeclared: ${declared.join(', ')}`)
     }
 }

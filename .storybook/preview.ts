@@ -8,7 +8,7 @@ import '../src/form-default'
 // Page-level chrome (card container, font, colors) reproducing the visual
 // context both demos wrap <shacl-form> in — see stories/demo-chrome.css for
 // why only this subset of their CSS is reused (not their toolbar/grid).
-import '../stories/demo-chrome.css'
+import '../evaluation/stories/demo-chrome.css'
 
 const preview: Preview = {
   decorators: [

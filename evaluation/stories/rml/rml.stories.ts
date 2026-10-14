@@ -1,32 +1,11 @@
-// ONE parameterized CSF file for the RML suite (only one category here, so
-// the CSF-title-per-file constraint documented in
-// stories/shacl-core/_shared.ts doesn't force a split — see that file for
-// why the SHACL Core suite needed one file per C1-C4 category instead).
-//
-// Renders the mapping RECONSTRUCTED through this project's own RML form UI
-// (w3id.org/rml/ namespace, matching the pinned rml/core-authoring.ttl +
-// rml/io.ttl + rml/authoring-overlay.ttl shapes) — the same
-// generated-mapping.ttl produced during the thesis's Chapter 6 evaluation —
-// loaded back into the form as `data-values` against those exact shapes, the
-// same way rml/index.html's live demo is wired (shapeFiles array, joined
-// with '\n\n', data-values-namespace / data-show-node-ids /
-// data-ignore-owl-imports). It does NOT render the upstream RMLTC's own
-// mapping.ttl, which uses the legacy rr:/semweb.mmlab.be namespace and would
-// not resolve against these shapes (see test-defs/rml.ts header).
-//
-// Correctness (does the mapping actually execute to the expected RDF?) is
-// NOT determined here — that's scripts/verify-rml.mjs's job, run
-// independently of Storybook. This story only displays the precomputed
-// `verification` field already recorded on the test-def.
-
+// Renders the reconstructed RML mapping and its precomputed verification result.
 import type { Meta, StoryObj } from '@storybook/web-components-vite'
 import { html } from 'lit'
 import { rmlTestDefs, type RmlTestDef } from '../../test-defs/rml'
 import { rmlShapesGraph } from './shapes'
 
-// Eagerly load every RML fixture's raw text at build time (Vite), keyed by
-// project-root-relative path (leading '/'), matching test-def file fields.
-const rmlFixtureText = import.meta.glob('/fixtures/rml/**/*', {
+// Vite keys these raw fixture imports by project-root-relative path.
+const rmlFixtureText = import.meta.glob('/evaluation/fixtures/rml/**/*', {
     eager: true,
     query: '?raw',
     import: 'default',
