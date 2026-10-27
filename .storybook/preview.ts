@@ -2,7 +2,7 @@ import type { Preview } from '@storybook/web-components-vite'
 import { html } from 'lit'
 
 import '../src/form-default'
-import '../demo/shacl-form.css'
+import '../demo/shacl-form.css' // TODO: solve this
 
 const preview: Preview = {
   decorators: [
