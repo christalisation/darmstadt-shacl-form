@@ -1,0 +1,7 @@
+# Projection of the upstream valid node ex:ValidResource onto the shape:
+# its rdfs:label is dropped (no field produces it); rdf:type comes from sh:targetClass.
+@prefix ex: <http://datashapes.org/sh/tests/core/property/minCount-001.test#> .
+
+ex:ValidResource
+    a ex:Person ;
+    ex:firstName "John" .

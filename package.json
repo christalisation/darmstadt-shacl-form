@@ -76,7 +76,7 @@
         "build": "tsc && npm run build-default && npm run build-bootstrap && npm run build-material && npm run build-leaflet && npm run build-mapbox",
         "build:site": "vite build -c ./vite.site.config.ts",
         "preview": "vite preview",
-        "test": "vitest run --project=unit",
+        "test": "vitest run",
         "test-storybook": "vitest run --project=storybook",
         "build-default": "vite build  -c ./vite.form-default.config.ts",
         "build-bootstrap": "vite build -c ./vite.form-bootstrap.config.ts",
@@ -85,7 +85,10 @@
         "build-mapbox": "vite build -c ./vite.plugin-mapbox.config.ts",
         "verify:rml": "node scripts/verify-rml.mjs",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "storybook build"
+        "build-storybook": "storybook build",
+        "test:unit": "vitest run --project=unit",
+        "test:stories": "vitest run --project=storybook",
+        "test:report": "vitest run --reporter=default --reporter=json --outputFile=evaluation/results/results.json"
     },
     "devDependencies": {
         "@open-wc/testing": "^4.0.0",

@@ -1,0 +1,17 @@
+# Shapes subgraph of W3C SHACL test core/property/minCount-001, copied unchanged.
+# Removed from the upstream file: the mf: manifest, the instance data
+# (ex:ValidResource, ex:InvalidPerson) and the ex:Person class declaration.
+@prefix ex:  <http://datashapes.org/sh/tests/core/property/minCount-001.test#> .
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:targetNode ex:ValidResource ;
+    sh:property ex:PersonShape-firstName .
+
+ex:PersonShape-firstName
+    sh:path ex:firstName ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 .

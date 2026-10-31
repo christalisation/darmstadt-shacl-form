@@ -1,0 +1,61 @@
+# Authoring test cases derived from W3C SHACL test core/property/minCount-001.
+# Documentation only for now: the story is written by hand. Once a few cases
+# are stable, this vocabulary can drive a story generator.
+@prefix mf:  <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix fat: <https://w3id.org/TODO/form-authoring-test#> .
+@prefix ex:  <http://datashapes.org/sh/tests/core/property/minCount-001.test#> .
+
+<> a mf:Manifest ;
+    fat:derivedFrom <https://github.com/w3c/data-shapes/blob/gh-pages/data-shapes-test-suite/tests/core/property/minCount-001.ttl> ;
+    mf:entries ( <#create-valid> <#create-missing> <#edit-preserve> ) .
+
+<#create-valid> a fat:AuthoringTest ;
+    mf:name "A valid instance can be authored with an author-supplied IRI" ;
+    mf:action [
+        sht:shapesGraph <shapes.ttl> ;
+        fat:rootShape   ex:PersonShape ;
+        fat:mode        fat:Create ;
+        fat:focusNode   ex:ValidResource ;
+        fat:fill [ fat:path ex:firstName ; fat:value "John" ]
+    ] ;
+    mf:result [
+        fat:expectation   fat:Producible ;
+        fat:expectedGraph <expected/valid.ttl> ;        # strict isomorphism
+        fat:noValidationTargetLeak true                 # no sh:targetNode in the output
+    ] ;
+    mf:status sht:proposed .
+
+<#create-missing> a fat:AuthoringTest ;
+    mf:name "Committing without the required value is blocked and reported" ;
+    mf:action [
+        sht:shapesGraph <shapes.ttl> ;
+        fat:rootShape   ex:PersonShape ;
+        fat:mode        fat:Create
+    ] ;
+    mf:result [
+        # The UI blocks the commit (native `required`) AND SHACL reports the violation.
+        # Use fat:ValidationViolation instead for constraints the UI only reports.
+        fat:expectation fat:Rejected ;
+        fat:expectedViolation [
+            fat:path ex:firstName ;
+            fat:component sh:MinCountConstraintComponent
+        ]
+    ] ;
+    mf:status sht:proposed .
+
+<#edit-preserve> a fat:AuthoringTest ;
+    mf:name "Loading and re-serialising a valid instance preserves it" ;
+    mf:action [
+        sht:shapesGraph <shapes.ttl> ;
+        fat:rootShape   ex:PersonShape ;
+        fat:mode        fat:Edit ;
+        fat:dataGraph   <expected/valid.ttl> ;
+        fat:focusNode   ex:ValidResource
+    ] ;
+    mf:result [
+        fat:expectation   fat:Preserved ;      # tested by a round-trip: load, serialise unchanged, compare
+        fat:expectedGraph <expected/valid.ttl>
+    ] ;
+    mf:status sht:proposed .
