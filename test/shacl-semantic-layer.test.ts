@@ -53,6 +53,36 @@ describe('SHACL semantic layer', () => {
         ])
     })
 
+    // SHACL allows several values for sh:node, sh:not, sh:and, sh:or and sh:xone
+    // on one shape; this happens as soon as an overlay adds a second sh:node.
+    it('parses every value of multi-valued shape-based constraints', () => {
+        const shape = DataFactory.namedNode(`${EX}Shape`)
+        const store = storeFromTurtle(`
+            ex:Shape
+                a sh:NodeShape ;
+                sh:node ex:A, ex:B ;
+                sh:not ex:C, ex:D ;
+                sh:or ( ex:A ex:B ) ;
+                sh:or ( ex:C ex:D ) ;
+                sh:xone ( ex:A ex:C ) ;
+                sh:xone ( ex:B ex:D ) ;
+                sh:and ( ex:A ) ;
+                sh:and ( ex:B ) .
+        `)
+
+        const parsed = new ShaclParser(new RdfReader(store)).parseNodeShape(shape)
+        const count = (kind: string) => parsed.constraints.filter(constraint => constraint.kind === kind).length
+
+        expect(count('node')).toBe(2)
+        expect(count('not')).toBe(2)
+        expect(count('or')).toBe(2)
+        expect(count('xone')).toBe(2)
+        expect(count('and')).toBe(2)
+        const orBranches = parsed.constraints.flatMap(constraint => constraint.kind === 'or' ? [constraint.shapes.map(term => term.value).sort()] : [])
+        expect(orBranches).toContainEqual([`${EX}A`, `${EX}B`])
+        expect(orBranches).toContainEqual([`${EX}C`, `${EX}D`])
+    })
+
     it('reads RDF lists while allowing rdf:type triples on list nodes', () => {
         const store = storeFromTurtle(`
             ex:Shape sh:property [

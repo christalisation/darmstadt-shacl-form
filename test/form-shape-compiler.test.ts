@@ -326,6 +326,25 @@ describe('FormShapeCompiler', () => {
         expect(shape.properties.length).toBeGreaterThan(0)
     })
 
+    it('includes effective properties from every node-level sh:node value', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:node ex:FirstShape, ex:SecondShape ;
+                sh:property [ sh:path ex:own ; sh:name "Own" ] .
+
+            ex:FirstShape a sh:NodeShape ;
+                sh:property [ sh:path ex:first ; sh:name "First" ] .
+
+            ex:SecondShape a sh:NodeShape ;
+                sh:property [ sh:path ex:second ; sh:name "Second" ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}Shape`)
+
+        expect(shape.properties.map(property => property.label).sort()).toEqual(['First', 'Own', 'Second'])
+        expect(shape.composedNodeShapes.map(term => term.value).sort()).toEqual([`${EX}FirstShape`, `${EX}SecondShape`])
+    })
+
     it('includes anonymous sh:and property-shape members', () => {
         const store = storeFromTurtle(`
             ex:Shape a sh:NodeShape ;

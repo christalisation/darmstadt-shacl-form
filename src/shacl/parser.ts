@@ -102,8 +102,11 @@ export class ShaclParser {
         const classConstraint = this.rdf.getSingleObject(id, SH.class)
         if (classConstraint) constraints.push({ kind: 'class', class: this.requireNamedNode(classConstraint, 'sh:class') })
 
-        const node = this.rdf.getSingleObject(id, SH.node)
-        if (node) constraints.push({ kind: 'node', shape: node })
+        // sh:node, sh:not, sh:and, sh:or and sh:xone may each have several
+        // values on one shape; every value is an independent constraint.
+        for (const node of this.rdf.getObjects(id, SH.node)) {
+            constraints.push({ kind: 'node', shape: node })
+        }
 
         this.pushIntegerConstraint(constraints, id, SH.minCount, 'minCount')
         this.pushIntegerConstraint(constraints, id, SH.maxCount, 'maxCount')
@@ -143,8 +146,9 @@ export class ShaclParser {
         this.pushPropertyPairConstraint(constraints, id, SH.lessThan, 'lessThan')
         this.pushPropertyPairConstraint(constraints, id, SH.lessThanOrEquals, 'lessThanOrEquals')
 
-        const not = this.rdf.getSingleObject(id, SH.not)
-        if (not) constraints.push({ kind: 'not', shape: not })
+        for (const not of this.rdf.getObjects(id, SH.not)) {
+            constraints.push({ kind: 'not', shape: not })
+        }
 
         this.pushShapeListConstraint(constraints, id, SH.and, 'and')
         this.pushShapeListConstraint(constraints, id, SH.or, 'or')
@@ -194,8 +198,7 @@ export class ShaclParser {
     }
 
     private pushShapeListConstraint(constraints: ShaclConstraint[], id: Term, predicate: NamedNode, kind: 'and' | 'or' | 'xone'): void {
-        const head = this.rdf.getSingleObject(id, predicate)
-        if (head) {
+        for (const head of this.rdf.getObjects(id, predicate)) {
             constraints.push({ kind, shapes: this.rdf.readList(head) } as ShaclConstraint)
         }
     }
