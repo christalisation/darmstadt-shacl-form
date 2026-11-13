@@ -134,7 +134,11 @@ export class ShaclProperty extends HTMLElement {
                 appendRemoveButton(instance, '')
             }
         } else {
-            const effectiveTemplate = selectedPath ? this.template.createTemplateForAlternativePath(selectedPath) : this.template
+            // selectedPath is also passed when binding existing values, where it is
+            // simply the predicate of the loaded triple. It only selects a branch
+            // when this property really has an sh:alternativePath.
+            const selectsAlternativeBranch = selectedPath !== undefined && Boolean(this.template.pathAlternatives?.includes(selectedPath))
+            const effectiveTemplate = selectsAlternativeBranch ? this.template.createTemplateForAlternativePath(selectedPath!) : this.template
             if (!effectiveTemplate) {
                 instance = createUnavailableAlternativePathInstance(this.template.getPathLabel(selectedPath!), selectedPath!)
                 if (this.template.config.editMode) {
