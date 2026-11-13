@@ -5,24 +5,13 @@ import { readFileSync } from 'node:fs'
 const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const port = 5175
 const origin = `http://127.0.0.1:${port}`
-const coreIoShapes = readFileSync('rml/rml-core-io.ttl', 'utf8')
-// TODO: modify test: rml-core-io.ttl no longer used.
-// Instead:
-// function rmlStore(): Store {
-//     const turtle = [
-//         'rml/core-authoring.ttl',
-//         'rml/io.ttl',
-//         'rml/authoring-overlay.ttl',
-//     ]
-//         .map(path => readFileSync(path, 'utf8'))
-//         .join('\n\n')
-
-//     return new Store(new Parser().parse(turtle))
-// }
-const authoringOverlay = readFileSync('rml/authoring-overlay.ttl', 'utf8')
-const shapesWithOntology = `${coreIoShapes}
-
-${authoringOverlay}
+// Active RML fixtures: the same three files, in the same order, as rml/index.html.
+const rmlShapes = [
+    'rml/core-authoring.ttl',
+    'rml/io.ttl',
+    'rml/authoring-overlay.ttl',
+].map(path => readFileSync(path, 'utf8')).join('\n\n')
+const shapesWithOntology = `${rmlShapes}
 
 rml:LogicalSource rdfs:subClassOf rml:AbstractLogicalSource .
 `
@@ -86,6 +75,9 @@ try {
         async function createForm(shapeSubject, dataset = {}) {
             const form = document.createElement('shacl-form')
             Object.assign(form.dataset, dataset)
+            // Same setting as rml/index.html: rml/io.ttl declares owl:imports of the
+            // upstream Core shapes; importing them would duplicate every Core shape.
+            form.dataset.ignoreOwlImports = ''
             form.dataset.shapes = shapes
             form.dataset.shapeSubject = shapeSubject
             document.body.appendChild(form)
@@ -96,6 +88,9 @@ try {
         async function createMultiRootForm(dataset = {}) {
             const form = document.createElement('shacl-form')
             Object.assign(form.dataset, dataset)
+            // Same setting as rml/index.html: rml/io.ttl declares owl:imports of the
+            // upstream Core shapes; importing them would duplicate every Core shape.
+            form.dataset.ignoreOwlImports = ''
             form.dataset.shapes = shapes
             document.body.appendChild(form)
             await waitForLoad(form)
@@ -404,6 +399,7 @@ try {
         const validationSummaryText = acceptanceForm.shadowRoot.querySelector('.validation-summary')?.textContent || ''
 
         const genericRoots = document.createElement('shacl-form')
+        genericRoots.dataset.ignoreOwlImports = ''
         genericRoots.dataset.shapes = shapes
         document.body.appendChild(genericRoots)
         await waitForLoad(genericRoots)
