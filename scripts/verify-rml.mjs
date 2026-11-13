@@ -2,7 +2,7 @@
 // Usage: node scripts/verify-rml.mjs
 
 // RML mapping verification script. 
-// It compares the output of the RMLMapper tool against expected outputs for each mapping definition in evaluation/test-defs/rml.ts.
+// It compares the output of the RMLMapper tool against expected outputs for each mapping definition in evaluation-old/test-defs/rml.ts.
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -36,7 +36,7 @@ async function loadRmlTestDefs() {
     const bundlePath = join(tmpdir(), `rml-testdefs-${Date.now()}.mjs`)
     // Bundle the TypeScript definitions so this standalone Node script can load them.
     execFileSync(join(ROOT, 'node_modules/.bin/esbuild'), [
-        join(ROOT, 'evaluation/test-defs/rml.ts'), // where the RML tests are defined
+        join(ROOT, 'evaluation-old/test-defs/rml.ts'), // where the RML tests are defined
         '--bundle',
         '--format=esm',
         '--platform=node',
