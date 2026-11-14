@@ -82,3 +82,22 @@ export interface FormLogicalAlternative {
     kind: 'or' | 'xone'
     shapes: Term[]
 }
+
+/** True when at least one constraint can drive a value editor. */
+export function hasFormValueConstraints(constraints: FormValueConstraints): boolean {
+    return Boolean(
+        constraints.datatype ||
+        constraints.nodeKind ||
+        constraints.class ||
+        constraints.minLength !== undefined ||
+        constraints.maxLength !== undefined ||
+        constraints.minInclusive !== undefined ||
+        constraints.maxInclusive !== undefined ||
+        constraints.minExclusive !== undefined ||
+        constraints.maxExclusive !== undefined ||
+        constraints.pattern !== undefined ||
+        constraints.shaclIn?.length ||
+        constraints.languageIn?.length ||
+        constraints.hasValue
+    )
+}

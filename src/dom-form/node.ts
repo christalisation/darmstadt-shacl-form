@@ -5,6 +5,7 @@ import { ShaclProperty } from './property'
 import { createShaclGroup } from './group'
 import { createShaclOrConstraint, resolveShaclOrConstraintOnNode } from './constraints'
 import { Config } from '../config'
+import { termKey } from '../rdf'
 import { NodeRegistry } from './node-registry'
 import { FormPropertyShape } from '../form-shape'
 
@@ -95,12 +96,12 @@ export class ShaclNode extends HTMLElement {
                 // TODO: temporary legacy fallback for shapes that cannot yet be
                 // compiled into FormNodeShape. The normal rendering path above
                 // is authoritative for form structure.
-                const renderablePropertyShapes = new Set(this.config.formShapes.getRenderablePropertyShapeTerms(shaclSubject).map(shape => this.termKey(shape)))
+                const renderablePropertyShapes = new Set(this.config.formShapes.getRenderablePropertyShapeTerms(shaclSubject).map(shape => termKey(shape)))
                 // now parse other node quads
                 for (const quad of this.config.store.getQuads(shaclSubject, null, null, null)) {
                     switch (quad.predicate.id) {
                         case SHACL_PREDICATE_PROPERTY.id:
-                            if (renderablePropertyShapes.has(this.termKey(quad.object))) {
+                            if (renderablePropertyShapes.has(termKey(quad.object))) {
                                 this.addPropertyInstance(quad.object, valueSubject)
                             }
                             break;
@@ -343,9 +344,6 @@ export class ShaclNode extends HTMLElement {
         }
     }
 
-    private termKey(term: Term): string {
-        return `${term.termType}:${term.value}`
-    }
 }
 
 window.customElements.define('shacl-node', ShaclNode)

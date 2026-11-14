@@ -2,6 +2,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { DataFactory, Parser, Store } from 'n3'
+import { defineShaclForm, restoreDom, waitUntilLoaded } from './support/dom-form'
 import { isomorphic } from 'rdf-isomorphic'
 
 const EX = 'http://example.org/'
@@ -25,23 +26,6 @@ async function renderForm(shapes: string, values: string, valuesSubject: string)
     return form
 }
 
-function waitUntilLoaded(form: HTMLElement): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const started = Date.now()
-        const poll = () => {
-            if (!form.hasAttribute('loading')) {
-                resolve()
-            } else if (Date.now() - started > 3000) {
-                reject(new Error('Timed out waiting for shacl-form to load'))
-            } else {
-                setTimeout(poll, 20)
-            }
-        }
-        // Initialisation is debounced, so the loading attribute is not set synchronously.
-        setTimeout(poll, 250)
-    })
-}
-
 function expectSameGraph(form: TestForm, expectedTurtle: string) {
     const actual = form.toRDF().getQuads(null, null, null, null)
     const expected = new Parser().parse(expectedTurtle)
@@ -49,34 +33,8 @@ function expectSameGraph(form: TestForm, expectedTurtle: string) {
 }
 
 describe('binding an existing data graph', () => {
-    let originalAttachInternals: typeof HTMLElement.prototype.attachInternals | undefined
-
-    beforeAll(async () => {
-        originalAttachInternals = HTMLElement.prototype.attachInternals
-        if (!originalAttachInternals) {
-            Object.defineProperty(HTMLElement.prototype, 'attachInternals', {
-                configurable: true,
-                value: () => ({
-                    checkValidity: () => true,
-                    reportValidity: () => true,
-                    setFormValue: () => undefined,
-                    setValidity: () => undefined,
-                    validationMessage: '',
-                    validity: {},
-                    willValidate: true,
-                }),
-            })
-        }
-        await import('../src/form-default.ts')
-    })
-
-    afterAll(() => {
-        if (originalAttachInternals) {
-            HTMLElement.prototype.attachInternals = originalAttachInternals
-        } else {
-            delete (HTMLElement.prototype as Partial<typeof HTMLElement.prototype>).attachInternals
-        }
-    })
+    beforeAll(defineShaclForm)
+    afterAll(restoreDom)
 
     afterEach(() => {
         document.body.replaceChildren()

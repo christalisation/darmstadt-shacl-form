@@ -5,7 +5,7 @@ import { Config } from '../config'
 import { findLabel, prioritizeByLanguage, removePrefixes } from '../util'
 import { ShaclNode } from './node'
 import { getAlternativePredicatePaths, getPredicatePath, pathToString, ShaclPath } from '../shacl'
-import { FormPropertyShape, FormValueConstraints } from '../form-shape'
+import { FormPropertyShape, FormValueConstraints, hasFormValueConstraints } from '../form-shape'
 
 const mappers: Record<string, (template: ShaclPropertyTemplate, term: Term) => void> = {
     [`${PREFIX_SHACL}name`]:         (template, term) => { const literal = term as Literal; template.name = prioritizeByLanguage(template.config.languages, template.name, literal) },
@@ -348,7 +348,7 @@ export class ShaclPropertyTemplate {
             template.pathExpression = this.pathExpression
             return template
         }
-        if (nodeShape && nodeShape.properties.length === 0 && this.hasFormValueConstraints(nodeShape.valueConstraints)) {
+        if (nodeShape && nodeShape.properties.length === 0 && hasFormValueConstraints(nodeShape.valueConstraints)) {
             const template = this.cloneForLogicalOption()
             template.applyFormValueConstraints(nodeShape.valueConstraints)
             template.ensureLogicalOptionLabel(fallbackLabel)
@@ -438,24 +438,6 @@ export class ShaclPropertyTemplate {
         this.shaclInValues = constraints.shaclIn ? [...constraints.shaclIn] : undefined
         this.languageIn = constraints.languageIn ? [...constraints.languageIn] : undefined
         this.hasValue = constraints.hasValue
-    }
-
-    private hasFormValueConstraints(constraints: FormValueConstraints): boolean {
-        return Boolean(
-            constraints.datatype ||
-            constraints.nodeKind ||
-            constraints.class ||
-            constraints.minLength !== undefined ||
-            constraints.maxLength !== undefined ||
-            constraints.minInclusive !== undefined ||
-            constraints.maxInclusive !== undefined ||
-            constraints.minExclusive !== undefined ||
-            constraints.maxExclusive !== undefined ||
-            constraints.pattern !== undefined ||
-            constraints.shaclIn?.length ||
-            constraints.languageIn?.length ||
-            constraints.hasValue
-        )
     }
 
     private findAlternativePathLabel(path: string): string {

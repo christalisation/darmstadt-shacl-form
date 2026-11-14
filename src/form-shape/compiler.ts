@@ -10,6 +10,7 @@ import {
     ShaclShapeResolver,
 } from '../shacl'
 import { PREFIX_RDF } from '../constants'
+import { termKey } from '../rdf'
 import { FormLogicalAlternative, FormNodeShape, FormPropertyShape, FormValueConstraints } from './model'
 
 export interface FormShapeCompilerOptions {
@@ -160,7 +161,7 @@ export class FormShapeCompiler {
                 break
             case 'node':
                 property.nodeShape = property.nodeShape || constraint.shape
-                if (!property.nodeShapes.some(shape => this.termKey(shape) === this.termKey(constraint.shape))) {
+                if (!property.nodeShapes.some(shape => termKey(shape) === termKey(constraint.shape))) {
                     property.nodeShapes.push(constraint.shape)
                 }
                 break
@@ -288,13 +289,13 @@ export class FormShapeCompiler {
         }
 
         const locallyDeclared = new Set<string>([
-            ...property.nestedNodeShapes.map(shape => this.termKey(shape)),
-            ...property.nodeShapes.map(shape => this.termKey(shape)),
-            ...this.composedValueNodeShapeTerms(property).map(shape => this.termKey(shape)),
+            ...property.nestedNodeShapes.map(shape => termKey(shape)),
+            ...property.nodeShapes.map(shape => termKey(shape)),
+            ...this.composedValueNodeShapeTerms(property).map(shape => termKey(shape)),
         ])
 
         return this.options.findNodeShapesByTargetObjectsOf(property.writablePath)
-            .filter(shape => !locallyDeclared.has(this.termKey(shape)))
+            .filter(shape => !locallyDeclared.has(termKey(shape)))
     }
 
     private findValueNodeShapesByLogicalAlternatives(property: FormPropertyShape): Term[] {
@@ -317,7 +318,7 @@ export class FormShapeCompiler {
     }
 
     private hasRenderableNodeShapeContent(nodeShapeId: Term, visited = new Set<string>()): boolean {
-        const key = this.termKey(nodeShapeId)
+        const key = termKey(nodeShapeId)
         if (visited.has(key)) {
             return false
         }
@@ -494,12 +495,9 @@ export class FormShapeCompiler {
     }
 
     private uniqueTerms(terms: Term[]): Term[] {
-        return [...new Map(terms.map(term => [this.termKey(term), term])).values()]
+        return [...new Map(terms.map(term => [termKey(term), term])).values()]
     }
 
-    private termKey(term: Term): string {
-        return `${term.termType}:${term.value}`
-    }
 
     private stableId(value: string): string {
         let hash = 0

@@ -2,6 +2,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { DataFactory } from 'n3'
+import { defineShaclForm, restoreDom, waitUntilLoaded } from './support/dom-form'
 
 const EX = 'http://example.org/'
 
@@ -54,22 +55,6 @@ async function renderRectangle(logicalPredicate: 'or' | 'xone') {
     return form
 }
 
-function waitUntilLoaded(form: HTMLElement): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const started = Date.now()
-        const poll = () => {
-            if (!form.hasAttribute('loading')) {
-                resolve()
-            } else if (Date.now() - started > 3000) {
-                reject(new Error('Timed out waiting for shacl-form to load'))
-            } else {
-                setTimeout(poll, 20)
-            }
-        }
-        poll()
-    })
-}
-
 function selectLogicalBranch(form: HTMLElement, branchIndex: number) {
     const select = form.shadowRoot!.querySelector('.shacl-or-constraint .editor') as HTMLElement & { value: string }
     expect(select).toBeTruthy()
@@ -97,34 +82,8 @@ async function expectConformingTriple(form: Awaited<ReturnType<typeof renderRect
 }
 
 describe('node-level logical alternatives RDF output', () => {
-    let originalAttachInternals: typeof HTMLElement.prototype.attachInternals | undefined
-
-    beforeAll(async () => {
-        originalAttachInternals = HTMLElement.prototype.attachInternals
-        if (!originalAttachInternals) {
-            Object.defineProperty(HTMLElement.prototype, 'attachInternals', {
-                configurable: true,
-                value: () => ({
-                    checkValidity: () => true,
-                    reportValidity: () => true,
-                    setFormValue: () => undefined,
-                    setValidity: () => undefined,
-                    validationMessage: '',
-                    validity: {},
-                    willValidate: true,
-                }),
-            })
-        }
-        await import('../src/form-default.ts')
-    })
-
-    afterAll(() => {
-        if (originalAttachInternals) {
-            HTMLElement.prototype.attachInternals = originalAttachInternals
-        } else {
-            delete (HTMLElement.prototype as Partial<typeof HTMLElement.prototype>).attachInternals
-        }
-    })
+    beforeAll(defineShaclForm)
+    afterAll(restoreDom)
 
     afterEach(() => {
         document.body.replaceChildren()

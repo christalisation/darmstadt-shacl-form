@@ -1,4 +1,5 @@
 import { Term } from '@rdfjs/types'
+import { termKey } from '../rdf'
 import { getAlternativePredicatePaths, getPredicatePath, ShaclShapeRegistry } from '../shacl'
 import { FormShapeCompiler } from './compiler'
 import { FormNodeShape, FormPropertyShape } from './model'
@@ -20,7 +21,7 @@ export class FormShapeRegistry {
     ) {}
 
     getNodeShape(id: Term): FormNodeShape | undefined {
-        const key = this.termKey(id)
+        const key = termKey(id)
         const cached = this.cache.get(key)
         if (cached) {
             return cached
@@ -34,7 +35,7 @@ export class FormShapeRegistry {
         const formShape = this.compiler.compileNodeShape(semanticShape)
         this.cache.set(key, formShape)
         for (const property of formShape.properties) {
-            this.propertyCache.set(this.termKey(property.id), property)
+            this.propertyCache.set(termKey(property.id), property)
         }
         return formShape
     }
@@ -52,7 +53,7 @@ export class FormShapeRegistry {
     }
 
     getPropertyShape(propertyShape: Term): FormPropertyShape | undefined {
-        const key = this.termKey(propertyShape)
+        const key = termKey(propertyShape)
         const cached = this.propertyCache.get(key)
         if (cached) {
             return cached
@@ -60,7 +61,7 @@ export class FormShapeRegistry {
 
         for (const nodeShape of this.shaclShapes.getNodeShapeSubjects()) {
             const formShape = this.getNodeShape(nodeShape)
-            const property = formShape?.properties.find(property => this.termKey(property.id) === key)
+            const property = formShape?.properties.find(property => termKey(property.id) === key)
             if (property) {
                 this.propertyCache.set(key, property)
                 return property
@@ -94,7 +95,7 @@ export class FormShapeRegistry {
 
         const candidates: Term[] = []
         for (const candidateSubject of this.shaclShapes.getNodeShapeSubjects()) {
-            if (this.termKey(candidateSubject) === this.termKey(baseShape)) {
+            if (termKey(candidateSubject) === termKey(baseShape)) {
                 continue
             }
             const candidate = this.shaclShapes.getNodeShape(candidateSubject)
@@ -143,7 +144,4 @@ export class FormShapeRegistry {
         this.propertyCache.clear()
     }
 
-    private termKey(term: Term): string {
-        return `${term.termType}:${term.value}`
-    }
 }

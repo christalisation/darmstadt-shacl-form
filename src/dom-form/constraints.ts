@@ -6,7 +6,7 @@ import { Config } from '../config'
 import { PREFIX_SHACL, RDF_PREDICATE_TYPE, SHACL_PREDICATE_CLASS, SHACL_PREDICATE_TARGET_CLASS, SHACL_PREDICATE_NODE_KIND, SHACL_OBJECT_IRI, SHACL_PREDICATE_PROPERTY } from '../constants'
 import type { ShaclPropertyTemplate } from './property-template'
 import { UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE } from './ui-messages'
-import type { FormNodeShape } from '../form-shape'
+import { hasFormValueConstraints } from '../form-shape'
 
 type LogicalNodeOption =
     | { kind: 'nodeShape'; label: string; shape: Term }
@@ -217,14 +217,14 @@ function createNodeLogicalOption(option: Term, index: number, config: Config): L
 function createPropertyLogicalOption(option: Term, index: number, parentTemplate: ShaclPropertyTemplate, config: Config): LogicalPropertyOption | undefined {
     const label = labelForPropertyLogicalOption(option, index, parentTemplate, config)
     const directNodeShape = config.formShapes.getNodeShape(option)
-    if (directNodeShape && directNodeShape.properties.length === 0 && !hasFormValueConstraints(directNodeShape)) {
+    if (directNodeShape && directNodeShape.properties.length === 0 && !hasFormValueConstraints(directNodeShape.valueConstraints)) {
         return { kind: 'emptyNodeShape', label }
     }
 
     const nodeTargets = config.store.getObjects(option, `${PREFIX_SHACL}node`, null)
     if (nodeTargets.length === 1) {
         const nodeShape = config.formShapes.getNodeShape(nodeTargets[0])
-        if (nodeShape && nodeShape.properties.length === 0 && !hasFormValueConstraints(nodeShape)) {
+        if (nodeShape && nodeShape.properties.length === 0 && !hasFormValueConstraints(nodeShape.valueConstraints)) {
             return { kind: 'emptyNodeShape', label }
         }
         if (nodeShape) {
@@ -274,25 +274,6 @@ function labelForPropertyLogicalOption(option: Term, index: number, parentTempla
     }
 
     return `Alternative ${index + 1}`
-}
-
-function hasFormValueConstraints(nodeShape: FormNodeShape): boolean {
-    const constraints = nodeShape.valueConstraints
-    return Boolean(
-        constraints.datatype ||
-        constraints.nodeKind ||
-        constraints.class ||
-        constraints.minLength !== undefined ||
-        constraints.maxLength !== undefined ||
-        constraints.minInclusive !== undefined ||
-        constraints.maxInclusive !== undefined ||
-        constraints.minExclusive !== undefined ||
-        constraints.maxExclusive !== undefined ||
-        constraints.pattern !== undefined ||
-        constraints.shaclIn?.length ||
-        constraints.languageIn?.length ||
-        constraints.hasValue
-    )
 }
 
 function hasTemplateValueConstraints(template: ShaclPropertyTemplate): boolean {

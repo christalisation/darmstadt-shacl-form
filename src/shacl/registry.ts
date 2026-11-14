@@ -1,7 +1,7 @@
 import { BlankNode as N3BlankNode, NamedNode as N3NamedNode, Quad, Store, Term as N3Term } from 'n3'
 import { NamedNode, Term } from '@rdfjs/types'
 import { PREFIX_FOAF, PREFIX_RDFS, PREFIX_SHACL, PREFIX_SKOS, RDF_PREDICATE_TYPE, SHACL_OBJECT_NODE_SHAPE, SHACL_PREDICATE_NODE, SHACL_PREDICATE_PROPERTY, SHACL_PREDICATE_TARGET_CLASS } from '../constants'
-import { RdfReader } from '../rdf'
+import { RdfReader, termKey } from '../rdf'
 import { ShaclNodeShape, ShaclPropertyShape } from './model'
 import { ShaclParser } from './parser'
 import { ShaclPathParser } from './path-parser'
@@ -67,7 +67,7 @@ export class ShaclShapeRegistry {
             return undefined
         }
 
-        const key = this.termKey(id)
+        const key = termKey(id)
         const cached = this.nodeShapes.get(key)
         if (cached) {
             return cached
@@ -83,7 +83,7 @@ export class ShaclShapeRegistry {
     }
 
     getPropertyShape(id: Term): ShaclPropertyShape | undefined {
-        const key = this.termKey(id)
+        const key = termKey(id)
         const cached = this.propertyShapes.get(key)
         if (cached) {
             return cached
@@ -176,7 +176,7 @@ export class ShaclShapeRegistry {
             return true
         }
 
-        const key = this.termKey(candidateClass)
+        const key = termKey(candidateClass)
         if (visited.has(key)) {
             return false
         }
@@ -215,7 +215,7 @@ export class ShaclShapeRegistry {
     }
 
     private uniqueTerms<T extends Term>(terms: T[]): T[] {
-        return [...new Map(terms.map(term => [this.termKey(term), term])).values()]
+        return [...new Map(terms.map(term => [termKey(term), term])).values()]
     }
 
     private canResolveNodeShape(term: Term): term is NodeShapeTerm {
@@ -235,7 +235,4 @@ export class ShaclShapeRegistry {
         return this.store.countQuads(term, `${PREFIX_SHACL}path`, null, null) > 0
     }
 
-    termKey(term: Term): string {
-        return `${term.termType}:${term.value}`
-    }
 }

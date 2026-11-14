@@ -1,4 +1,5 @@
 import { Term } from '@rdfjs/types'
+import { termKey } from '../rdf'
 import { ShaclConstraint } from './constraint'
 import { ShaclNodeShape, ShaclPropertyShape } from './model'
 
@@ -57,7 +58,7 @@ export class ShaclShapeResolver {
         composedNodeShapes: Term[]
         constraints: ShaclConstraint[]
     } {
-        const key = this.termKey(shape.id)
+        const key = termKey(shape.id)
         if (visited.has(key)) {
             return { properties: [], composedNodeShapes: [], constraints: [] }
         }
@@ -118,8 +119,8 @@ export class ShaclShapeResolver {
         for (const property of properties) {
             // Do not merge distinct PropertyShapes merely because they share a path.
             const key = [
-                this.termKey(property.property.id),
-                ...property.sourceShapes.map(shape => this.termKey(shape)),
+                termKey(property.property.id),
+                ...property.sourceShapes.map(shape => termKey(shape)),
             ].join('|')
             if (!seen.has(key)) {
                 seen.add(key)
@@ -131,10 +132,7 @@ export class ShaclShapeResolver {
     }
 
     private uniqueTerms(terms: Term[]): Term[] {
-        return [...new Map(terms.map(term => [this.termKey(term), term])).values()]
+        return [...new Map(terms.map(term => [termKey(term), term])).values()]
     }
 
-    private termKey(term: Term): string {
-        return `${term.termType}:${term.value}`
-    }
 }

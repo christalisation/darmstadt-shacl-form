@@ -9,6 +9,7 @@ import { Editor, fieldFactory, InputListEntry } from '../theme'
 import { toRDF } from '../serialize'
 import { findPlugin } from '../plugin'
 import { DATA_GRAPH, PREFIX_SHACL, RDF_PREDICATE_TYPE } from '../constants'
+import { termKey } from '../rdf'
 import { RokitButton, RokitCollapsible, RokitSelect } from '@ro-kit/ui-widgets'
 import { FormPropertyShape } from '../form-shape'
 import { UNAVAILABLE_ALTERNATIVE_BRANCH_MESSAGE } from './ui-messages'
@@ -655,10 +656,6 @@ function normalizeInputListTerm(value: Term | string): Term {
 
 function isRdfNode(term: Term | undefined): term is NamedNode | BlankNode {
     return term?.termType === 'NamedNode' || term?.termType === 'BlankNode'
-}
-
-function termKey(term: Term): string {
-    return `${term.termType}:${term.value}`
 }
 
 function parseTerm(value: string): Term {

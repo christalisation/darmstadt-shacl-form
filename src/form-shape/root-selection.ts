@@ -1,5 +1,6 @@
 import { DataFactory, Store } from 'n3'
 import { DATA_GRAPH, DCTERMS_PREDICATE_CONFORMS_TO, RDF_PREDICATE_TYPE, SHACL_PREDICATE_TARGET_CLASS } from '../constants'
+import { termKey } from '../rdf'
 import { NodeShapeTerm, ShaclShapeRegistry } from '../shacl'
 
 export type RootShapeOptions = {
@@ -73,6 +74,6 @@ export class FormRootSelection {
     }
 
     private uniqueNodeShapes(nodes: NodeShapeTerm[]): NodeShapeTerm[] {
-        return [...new Map(nodes.map(node => [this.shaclShapes.termKey(node), node])).values()]
+        return [...new Map(nodes.map(node => [termKey(node), node])).values()]
     }
 }
