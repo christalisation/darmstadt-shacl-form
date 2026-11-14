@@ -90,10 +90,11 @@ Start the development server:
 npm run dev
 ```
 
-Run unit and semantic regression tests:
+Run the automated tests (`npm test` runs both Vitest projects):
 
 ```console
-npm test
+npm run test:unit      # unit, semantic and DOM-level tests (Node, happy-dom)
+npm run test:stories   # Storybook authoring tests in headless Chromium
 ```
 
 Build the package bundles:
@@ -108,11 +109,18 @@ Build the static public demo site:
 npm run build:site
 ```
 
-Run browser smoke tests:
+Run browser smoke tests (need a local Google Chrome; the path is set in the
+scripts):
 
 ```console
-node test/browser-smoke.mjs
-node test/rml-browser-smoke.mjs
+npm run test:smoke
+```
+
+Check a form-authored RML mapping by executing it with RMLMapper (needs Java;
+the jar is downloaded to `.tools/` on first use):
+
+```console
+npm run verify:rml
 ```
 
 ## Basic Web Component Usage
@@ -172,13 +180,21 @@ Programmatic entry points retained from upstream include:
 
 ## RML Fixture Provenance
 
-The active RML demo loads:
+The active RML demo loads and concatenates three files:
 
-1. [`rml/rml-core-io.ttl`](rml/rml-core-io.ttl)
-2. [`rml/authoring-overlay.ttl`](rml/authoring-overlay.ttl)
+1. [`rml/core-authoring.ttl`](rml/core-authoring.ttl) - RML-Core shapes with one
+   documented change;
+2. [`rml/io.ttl`](rml/io.ttl) - RML-IO shapes;
+3. [`rml/authoring-overlay.ttl`](rml/authoring-overlay.ttl) - thesis authoring
+   overlay.
 
-The combined fixture is documented in
+They are documented in
 [`docs/rml-fixture-provenance.md`](docs/rml-fixture-provenance.md).
+
+`rml/io.ttl` declares `owl:imports <http://w3id.org/rml/core/shapes>`. The form
+must be used with `data-ignore-owl-imports` for these fixtures: otherwise the
+upstream Core shapes are fetched as well, every Core shape exists twice, and
+SHACL-SHACL validation of the shapes graph fails.
 
 Pinned upstream sources:
 
