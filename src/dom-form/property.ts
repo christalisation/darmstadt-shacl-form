@@ -119,10 +119,18 @@ export class ShaclProperty extends HTMLElement {
 
     addPropertyInstance(value?: Term, selectedPath?: string, options: AddPropertyInstanceOptions = {}): HTMLElement {
         let instance: HTMLElement
+        // A node that already has an editor in this form (reused through the add
+        // menu, or referenced a second time by loaded data) must not get a second
+        // editor: render and serialise it as a reference to the same RDF node.
+        const alreadyAuthored = isRdfNode(value) && Boolean(this.template.parent.nodeRegistry.findNodeById(value))
+        const referenceRequested = alreadyAuthored || Boolean(options.forceReference)
         if (this.template.shaclOr?.length || this.template.shaclXone?.length) {
             const options = this.template.shaclOr?.length ? this.template.shaclOr : this.template.shaclXone as Term[]
             let resolved = false
-            if (value) {
+            if (isRdfNode(value) && referenceRequested) {
+                instance = createPropertyInstance(this.template, value, true, true)
+                resolved = true
+            } else if (value) {
                 const resolvedOptions = resolveShaclOrConstraintOnProperty(options, value, this.template.config)
                 if (resolvedOptions.length) {
                     instance = createPropertyInstance(this.template.clone().merge(resolvedOptions), value, true)
@@ -160,7 +168,7 @@ export class ShaclProperty extends HTMLElement {
                     linked = true
                 }
             }
-            const renderAsReference = linked || this.template.parent.linked || Boolean(options.forceReference)
+            const renderAsReference = linked || referenceRequested || this.template.parent.linked
             if (this.template.pathAlternatives?.length && !selectedPath) {
                 instance = createAlternativePathConstraint(this, value, renderAsReference)
             } else {
@@ -260,8 +268,13 @@ export class ShaclProperty extends HTMLElement {
             return true
         }
         // property has node shape(s), so check if value conforms to any targetClass
-        for (const node of this.template.extendedShapes) {
-            const targetClasses = this.template.config.formShapes.getNodeShape(node)?.targetClasses || []
+        const targetClassesByShape = this.template.extendedShapes
+            .map(node => this.template.config.formShapes.getNodeShape(node)?.targetClasses || [])
+        if (targetClassesByShape.every(targetClasses => targetClasses.length === 0)) {
+            // no shape declares a target class, so there is no class to discriminate on
+            return true
+        }
+        for (const targetClasses of targetClassesByShape) {
             for (const targetClass of targetClasses) {
                 if (this.template.config.store.countQuads(value, RDF_PREDICATE_TYPE, targetClass, null) > 0) {
                     return true
@@ -290,7 +303,7 @@ export class ShaclProperty extends HTMLElement {
             return addButton
         }
 
-        const supportsReferences = this.template.extendedShapes.length > 0 || Boolean(this.getRdfClassToLinkOrCreate())
+        const supportsReferences = this.supportsReferences()
         if (!supportsReferences) {
             // no class instances found, so create an add button that creates a new instance
             addButton.emptyMessage = ''
@@ -333,10 +346,19 @@ export class ShaclProperty extends HTMLElement {
             this.refreshAlternativePathAddButtonOptions(this.addButton)
             return
         }
-        const supportsReferences = this.template.extendedShapes.length > 0 || Boolean(this.getRdfClassToLinkOrCreate())
+        const supportsReferences = this.supportsReferences()
         if (supportsReferences) {
             this.refreshAddButtonOptions(this.addButton)
         }
+    }
+
+    /**
+     * Whether the add control offers linking/reusing existing nodes besides
+     * creating a value. This includes node shapes that are only reachable
+     * through sh:or / sh:xone branches (template.valueNodeShapes).
+     */
+    private supportsReferences(): boolean {
+        return this.isNodeValuedTemplate(this.template)
     }
 
     private refreshAddButtonOptions(addButton: RokitSelect) {
@@ -628,6 +650,10 @@ function normalizeInputListTerm(value: Term | string): Term {
     return typeof value === 'string' ? DataFactory.namedNode(value) : value
 }
 
+function isRdfNode(term: Term | undefined): term is NamedNode | BlankNode {
+    return term?.termType === 'NamedNode' || term?.termType === 'BlankNode'
+}
+
 function termKey(term: Term): string {
     return `${term.termType}:${term.value}`
 }
@@ -731,6 +757,9 @@ function createReferenceInstance(template: ShaclPropertyTemplate, value: Term): 
     editor.type = 'hidden'
     editor.value = value.value
     editor.classList.add('editor', 'reference-editor')
+    if (isRdfNode(value)) {
+        editor.referencedNode = value.termType === 'NamedNode' ? DataFactory.namedNode(value.value) : DataFactory.blankNode(value.value)
+    }
     if (template.class) {
         editor.dataset.class = template.class.value
     }

@@ -46,6 +46,10 @@ function serializeJsonld(quads: Quad[]): string {
 }
 
 export function toRDF(editor: Editor): NamedNode | BlankNode | Literal | undefined {
+    if (editor.referencedNode) {
+        // Reference to an existing RDF node: never re-interpret its identity from text.
+        return editor.referencedNode
+    }
     let languageOrDatatype: NamedNode<string> | string | undefined = editor.shaclDatatype
     let value: number | string = editor.value
     if (value) {

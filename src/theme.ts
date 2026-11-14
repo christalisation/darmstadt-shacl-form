@@ -1,11 +1,15 @@
-import { Literal, NamedNode } from 'n3'
+import { BlankNode, Literal, NamedNode } from 'n3'
 import { Term } from '@rdfjs/types'
 import { PREFIX_XSD, PREFIX_RDF } from './constants'
 import { createInputListEntries, findInstancesOf, findLabel, isURL } from './util'
 import { ShaclPropertyTemplate } from './dom-form/property-template'
 import css from './styles.css?raw'
 
-export type Editor = HTMLElement & { value: string, type?: string, shaclDatatype?: NamedNode<string>, binaryData?: string, checked?: boolean, disabled?: boolean }
+export type Editor = HTMLElement & {
+    value: string, type?: string, shaclDatatype?: NamedNode<string>, binaryData?: string, checked?: boolean, disabled?: boolean,
+    /** Exact RDF node this editor refers to. Set on reference editors so that node identity (IRI or blank node) is serialised unchanged. */
+    referencedNode?: NamedNode | BlankNode,
+}
 export type InputListEntry = { value: Term | string, label?: string, children?: InputListEntry[] }
 
 export abstract class Theme {
