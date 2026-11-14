@@ -72,6 +72,7 @@ export class FormShapeCompiler {
             group: shape.metadata.group,
             order: shape.metadata.order,
             defaultValue: shape.metadata.defaultValue,
+            nodeShapes: [],
             nestedNodeShapes: [],
             compatibleNodeShapes: [],
             valueNodeShapes: [],
@@ -85,14 +86,22 @@ export class FormShapeCompiler {
 
         if (property.class && !property.nodeShape && this.options.findNodeShapeByTargetClass) {
             property.nodeShape = this.options.findNodeShapeByTargetClass(property.class)
+            if (property.nodeShape) {
+                property.nodeShapes.push(property.nodeShape)
+            }
         }
 
         if (property.nodeShape) {
             property.compatibleNodeShapes = this.options.findCompatibleNodeShapes?.(property.nodeShape) || []
-            if (this.hasRenderableNodeShapeContent(property.nodeShape)) {
-                property.nestedNodeShapes.push(property.nodeShape)
+        }
+        // A value must conform to every sh:node shape, so each one contributes:
+        // structural shapes as nested forms of the same value node, value-only
+        // shapes as constraints on the value editor.
+        for (const nodeShape of [...property.nodeShapes]) {
+            if (this.hasRenderableNodeShapeContent(nodeShape)) {
+                property.nestedNodeShapes.push(nodeShape)
             } else {
-                this.mergeValueNodeShapeConstraints(property, property.nodeShape)
+                this.mergeValueNodeShapeConstraints(property, nodeShape)
             }
         }
 
@@ -150,7 +159,10 @@ export class FormShapeCompiler {
                 property.class = constraint.class
                 break
             case 'node':
-                property.nodeShape = constraint.shape
+                property.nodeShape = property.nodeShape || constraint.shape
+                if (!property.nodeShapes.some(shape => this.termKey(shape) === this.termKey(constraint.shape))) {
+                    property.nodeShapes.push(constraint.shape)
+                }
                 break
             case 'minCount':
                 property.minCount = constraint.value
@@ -277,7 +289,7 @@ export class FormShapeCompiler {
 
         const locallyDeclared = new Set<string>([
             ...property.nestedNodeShapes.map(shape => this.termKey(shape)),
-            ...(property.nodeShape ? [this.termKey(property.nodeShape)] : []),
+            ...property.nodeShapes.map(shape => this.termKey(shape)),
             ...this.composedValueNodeShapeTerms(property).map(shape => this.termKey(shape)),
         ])
 
@@ -296,14 +308,12 @@ export class FormShapeCompiler {
     }
 
     private composedValueNodeShapeTerms(property: FormPropertyShape): Term[] {
-        if (!property.nodeShape) {
-            return []
-        }
-        const nodeShape = this.options.resolveNodeShape(property.nodeShape)
-        if (!nodeShape) {
-            return []
-        }
-        return this.options.shapeResolver?.resolveEffectiveNodeShape(nodeShape).composedNodeShapes || []
+        return property.nodeShapes.flatMap(nodeShapeId => {
+            const nodeShape = this.options.resolveNodeShape(nodeShapeId)
+            return nodeShape
+                ? this.options.shapeResolver?.resolveEffectiveNodeShape(nodeShape).composedNodeShapes || []
+                : []
+        })
     }
 
     private hasRenderableNodeShapeContent(nodeShapeId: Term, visited = new Set<string>()): boolean {

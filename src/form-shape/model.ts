@@ -59,7 +59,10 @@ export interface FormPropertyShape {
     datatype?: NamedNode
     nodeKind?: NamedNode
     class?: NamedNode
+    /** Primary value shape: the first sh:node value, or the shape found for sh:class. */
     nodeShape?: Term
+    /** Every value shape the value must conform to (all sh:node values, sh:class-derived shape). */
+    nodeShapes: Term[]
     /** Structural value shapes that can be rendered as nested forms. */
     nestedNodeShapes: Term[]
     /** Concrete authoring choices compatible with a referenced/base shape. */

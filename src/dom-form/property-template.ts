@@ -202,6 +202,11 @@ export class ShaclPropertyTemplate {
             })
         this.shaclOr = shape.logicalAlternatives.find(alternative => alternative.kind === 'or')?.shapes
         this.shaclXone = shape.logicalAlternatives.find(alternative => alternative.kind === 'xone')?.shapes
+        if (shape.logicalAlternatives.length > 1) {
+            // A value editor can follow one branch list only. The other logical
+            // constraints stay in the Form Shape and are enforced by validation.
+            console.warn(`property shape ${shape.id.value} has ${shape.logicalAlternatives.length} sh:or/sh:xone constraints; the form offers the branches of the first ${this.shaclOr ? 'sh:or' : 'sh:xone'} only, the others are checked by SHACL validation`)
+        }
 
         if (!this.label && this.pathAlternatives?.length) {
             this.label = this.pathAlternatives.map(path => removePrefixes(path, this.config.prefixes)).join(' / ')

@@ -345,6 +345,46 @@ describe('FormShapeCompiler', () => {
         expect(shape.composedNodeShapes.map(term => term.value).sort()).toEqual([`${EX}FirstShape`, `${EX}SecondShape`])
     })
 
+    it('applies every property-level sh:node value', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:value ;
+                    sh:node ex:StructuralA, ex:StructuralB, ex:ValueOnly ;
+                ] .
+
+            ex:StructuralA a sh:NodeShape ; sh:property [ sh:path ex:a ] .
+            ex:StructuralB a sh:NodeShape ; sh:property [ sh:path ex:b ] .
+            ex:ValueOnly a sh:NodeShape ; sh:nodeKind sh:IRI .
+        `)
+
+        const property = compilerFor(store).compile(`${EX}Shape`).properties[0]
+
+        expect(property.nodeShapes.map(term => term.value).sort()).toEqual([`${EX}StructuralA`, `${EX}StructuralB`, `${EX}ValueOnly`])
+        expect(property.nestedNodeShapes.map(term => term.value).sort()).toEqual([`${EX}StructuralA`, `${EX}StructuralB`])
+        expect(property.nodeKind?.value).toBe('http://www.w3.org/ns/shacl#IRI')
+    })
+
+    it('keeps every sh:or and sh:xone constraint of a shape', () => {
+        const store = storeFromTurtle(`
+            ex:Shape a sh:NodeShape ;
+                sh:or ( [ sh:property [ sh:path ex:a ] ] [ sh:property [ sh:path ex:b ] ] ) ;
+                sh:xone ( [ sh:property [ sh:path ex:c ] ] [ sh:property [ sh:path ex:d ] ] ) ;
+                sh:property [
+                    sh:path ex:value ;
+                    sh:or ( [ sh:datatype xsd:string ] [ sh:datatype xsd:integer ] ) ;
+                    sh:or ( [ sh:minLength 1 ] [ sh:maxLength 5 ] ) ;
+                    sh:xone ( [ sh:pattern "a" ] [ sh:pattern "b" ] ) ;
+                ] .
+        `)
+
+        const shape = compilerFor(store).compile(`${EX}Shape`)
+
+        expect(shape.logicalAlternatives.map(alternative => alternative.kind).sort()).toEqual(['or', 'xone'])
+        expect(shape.properties[0].logicalAlternatives.map(alternative => alternative.kind).sort()).toEqual(['or', 'or', 'xone'])
+        expect(shape.properties[0].logicalAlternatives.every(alternative => alternative.shapes.length === 2)).toBe(true)
+    })
+
     it('includes anonymous sh:and property-shape members', () => {
         const store = storeFromTurtle(`
             ex:Shape a sh:NodeShape ;

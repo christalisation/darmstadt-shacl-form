@@ -207,12 +207,15 @@ export class ShaclProperty extends HTMLElement {
             const nestedNodes = instance.querySelectorAll<ShaclNode>(':scope > shacl-node, :scope > .shacl-or-content > .property-instance > shacl-node')
 
             if (nestedNodes.length) {
+                // All nested nodes of one instance are sub-forms of a single value
+                // node; the first one owns its identity (which the user may edit).
+                const valueNode = nestedNodes[0].nodeId
                 for (const nestedNode of nestedNodes) {
                     if (!nestedNode.hasSerializableValue()) {
                         continue
                     }
-                    const shapeSubject = nestedNode.toRDF(graph, undefined, serializedNodes)
-                    graph.addQuad(subject, pathNode, shapeSubject, this.template.config.valuesGraphId)
+                    nestedNode.toRDF(graph, valueNode, serializedNodes)
+                    graph.addQuad(subject, pathNode, valueNode, this.template.config.valuesGraphId)
                 }
             } else {
                 for (const editor of instance.querySelectorAll<Editor>(':scope > .editor, :scope > .shacl-or-content > .property-instance > .editor')) {
@@ -703,9 +706,13 @@ export function createPropertyInstance(template: ShaclPropertyTemplate, value?: 
         }
         instance.appendChild(labelElem);
 
+        // Several value shapes (sh:and, repeated sh:node) all describe the same
+        // value node, so every nested form shares the identity of the first one.
+        let valueNode = value as NamedNode | BlankNode | undefined
         for (const node of template.extendedShapes) {
             // pass the property label to the nested node.
-            const shaclNodeElement = new ShaclNode(node, template.parent.nodeRegistry, value as NamedNode | BlankNode | undefined, template.parent, template.nodeKind, template.label, linked);
+            const shaclNodeElement = new ShaclNode(node, template.parent.nodeRegistry, valueNode, template.parent, template.nodeKind, template.label, linked);
+            valueNode = valueNode || shaclNodeElement.nodeId
             shaclNodeElement.classList.add('editor'); // Treat the node as the editor
             instance.appendChild(shaclNodeElement);
         }
